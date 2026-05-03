@@ -15,12 +15,11 @@ on:
 
 # 需要在 GitHub repo Settings → Secrets and variables → Actions 配置:
 #   DOCKERHUB_USERNAME — 你的 Docker Hub 用户名
-#   DOCKERHUB_TOKEN    — Docker Hub access token (Settings → Personal access tokens)
-# 没配 secrets 时整个 workflow 会跳过(下面的 if 会判断)
+#   DOCKERHUB_TOKEN    — Docker Hub access token (需 Read & Write 权限)
+# Fork 后不想推镜像?在 GitHub repo Actions → Disable workflow 即可
 
 jobs:
   build:
-    if: ${{ vars.ENABLE_DOCKER_PUBLISH == 'true' || secrets.DOCKERHUB_USERNAME != '' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
