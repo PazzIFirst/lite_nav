@@ -166,7 +166,7 @@ sudo nginx -s reload
 ### 天气
 | 城市类型 | 主 | 备 1 | 备 2 |
 |---|---|---|---|
-| 国内主要城市(60+ 内置 cityCode) | 中国天气网 (itboy 镜像) | Open-Meteo | wttr.in |
+| 国内城市(446 内置 cityCode,覆盖全国地级市 + 主要县级) | 中国天气网 (itboy 镜像) | Open-Meteo | wttr.in |
 | 国外城市 | Open-Meteo | wttr.in | — |
 
 ### 热榜
