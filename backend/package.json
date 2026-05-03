@@ -1,0 +1,21 @@
+{
+  "name": "nav-backend",
+  "version": "1.0.0",
+  "description": "Backend for hi.xzsjno1.com nav page — caches third-party APIs in Redis with multi-fallback",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "ioredis": "^5.4.1",
+    "node-cron": "^3.0.3",
+    "iconv-lite": "^0.6.3",
+    "lunar-javascript": "^1.7.7",
+    "date-holidays": "^3.27.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

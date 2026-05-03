@@ -1,0 +1,33 @@
+# 复制为 docker-compose.yml,根据自己的环境改 REDIS_HOST 和 REDIS_PASSWORD
+# 如果你也用 1Panel,Redis 容器名通常是 1Panel-redis-XXXX,网络是 1panel-network
+# 如果是独立 Docker 部署,可以自己起一个 redis 容器在同一 network
+
+services:
+  nav-backend:
+    build: .
+    container_name: nav-backend
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - REDIS_HOST=redis            # 改成你的 Redis 容器名 / 主机
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=changeme     # 改成你的 Redis 密码,无密码留空
+      - TZ=Asia/Shanghai
+    networks:
+      - default
+    ports:
+      - "127.0.0.1:3000:3000"       # 仅监听本地;反代由 OpenResty/Nginx 处理
+
+  # 如果你没有现成 Redis,取消下面的注释一起起
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: nav-redis
+  #   restart: unless-stopped
+  #   command: redis-server --requirepass changeme
+  #   volumes:
+  #     - ./redis-data:/data
+
+networks:
+  default:
+    name: nav-network

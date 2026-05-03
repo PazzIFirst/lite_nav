@@ -1,0 +1,1839 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>轻量集成导航</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230f172a'/><path d='M5 10.5 L14 16 L5 21.5' stroke='%2322d3ee' stroke-width='2.8' stroke-linecap='round' stroke-linejoin='round' fill='none'/><line x1='17' y1='22' x2='28' y2='22' stroke='%2322d3ee' stroke-width='2.8' stroke-linecap='round'/></svg>">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #fff;
+      display: flex;
+      justify-content: center;
+      font-family: arial, sans-serif;
+      color: #202124;
+      padding: 12px 0 32px;
+    }
+    /* ===== 整体布局：左边栏 + 中间 + 右边栏 ===== */
+    .page-layout {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      width: 100%;
+      max-width: 1280px;
+      padding: 0 16px;
+    }
+    .sidebar {
+      flex: 0 0 300px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      position: sticky;
+      top: 12px;
+    }
+    .main-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      flex: 1 1 0;
+      min-width: 0;
+      max-width: 820px;
+    }
+
+/* ===== 城市时钟 ===== */
+    .city-clocks { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; width: 100%; }
+    .clock-card {
+      background: #f8f9fa; border: 1px solid #e8eaed; border-radius: 10px;
+      padding: 8px 6px; text-align: center; cursor: pointer; min-width: 0;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .clock-card:hover { border-color: #1a73e8; box-shadow: 0 1px 4px rgba(26,115,232,0.15); }
+    .clock-city  { font-size: 11px; color: #5f6368; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .clock-time  { font-size: 17px; font-weight: 400; color: #202124; font-variant-numeric: tabular-nums; letter-spacing: -0.5px; white-space: nowrap; }
+    .clock-date  { font-size: 10px; color: #9aa0a6; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* ===== 模块A ===== */
+    .module-a { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%; }
+    .date-row  { display: flex; align-items: baseline; gap: 14px; }
+    .solar-date { font-size: 20px; font-weight: 400; color: #202124; }
+    .date-divider { color: #dadce0; }
+    .lunar-date   { font-size: 16px; color: #5f6368; }
+    .info-row {
+      display: flex; align-items: center; flex-wrap: wrap;
+      justify-content: center; font-size: 13px; color: #70757a;
+    }
+    .info-sep { margin: 0 8px; color: #dadce0; }
+    #bj-time { font-variant-numeric: tabular-nums; }
+    #ip-loc { display: inline-flex; align-items: center; gap: 10px; }
+    .ip-entry { display: inline-flex; align-items: center; gap: 3px; font-size: 13px; color: #3c4043; }
+    .ip-entry-label { font-size: 11px; color: #80868b; margin-right: 1px; }
+    .ip-entry-addr { font-size: 11px; color: #bdc1c6; margin-left: 2px; }
+    #weather-info { cursor: pointer; padding: 1px 5px; border-radius: 4px; transition: background 0.15s; }
+    #weather-info:hover { background: #f1f3f4; }
+    .weekend-row { font-size: 13px; color: #5f6368; margin-top: 2px; }
+    .weekend-row b { color: #b06000; font-weight: 600; }
+    .almanac-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0 8px; font-size: 12px; color: #5f6368; margin-top: 4px; cursor: help; }
+    .almanac-yi-label, .almanac-ji-label { font-size: 10px; padding: 1px 5px; border-radius: 3px; font-weight: 600; margin-right: 3px; }
+    .almanac-yi-label { color: #137333; background: #e6f4ea; }
+    .almanac-ji-label { color: #c5221f; background: #fce8e6; }
+    .almanac-shen     { font-size: 10px; padding: 1px 5px; border-radius: 3px; }
+    .almanac-shen.huang { color: #b06000; background: #fef7e0; }
+    .almanac-shen.hei   { color: #5f6368; background: #e8eaed; }
+    .almanac-sep      { color: #dadce0; padding: 0 2px; }
+    .countdown-row { display: flex; flex-wrap: wrap; gap: 0 6px; font-size: 12px; color: #5f6368; margin-top: 4px; }
+    .countdown-item { white-space: nowrap; }
+    .countdown-item b { color: #b06000; font-weight: 600; }
+    .countdown-sep { color: #dadce0; padding: 0 2px; }
+    .holiday-src { font-size: 9px; padding: 1px 3px; border-radius: 3px; margin-left: 2px; vertical-align: middle; }
+    .holiday-src-online { color: #34a853; background: #e6f4ea; }
+    .holiday-src-local  { color: #9aa0a6; background: #f1f3f4; }
+
+    /* ===== 金融模块 ===== */
+    .finance-bar {
+      width: 100%;
+      background: #f8f9fa;
+      border: 1px solid #e8eaed;
+      border-radius: 10px;
+      padding: 10px 14px;
+      overflow: hidden;
+    }
+    .finance-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 0;
+    }
+    .finance-item {
+      flex: 0 0 33.333%;
+      display: flex;
+      align-items: baseline;
+      gap: 5px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      min-width: 0;
+    }
+    .finance-item:hover { background: #f1f3f4; }
+    .fin-label {
+      font-size: 11px;
+      color: #9aa0a6;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .fin-value {
+      font-size: 13px;
+      font-weight: 500;
+      font-variant-numeric: tabular-nums;
+      color: #202124;
+      white-space: nowrap;
+    }
+    .fin-change {
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .fin-up   { color: #34a853; }
+    .fin-down { color: #d93025; }
+    .fin-flat { color: #9aa0a6; }
+    .finance-note {
+      font-size: 10px;
+      color: #bdc1c6;
+      margin-top: 6px;
+      text-align: right;
+    }
+
+    /* ===== 搜索区域 ===== */
+    .search-section { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+    .engine-tabs { display: flex; flex-wrap: wrap; justify-content: center; gap: 3px; }
+    .engine-btn {
+      padding: 5px 12px; border: none; border-radius: 16px;
+      background: transparent; color: #5f6368;
+      cursor: pointer; font-size: 12.5px; font-family: inherit;
+      transition: background 0.15s; white-space: nowrap;
+    }
+    .engine-btn:hover  { background: #f1f3f4; }
+    .engine-btn.active { background: #e8f0fe; color: #1a73e8; font-weight: 500; }
+    .search-box {
+      display: flex; width: 100%; position: relative;
+      background: #fff; border: 2px solid #c5c9ce; border-radius: 24px;
+      transition: box-shadow 0.2s, border-color 0.2s, border-radius 0.1s;
+    }
+    .search-box:hover, .search-box:focus-within {
+      box-shadow: 0 1px 6px rgba(32,33,36,0.28); border-color: transparent;
+    }
+    .search-box.sug-open {
+      border-radius: 24px 24px 0 0;
+      box-shadow: 0 1px 6px rgba(32,33,36,0.28); border-color: transparent;
+    }
+    .search-input {
+      flex: 1; padding: 13px 16px; background: transparent;
+      border: none; outline: none; font-size: 16px; color: #202124; font-family: inherit;
+    }
+    .search-input::placeholder { color: #9aa0a6; }
+    .search-btn {
+      padding: 0 20px; background: transparent; border: none;
+      cursor: pointer; color: #9aa0a6; display: flex; align-items: center;
+      transition: color 0.15s;
+    }
+    .search-btn:hover { color: #1a73e8; }
+    .search-btn svg { width: 20px; height: 20px; fill: currentColor; }
+
+    /* ===== 搜索联想下拉 ===== */
+    .search-suggestions {
+      display: none; position: absolute;
+      top: 100%; left: -1px; right: -1px; z-index: 100;
+      background: #fff;
+      border: 1px solid rgba(32,33,36,0.28); border-top: none;
+      border-radius: 0 0 22px 22px;
+      box-shadow: 0 4px 12px rgba(32,33,36,0.12);
+      overflow: hidden;
+    }
+    .search-box.sug-open .search-suggestions { display: block; }
+    .sug-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 20px; cursor: pointer;
+      font-size: 14px; color: #202124;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .sug-item:hover, .sug-item.sug-active { background: #f1f3f4; }
+    .sug-icon { width: 15px; height: 15px; fill: #bdc1c6; flex-shrink: 0; }
+
+    /* ===== 搜索历史 ===== */
+    .search-history { display: flex; flex-wrap: wrap; gap: 5px; width: 100%; min-height: 0; }
+    .hist-chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 8px 3px 10px; background: #f1f3f4; border-radius: 12px;
+      font-size: 12px; color: #5f6368; cursor: pointer;
+      max-width: 140px; white-space: nowrap;
+      transition: background 0.15s;
+      position: relative;
+    }
+    .hist-chip:hover { background: #e8f0fe; color: #1a73e8; max-width: none; z-index: 10; }
+    .hist-chip-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 110px; }
+    .hist-chip:hover .hist-chip-text { max-width: none; overflow: visible; }
+    .hist-del {
+      flex-shrink: 0; width: 14px; height: 14px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      color: #9aa0a6; font-size: 11px; line-height: 1;
+      transition: background 0.15s, color 0.15s;
+    }
+    .hist-del:hover { background: #d93025; color: #fff; }
+
+    /* ===== 网站导航分组 ===== */
+    .nav-groups {
+      width: 100%; display: flex; flex-direction: column; gap: 14px;
+      border-top: 1px solid #f1f3f4; padding-top: 14px;
+    }
+    .nav-group { display: flex; flex-direction: column; gap: 7px; }
+    .nav-group-header { display: flex; align-items: center; justify-content: space-between; }
+    .nav-group-title {
+      font-size: 11px; font-weight: 600; color: #9aa0a6;
+      letter-spacing: 0.06em; text-transform: uppercase;
+    }
+    .nav-group-edit-btn {
+      font-size: 11px; color: #1a73e8; cursor: pointer;
+      padding: 2px 6px; border-radius: 4px; transition: background 0.15s;
+    }
+    .nav-group-edit-btn:hover { background: #e8f0fe; }
+    .nav-group-sites { display: flex; flex-wrap: wrap; gap: 6px; }
+    .site-chip {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 5px 10px; background: #f8f9fa; border: 1px solid #e8eaed;
+      border-radius: 16px; cursor: pointer; font-size: 12.5px; color: #202124;
+      text-decoration: none; transition: background 0.15s, border-color 0.15s;
+      user-select: none; white-space: nowrap; position: relative;
+    }
+    .site-chip:hover { background: #e8f0fe; border-color: #c5d8fc; }
+    .site-chip.editing { border-style: dashed; cursor: default; }
+    .site-chip.editing:hover { background: #fff3e0; border-color: #f9ab00; }
+    .site-chip img { width: 14px; height: 14px; border-radius: 2px; flex-shrink: 0; }
+    .site-remove {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 15px; height: 15px; background: #dadce0; border-radius: 50%;
+      font-size: 10px; color: #5f6368; margin-left: 2px; cursor: pointer;
+      transition: background 0.15s; flex-shrink: 0; line-height: 1;
+    }
+    .site-remove:hover { background: #d93025; color: #fff; }
+    .site-add-chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 5px 10px; border: 1px dashed #1a73e8;
+      border-radius: 16px; cursor: pointer; font-size: 12.5px; color: #1a73e8;
+      background: transparent; transition: background 0.15s;
+    }
+    .site-add-chip:hover { background: #e8f0fe; }
+    .nav-group-divider { border-top: 1px solid #f1f3f4; }
+
+    /* ===== 热榜侧边栏 ===== */
+    .hot-panel {
+      background: #f8f9fa;
+      border: 1px solid #e8eaed;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .hot-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: #fff;
+      border-bottom: 1px solid #e8eaed;
+    }
+    .hot-panel-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: #202124;
+    }
+    .hot-panel-source {
+      font-size: 10px;
+      color: #9aa0a6;
+    }
+    .hot-panel-refresh {
+      font-size: 11px;
+      color: #1a73e8;
+      cursor: pointer;
+      padding: 2px 4px;
+      border-radius: 3px;
+      transition: background 0.15s;
+      user-select: none;
+    }
+    .hot-panel-refresh:hover { background: #e8f0fe; }
+    .hot-list {
+      list-style: none;
+      padding: 4px 0;
+    }
+    .hot-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      padding: 5px 10px;
+      cursor: pointer;
+      transition: background 0.12s;
+      text-decoration: none;
+      color: inherit;
+    }
+    .hot-item:hover { background: #fff; }
+    .hot-rank {
+      flex-shrink: 0;
+      width: 16px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #bdc1c6;
+      margin-top: 1px;
+      text-align: right;
+    }
+    .hot-rank.top1 { color: #d93025; }
+    .hot-rank.top2 { color: #f9ab00; }
+    .hot-rank.top3 { color: #fbbc04; }
+    .hot-title {
+      font-size: 12px;
+      color: #202124;
+      line-height: 1.5;
+      word-break: break-all;
+    }
+    .hot-panel-loading {
+      padding: 16px 12px;
+      text-align: center;
+      font-size: 12px;
+      color: #9aa0a6;
+    }
+
+    /* ===== 弹窗通用 ===== */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.32); z-index: 200;
+      align-items: center; justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-box {
+      background: #fff; border-radius: 12px; padding: 24px;
+      width: 340px; box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+    }
+    .modal-title { font-size: 14px; font-weight: 500; color: #202124; margin-bottom: 16px; }
+    .modal-field { margin-bottom: 12px; }
+    .modal-label { font-size: 11px; color: #5f6368; margin-bottom: 5px; }
+    .modal-input {
+      width: 100%; padding: 8px 12px;
+      border: 1px solid #dadce0; border-radius: 6px;
+      font-size: 14px; color: #202124; outline: none; font-family: inherit;
+    }
+    .modal-input:focus { border-color: #1a73e8; box-shadow: 0 0 0 2px rgba(26,115,232,0.12); }
+    .modal-input:disabled { background: #f8f9fa; color: #9aa0a6; }
+    .modal-hint { font-size: 11px; color: #9aa0a6; margin-top: 4px; }
+    .city-list   { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; }
+    .city-row    { display: flex; align-items: center; gap: 10px; }
+    .city-tag    { font-size: 11px; color: #9aa0a6; width: 30px; flex-shrink: 0; }
+    .city-row input {
+      flex: 1; padding: 8px 12px;
+      border: 1px solid #dadce0; border-radius: 6px;
+      font-size: 13px; color: #202124; outline: none; font-family: inherit;
+    }
+    .city-row input:focus { border-color: #1a73e8; }
+    .city-row input:disabled { background: #f8f9fa; color: #9aa0a6; }
+    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+    .btn { padding: 7px 18px; border-radius: 6px; font-size: 13px; cursor: pointer; border: none; font-family: inherit; }
+    .btn-primary { background: #1a73e8; color: #fff; } .btn-primary:hover { background: #1765cc; }
+    .btn-ghost   { background: transparent; color: #1a73e8; } .btn-ghost:hover { background: #f0f6ff; }
+
+    /* ===== 响应式：窄屏隐藏侧边栏 ===== */
+    @media (max-width: 1260px) {
+      .sidebar { display: none; }
+      .page-layout { justify-content: center; }
+    }
+
+    /* ===== 4K / 大屏适配（≥ 2560px）===== */
+    @media (min-width: 2560px) {
+      .page-layout   { max-width: 1800px; padding: 0 24px; gap: 24px; }
+      .sidebar       { flex: 0 0 360px; }
+      .main-wrapper  { max-width: 1040px; gap: 16px; }
+
+      /* 城市时钟 */
+      .city-clocks   { gap: 10px; }
+      .clock-city    { font-size: 12px; }
+      .clock-time    { font-size: 20px; }
+      .clock-date    { font-size: 11px; }
+
+      /* 模块A */
+      .solar-date    { font-size: 24px; }
+      .lunar-date    { font-size: 19px; }
+      .info-row      { font-size: 15px; }
+      .ip-entry      { font-size: 15px; }
+      .ip-entry-label{ font-size: 13px; }
+      .ip-entry-addr { font-size: 13px; }
+      .countdown-row { font-size: 13px; }
+
+      /* 金融模块 */
+      .fin-label     { font-size: 12px; }
+      .fin-value     { font-size: 15px; }
+      .fin-change    { font-size: 12px; }
+      .finance-note  { font-size: 11px; }
+
+      /* 搜索区 */
+      .engine-btn    { font-size: 14px; }
+      .search-input  { padding: 15px 18px; font-size: 16px; }
+      .search-btn svg{ width: 22px; height: 22px; }
+      #engineIcon    { width: 20px !important; height: 20px !important; }
+      .sug-item      { font-size: 15px; }
+      .hist-chip     { font-size: 13px; }
+
+      /* 导航分组 */
+      .nav-group-title { font-size: 13px; }
+      .site-chip       { font-size: 14px; padding: 6px 12px; }
+      .site-chip img   { width: 16px; height: 16px; }
+
+      /* 热榜侧边栏 */
+      .hot-panel-title  { font-size: 14px; }
+      .hot-panel-source { font-size: 11px; }
+      .hot-rank         { font-size: 13px; width: 18px; }
+      .hot-title        { font-size: 13px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- 城市时钟编辑弹窗 -->
+<div class="modal-overlay" id="clockModal">
+  <div class="modal-box">
+    <div class="modal-title">编辑城市时钟</div>
+    <div class="modal-field">
+      <div class="modal-label">城市名称</div>
+      <input class="modal-input" id="clockCityName" placeholder="如：纽约、London、巴黎" />
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">时区（输入城市名可自动匹配）</div>
+      <input class="modal-input" id="clockTzInput" placeholder="如：America/New_York" />
+      <div class="modal-hint" id="clockHint"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="clockCancel">取消</button>
+      <button class="btn btn-primary" id="clockSave">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 天气城市弹窗 -->
+<div class="modal-overlay" id="weatherModal">
+  <div class="modal-box">
+    <div class="modal-title">天气城市设置</div>
+    <div class="city-list">
+      <div class="city-row"><span class="city-tag">自动</span><input id="autoCity" disabled placeholder="根据 IP 自动获取" /></div>
+      <div class="city-row"><span class="city-tag">城市1</span><input id="city1" placeholder="如 Shanghai / 上海" /></div>
+      <div class="city-row"><span class="city-tag">城市2</span><input id="city2" placeholder="如 New York / 纽约" /></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="wxCancel">取消</button>
+      <button class="btn btn-primary" id="wxSave">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 网站编辑弹窗 -->
+<div class="modal-overlay" id="siteModal">
+  <div class="modal-box">
+    <div class="modal-title" id="siteModalTitle">添加网站</div>
+    <div class="modal-field">
+      <div class="modal-label">网站名称</div>
+      <input class="modal-input" id="siteName" placeholder="如：GitHub" />
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">网址</div>
+      <input class="modal-input" id="siteUrl" placeholder="https://github.com" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="siteCancel">取消</button>
+      <button class="btn btn-primary" id="siteSaveBtn">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 国家选择弹窗(倒计时显示哪些国家的节假日)-->
+<div class="modal-overlay" id="countryModal">
+  <div class="modal-box" style="width:380px;">
+    <div class="modal-title">选择倒计时显示的国家(最多 5 个)</div>
+    <div class="modal-hint" style="margin-bottom:10px;">从下拉菜单选择;留空表示该槽位不显示</div>
+    <div id="countrySlots" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="countryReset">恢复默认</button>
+      <button class="btn btn-ghost" id="countryCancel">取消</button>
+      <button class="btn btn-primary" id="countrySave">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 分组名编辑弹窗 -->
+<div class="modal-overlay" id="groupModal">
+  <div class="modal-box">
+    <div class="modal-title" id="groupModalTitle">新增分组</div>
+    <div class="modal-field">
+      <div class="modal-label">分组名称</div>
+      <input class="modal-input" id="groupName" placeholder="如：工作 / 娱乐" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="groupCancel">取消</button>
+      <button class="btn btn-primary" id="groupSaveBtn">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 整体布局 -->
+<div class="page-layout">
+
+  <!-- 左侧热榜 -->
+  <div class="sidebar" id="leftSidebar"></div>
+
+  <!-- 中间主体 -->
+  <div class="main-wrapper">
+
+<!-- 6城市时钟 -->
+    <div class="city-clocks" id="cityClocks"></div>
+
+    <!-- 模块A -->
+    <div class="module-a">
+      <div class="date-row">
+        <span class="solar-date" id="solar-date">--</span>
+        <span class="date-divider">｜</span>
+        <span class="lunar-date" id="lunar-date">农历 --</span>
+      </div>
+      <div class="weekend-row" id="weekend-row"></div>
+      <div class="info-row">
+        <span id="bj-time">北京 --:--:--</span>
+        <span class="info-sep">·</span>
+        <span id="ip-loc">定位中…</span>
+        <span class="info-sep">·</span>
+        <span id="weather-info" title="点击设置天气城市">--</span>
+      </div>
+      <div class="almanac-row" id="almanac-row"></div>
+      <div class="countdown-row" id="countdown-row"></div>
+    </div>
+
+    <!-- 金融模块 -->
+    <div class="finance-bar" id="financeBar">
+      <div class="finance-grid" id="financeGrid">
+        <div class="hot-panel-loading">行情加载中…</div>
+      </div>
+      <div class="finance-note" id="financeNote"></div>
+    </div>
+
+    <!-- 搜索 -->
+    <div class="search-section">
+      <div class="engine-tabs" id="engineTabs"></div>
+      <form class="search-box" id="searchForm">
+        <img id="engineIcon" src="" width="18" height="18" style="margin-left:16px;flex-shrink:0;border-radius:3px;align-self:center;" onerror="this.style.visibility='hidden'" />
+        <input class="search-input" id="searchInput" type="text" placeholder="搜索…" autocomplete="off" />
+        <button type="submit" class="search-btn">
+          <svg viewBox="0 0 24 24"><path d="M21.71 20.29l-3.68-3.68A8.5 8.5 0 1 0 17 18l3.68 3.68a1 1 0 0 0 1.41-1.41zM10.5 17a6.5 6.5 0 1 1 0-13 6.5 6.5 0 0 1 0 13z"/></svg>
+        </button>
+      </form>
+      <div class="search-history" id="searchHistory"></div>
+    </div>
+
+    <!-- 网站导航分组 -->
+    <div class="nav-groups" id="navGroups"></div>
+
+  </div><!-- /main-wrapper -->
+
+  <!-- 右侧热榜 -->
+  <div class="sidebar" id="rightSidebar"></div>
+
+</div><!-- /page-layout -->
+
+<script>
+// ============================================================
+// 通用：API 调用 + 数据源悬停提示
+// ============================================================
+async function fetchT(url, ms = 5000) {
+  const c = new AbortController();
+  const t = setTimeout(() => c.abort(), ms);
+  try { const r = await fetch(url, { signal: c.signal }); clearTimeout(t); return r; }
+  catch (e) { clearTimeout(t); throw e; }
+}
+
+async function apiGet(path) {
+  const r = await fetchT(path, 8000);
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+
+function fmtAge(ts) {
+  if (!ts) return '';
+  const sec = Math.floor((Date.now() - ts) / 1000);
+  if (sec < 60) return sec + ' 秒前';
+  if (sec < 3600) return Math.floor(sec / 60) + ' 分钟前';
+  if (sec < 86400) return Math.floor(sec / 3600) + ' 小时前';
+  return Math.floor(sec / 86400) + ' 天前';
+}
+
+function freshnessText(f) {
+  return ({ fresh: '✓ 新鲜', stale: '⚠ 缓存(过期)', fallback: '⚠ 本地兜底' }[f]) || f || '';
+}
+
+// 生成 title 属性内容(原生 tooltip,鼠标悬停显示)
+function srcTooltip(meta) {
+  if (!meta) return '';
+  const lines = [];
+  if (meta.source_label) lines.push('数据源: ' + meta.source_label);
+  if (meta.fetched_at)   lines.push('更新: ' + fmtAge(meta.fetched_at));
+  if (meta.freshness)    lines.push('状态: ' + freshnessText(meta.freshness));
+  return lines.join('\n');
+}
+
+// ============================================================
+// 搜索引擎（10个）
+// ============================================================
+const ENGINES = [
+  { label:'百度',    key:'baidu',   url:'https://www.baidu.com/s?wd=',                  favicon:'baidu.com'    },
+  { label:'Google',  key:'google',  url:'https://www.google.com/search?q=',             favicon:'google.com'   },
+  { label:'Bing',    key:'bing',    url:'https://www.bing.com/search?q=',               favicon:'bing.com'     },
+  { label:'知乎',    key:'zhihu',   url:'https://www.zhihu.com/search?type=content&q=', favicon:'zhihu.com'    },
+  { label:'Yandex',  key:'yandex',  url:'https://yandex.com/search/?text=',             favicon:'yandex.com'   },
+  { label:'Bilibili',key:'bilibili',url:'https://search.bilibili.com/all?keyword=',     favicon:'bilibili.com' },
+  { label:'YouTube', key:'youtube', url:'https://www.youtube.com/results?search_query=',favicon:'youtube.com'  },
+  { label:'GitHub',  key:'github',  url:'https://github.com/search?q=',                favicon:'github.com'   },
+  { label:'X',       key:'x',       url:'https://x.com/search?q=',                     favicon:'x.com'        },
+  { label:'DuckDuckGo',key:'ddg',   url:'https://duckduckgo.com/?q=',                   favicon:'duckduckgo.com' },
+  { label:'npm',     key:'npm',     url:'https://www.npmjs.com/search?q=',              favicon:'npmjs.com'    },
+];
+
+// 部分域名 Google favicon 服务返回透明占位图，需单独指定
+const FAVICON_OVERRIDES = {
+  'xiaohongshu.com':     'https://fe-video-qc.xhscdn.com/fe-platform/ed8b0d8f55ab934dcca991d45496161d24fffbc8.png',
+  'www.xiaohongshu.com': 'https://fe-video-qc.xhscdn.com/fe-platform/ed8b0d8f55ab934dcca991d45496161d24fffbc8.png',
+  'npmjs.com':           'https://www.google.com/s2/favicons?sz=32&domain=npmjs.com',
+};
+
+function faviconUrl(domain) {
+  return FAVICON_OVERRIDES[domain] || `https://${domain}/favicon.ico`;
+}
+
+function engineFavicon(e) {
+  return faviconUrl(e.favicon);
+}
+
+let currentEngine = 'baidu';
+
+(function initSearch() {
+  const icon = document.getElementById('engineIcon');
+  function setEngine(e) {
+    currentEngine = e.key;
+    icon.style.visibility = '';  // 清除上次 onerror 留下的隐藏状态
+    icon.src = engineFavicon(e);
+    document.querySelectorAll('.engine-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector(`.engine-btn[data-key="${e.key}"]`)?.classList.add('active');
+  }
+
+  const tabs = document.getElementById('engineTabs');
+  ENGINES.forEach(e => {
+    const btn = document.createElement('button');
+    btn.className = 'engine-btn' + (e.key === currentEngine ? ' active' : '');
+    btn.textContent = e.label;
+    if (e.title) btn.title = e.title;
+    btn.dataset.key = e.key;
+    btn.addEventListener('click', () => {
+      setEngine(e);
+      document.getElementById('searchInput').focus();
+    });
+    tabs.appendChild(btn);
+  });
+
+  // 初始化图标
+  setEngine(ENGINES.find(e => e.key === currentEngine));
+
+  document.getElementById('searchForm').addEventListener('submit', ev => {
+    ev.preventDefault();
+    const q = document.getElementById('searchInput').value.trim();
+    if (!q) return;
+    addSearchHistory(q);
+    const eng = ENGINES.find(e => e.key === currentEngine);
+    if (eng) window.open(eng.url + encodeURIComponent(q), '_blank', 'noopener');
+  });
+})();
+
+// ============================================================
+// 搜索历史
+// ============================================================
+(function initSearchHistory() {
+  const HIST_KEY = 'searchHistory';
+  const MAX = 10;
+  const container = document.getElementById('searchHistory');
+  const input = document.getElementById('searchInput');
+
+  function getHistory() {
+    try { return JSON.parse(localStorage.getItem(HIST_KEY)) || []; } catch { return []; }
+  }
+  function saveHistory(h) {
+    try { localStorage.setItem(HIST_KEY, JSON.stringify(h)); } catch {}
+  }
+
+  function render() {
+    const h = getHistory();
+    container.innerHTML = '';
+    h.forEach((q, i) => {
+      const chip = document.createElement('span');
+      chip.className = 'hist-chip';
+      chip.title = q; // native tooltip as ultimate fallback
+
+      const text = document.createElement('span');
+      text.className = 'hist-chip-text';
+      text.textContent = q;
+
+      const del = document.createElement('span');
+      del.className = 'hist-del';
+      del.textContent = '×';
+      del.title = '删除';
+      del.addEventListener('click', e => {
+        e.stopPropagation();
+        const hist = getHistory();
+        hist.splice(i, 1);
+        saveHistory(hist);
+        render();
+      });
+
+      chip.append(text, del);
+      chip.addEventListener('click', () => {
+        input.value = q;
+        input.focus();
+      });
+      container.appendChild(chip);
+    });
+  }
+
+  // 供 submit handler 调用
+  window.addSearchHistory = function(q) {
+    const h = getHistory().filter(x => x !== q); // 去重，移到最前
+    h.unshift(q);
+    saveHistory(h.slice(0, MAX));
+    render();
+  };
+
+  render(); // 初始渲染
+})();
+
+// ============================================================
+// 搜索词联想
+// ============================================================
+(function initSuggestions() {
+  const form  = document.getElementById('searchForm');
+  const input = document.getElementById('searchInput');
+
+  const box = document.createElement('div');
+  box.className = 'search-suggestions';
+  form.appendChild(box);
+
+  let timer = null, suggs = [], activeIdx = -1;
+
+  function open()  { form.classList.add('sug-open'); }
+  function close() { form.classList.remove('sug-open'); box.innerHTML = ''; suggs = []; activeIdx = -1; }
+
+  function highlight(idx) {
+    box.querySelectorAll('.sug-item').forEach((el, i) => el.classList.toggle('sug-active', i === idx));
+    activeIdx = idx;
+  }
+
+  function pick(text) {
+    input.value = text; close();
+    const eng = ENGINES.find(e => e.key === currentEngine);
+    if (eng && text.trim()) window.open(eng.url + encodeURIComponent(text), '_blank', 'noopener');
+  }
+
+  function render(list) {
+    suggs = list; activeIdx = -1; box.innerHTML = '';
+    if (!list.length) { close(); return; }
+    const icon = `<svg class="sug-icon" viewBox="0 0 24 24"><path d="M21.71 20.29l-3.68-3.68A8.5 8.5 0 1 0 17 18l3.68 3.68a1 1 0 0 0 1.41-1.41zM10.5 17a6.5 6.5 0 1 1 0-13 6.5 6.5 0 0 1 0 13z"/></svg>`;
+    list.forEach((text, i) => {
+      const el = document.createElement('div');
+      el.className = 'sug-item';
+      el.innerHTML = icon + `<span>${text.replace(/</g, '&lt;')}</span>`;
+      el.addEventListener('mouseover', () => highlight(i));
+      el.addEventListener('mousedown', e => { e.preventDefault(); pick(text); });
+      box.appendChild(el);
+    });
+    open();
+  }
+
+  async function fetchSugg(q) {
+    if (!q.trim()) { close(); return; }
+    try {
+      const r = await fetchT(`/api/suggest?q=${encodeURIComponent(q)}`, 4000);
+      const d = await r.json();
+      const list = Array.isArray(d?.data) ? d.data : [];
+      if (!list.length) { close(); return; }
+      render(list.slice(0, 8));
+    } catch { close(); }
+  }
+
+  input.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => fetchSugg(input.value), 200); });
+  input.addEventListener('focus', () => { if (input.value) fetchSugg(input.value); });
+  input.addEventListener('blur',  () => setTimeout(close, 150));
+  form.addEventListener('submit', close);
+
+  input.addEventListener('keydown', e => {
+    if (!form.classList.contains('sug-open')) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      const next = Math.min(activeIdx + 1, suggs.length - 1);
+      highlight(next); input.value = suggs[next];
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      const prev = activeIdx <= 0 ? -1 : activeIdx - 1;
+      highlight(prev); if (prev >= 0) input.value = suggs[prev];
+    } else if (e.key === 'Escape') { close(); }
+  });
+})();
+
+
+// ============================================================
+// 城市时钟
+// ============================================================
+const CITY_TZ = {
+  '北京':'Asia/Shanghai','上海':'Asia/Shanghai','广州':'Asia/Shanghai','深圳':'Asia/Shanghai',
+  '成都':'Asia/Shanghai','武汉':'Asia/Shanghai','杭州':'Asia/Shanghai','香港':'Asia/Hong_Kong',
+  '澳门':'Asia/Macau','台北':'Asia/Taipei',
+  '东京':'Asia/Tokyo','大阪':'Asia/Tokyo','Tokyo':'Asia/Tokyo','Osaka':'Asia/Tokyo',
+  '首尔':'Asia/Seoul','Seoul':'Asia/Seoul',
+  '新加坡':'Asia/Singapore','Singapore':'Asia/Singapore',
+  '曼谷':'Asia/Bangkok','Bangkok':'Asia/Bangkok',
+  '雅加达':'Asia/Jakarta','Jakarta':'Asia/Jakarta',
+  '孟买':'Asia/Kolkata','德里':'Asia/Kolkata','新德里':'Asia/Kolkata',
+  'Mumbai':'Asia/Kolkata','Delhi':'Asia/Kolkata','Kolkata':'Asia/Kolkata',
+  '迪拜':'Asia/Dubai','Dubai':'Asia/Dubai',
+  '伊斯坦布尔':'Europe/Istanbul','Istanbul':'Europe/Istanbul',
+  '莫斯科':'Europe/Moscow','Moscow':'Europe/Moscow',
+  '伦敦':'Europe/London','London':'Europe/London',
+  '巴黎':'Europe/Paris','Paris':'Europe/Paris',
+  '柏林':'Europe/Berlin','Berlin':'Europe/Berlin',
+  '马德里':'Europe/Madrid','Madrid':'Europe/Madrid',
+  '罗马':'Europe/Rome','Rome':'Europe/Rome',
+  '阿姆斯特丹':'Europe/Amsterdam','Amsterdam':'Europe/Amsterdam',
+  '苏黎世':'Europe/Zurich','Zurich':'Europe/Zurich',
+  '开罗':'Africa/Cairo','Cairo':'Africa/Cairo',
+  '内罗毕':'Africa/Nairobi','Nairobi':'Africa/Nairobi',
+  '拉各斯':'Africa/Lagos','Lagos':'Africa/Lagos',
+  '约翰内斯堡':'Africa/Johannesburg','Johannesburg':'Africa/Johannesburg',
+  '纽约':'America/New_York','NewYork':'America/New_York','New York':'America/New_York',
+  '洛杉矶':'America/Los_Angeles','LosAngeles':'America/Los_Angeles','Los Angeles':'America/Los_Angeles',
+  '芝加哥':'America/Chicago','Chicago':'America/Chicago',
+  '旧金山':'America/Los_Angeles','SanFrancisco':'America/Los_Angeles',
+  '西雅图':'America/Los_Angeles','Seattle':'America/Los_Angeles',
+  '波士顿':'America/New_York','Boston':'America/New_York',
+  '华盛顿':'America/New_York','Washington':'America/New_York',
+  '多伦多':'America/Toronto','Toronto':'America/Toronto',
+  '温哥华':'America/Vancouver','Vancouver':'America/Vancouver',
+  '墨西哥城':'America/Mexico_City','MexicoCity':'America/Mexico_City',
+  '圣保罗':'America/Sao_Paulo','SaoPaulo':'America/Sao_Paulo',
+  '悉尼':'Australia/Sydney','Sydney':'Australia/Sydney',
+  '墨尔本':'Australia/Melbourne','Melbourne':'Australia/Melbourne',
+  '珀斯':'Australia/Perth','Perth':'Australia/Perth',
+  '奥克兰':'Pacific/Auckland','Auckland':'Pacific/Auckland',
+  '檀香山':'Pacific/Honolulu','Honolulu':'Pacific/Honolulu',
+};
+
+function lookupTz(name) {
+  if (!name) return null;
+  if (CITY_TZ[name]) return CITY_TZ[name];
+  const k = name.trim().toLowerCase().replace(/\s+/g,'');
+  for (const [kk, v] of Object.entries(CITY_TZ))
+    if (kk.toLowerCase().replace(/\s+/g,'') === k) return v;
+  try { new Intl.DateTimeFormat('en', { timeZone: name }); return name; } catch {}
+  return null;
+}
+
+const DEFAULT_CLOCKS = [
+  { name:'北京',   tz:'Asia/Shanghai'      },
+  { name:'纽约',   tz:'America/New_York'   },
+  { name:'伦敦',   tz:'Europe/London'      },
+  { name:'东京',   tz:'Asia/Tokyo'         },
+  { name:'悉尼',   tz:'Australia/Sydney'   },
+  { name:'迪拜',   tz:'Asia/Dubai'         },
+];
+
+let clockCities = (() => { try { return JSON.parse(localStorage.getItem('clockCities')) || DEFAULT_CLOCKS; } catch { return DEFAULT_CLOCKS; } })();
+
+const clockFmts = {};
+function getClockFmt(tz) {
+  if (!clockFmts[tz]) clockFmts[tz] = {
+    tf: new Intl.DateTimeFormat('zh-CN', { timeZone:tz, hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false }),
+    df: new Intl.DateTimeFormat('zh-CN', { timeZone:tz, month:'numeric', day:'numeric', weekday:'short' }),
+  };
+  return clockFmts[tz];
+}
+
+function renderClockCards() {
+  const c = document.getElementById('cityClocks'); c.innerHTML = '';
+  clockCities.forEach((city, idx) => {
+    const card = document.createElement('div');
+    card.className = 'clock-card'; card.dataset.idx = idx;
+    card.innerHTML = `<div class="clock-city"></div><div class="clock-time" id="ct-${idx}">--:--</div><div class="clock-date" id="cd-${idx}">--</div>`;
+    card.firstChild.textContent = city.name;
+    card.addEventListener('click', () => openClockModal(idx));
+    c.appendChild(card);
+  });
+}
+
+function updateClocks() {
+  const now = new Date();
+  clockCities.forEach((city, idx) => {
+    try {
+      const { tf, df } = getClockFmt(city.tz);
+      const te = document.getElementById(`ct-${idx}`);
+      const de = document.getElementById(`cd-${idx}`);
+      if (te) te.textContent = tf.format(now);
+      if (de) de.textContent = df.format(now);
+    } catch {}
+  });
+}
+
+let editingClockIdx = -1;
+const clockModal = document.getElementById('clockModal');
+function openClockModal(idx) {
+  editingClockIdx = idx;
+  document.getElementById('clockCityName').value = clockCities[idx].name;
+  document.getElementById('clockTzInput').value   = clockCities[idx].tz;
+  document.getElementById('clockHint').textContent = '';
+  clockModal.classList.add('open');
+  setTimeout(() => document.getElementById('clockCityName').focus(), 50);
+}
+document.getElementById('clockCityName').addEventListener('input', function() {
+  const tz = lookupTz(this.value.trim());
+  const h = document.getElementById('clockHint');
+  if (tz) { document.getElementById('clockTzInput').value = tz; h.style.color='#1a73e8'; h.textContent='✓ 已匹配时区：' + tz; }
+  else    { h.style.color='#9aa0a6'; h.textContent='未匹配，请手动填写 IANA 时区'; }
+});
+document.getElementById('clockCancel').addEventListener('click', () => clockModal.classList.remove('open'));
+clockModal.addEventListener('click', e => { if (e.target === clockModal) clockModal.classList.remove('open'); });
+document.getElementById('clockSave').addEventListener('click', () => {
+  const name = document.getElementById('clockCityName').value.trim();
+  const tz   = document.getElementById('clockTzInput').value.trim();
+  if (!name || !tz) return;
+  try {
+    new Intl.DateTimeFormat('en', { timeZone: tz });
+    clockCities[editingClockIdx] = { name, tz };
+    delete clockFmts[tz];
+    localStorage.setItem('clockCities', JSON.stringify(clockCities));
+    renderClockCards(); updateClocks();
+    clockModal.classList.remove('open');
+  } catch {
+    const h = document.getElementById('clockHint'); h.style.color='#d93025'; h.textContent='时区无效，请检查格式';
+  }
+});
+
+// ============================================================
+// 模块A
+// ============================================================
+const bjTimeFmt = new Intl.DateTimeFormat('zh-CN', { timeZone:'Asia/Shanghai', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false });
+function updateBJTime() { document.getElementById('bj-time').textContent = '北京 ' + bjTimeFmt.format(new Date()); }
+
+(function renderSolar() {
+  const now = new Date();
+  const d = new Intl.DateTimeFormat('zh-CN', { timeZone:'Asia/Shanghai', year:'numeric', month:'long', day:'numeric' }).format(now);
+  const w = new Intl.DateTimeFormat('zh-CN', { timeZone:'Asia/Shanghai', weekday:'short' }).format(now);
+  document.getElementById('solar-date').textContent = d + ' ' + w;
+})();
+
+// 农历 + 老黄历由后端 lunar-javascript 计算(永久离线可用)
+let _todayInfo = null;
+(function renderLunar() {
+  const el = document.getElementById('lunar-date');
+  const almanacEl = document.getElementById('almanac-row');
+  apiGet('/api/today').then(r => {
+    _todayInfo = r;
+    const d = r?.data;
+    if (!d) { el.textContent = '农历 --'; return; }
+    el.textContent = d.lunar_text + ' · ' + d.lunar_year_ganzhi + ' · 属' + d.lunar_year_zodiac;
+    // 悬停显示数据源 + 节气 + 节日
+    const tipLines = [srcTooltip(r)];
+    if (d.term)        tipLines.push('今日节气: ' + d.term);
+    if (d.next_term)   tipLines.push('下个节气: ' + d.next_term + ' (' + d.next_term_date + ')');
+    if (d.festivals?.length) tipLines.push('节日: ' + d.festivals.join('、'));
+    el.title = tipLines.filter(Boolean).join('\n');
+
+    // 渲染老黄历
+    renderAlmanac(d.almanac, almanacEl);
+  }).catch(() => { el.textContent = '农历 --'; });
+})();
+
+function renderAlmanac(a, container) {
+  if (!a || !container) return;
+  container.innerHTML = '';
+
+  // 宜
+  if (a.yi?.length) {
+    const yiSpan = document.createElement('span');
+    yiSpan.innerHTML = `<span class="almanac-yi-label">宜</span>${a.yi.slice(0, 5).join(' ')}`;
+    container.appendChild(yiSpan);
+    container.appendChild(makeSep());
+  }
+  // 忌
+  if (a.ji?.length) {
+    const jiSpan = document.createElement('span');
+    jiSpan.innerHTML = `<span class="almanac-ji-label">忌</span>${a.ji.slice(0, 5).join(' ')}`;
+    container.appendChild(jiSpan);
+    container.appendChild(makeSep());
+  }
+  // 黄道/黑道
+  if (a.shen_type) {
+    const shenSpan = document.createElement('span');
+    const cls = a.shen_type === '黄道' ? 'huang' : 'hei';
+    shenSpan.innerHTML = `<span class="almanac-shen ${cls}">${a.shen_type}日</span>${a.shen_name ? ' ' + a.shen_name : ''}`;
+    container.appendChild(shenSpan);
+  }
+
+  // 详细信息(神位、冲煞、彭祖)放到 tooltip
+  const tipLines = [];
+  if (a.position_xi)  tipLines.push('喜神方位: ' + a.position_xi);
+  if (a.position_cai) tipLines.push('财神方位: ' + a.position_cai);
+  if (a.position_fu)  tipLines.push('福神方位: ' + a.position_fu);
+  if (a.chong_sha)    tipLines.push('冲煞: ' + a.chong_sha);
+  if (a.nayin)        tipLines.push('纳音: ' + a.nayin);
+  if (a.pengzu_gan)   tipLines.push('彭祖百忌(干): ' + a.pengzu_gan);
+  if (a.pengzu_zhi)   tipLines.push('彭祖百忌(支): ' + a.pengzu_zhi);
+  container.title = tipLines.join('\n');
+}
+
+function makeSep() {
+  const s = document.createElement('span');
+  s.className = 'almanac-sep';
+  s.textContent = '·';
+  return s;
+}
+
+// ============================================================
+// 多国法定节假日 + 倒计时(后端 /api/holidays?country=XX,可自定义国家组合)
+// ============================================================
+const COUNTRY_KEY = 'countdownCountries';
+const DEFAULT_COUNTRIES = ['CN', 'US', 'GB', 'DE', 'JP'];
+
+function getSelectedCountries() {
+  try {
+    const s = JSON.parse(localStorage.getItem(COUNTRY_KEY));
+    if (Array.isArray(s) && s.length) return s.slice(0, 5);
+  } catch {}
+  return DEFAULT_COUNTRIES;
+}
+
+function saveSelectedCountries(arr) {
+  try { localStorage.setItem(COUNTRY_KEY, JSON.stringify(arr)); } catch {}
+}
+
+// 国旗 emoji(用 ISO 国家代码)
+function flagEmoji(code) {
+  if (!code || code.length !== 2) return '';
+  return String.fromCodePoint(...code.toUpperCase().split('').map(c => 0x1F1E6 + c.charCodeAt(0) - 65));
+}
+
+// 缓存各国节假日数据 + 元信息
+const _holidayCache = {};   // { CN: { items, meta } }
+const _countryNames = {};   // { CN: '中国' }
+
+async function loadHolidayCountries() {
+  try {
+    const r = await apiGet('/api/holidays/countries');
+    for (const c of r.data || []) _countryNames[c.code] = c.name;
+  } catch {}
+}
+
+async function loadHolidayForCountry(code) {
+  try {
+    const r = await apiGet('/api/holidays?country=' + encodeURIComponent(code));
+    _holidayCache[code] = {
+      items: (r.data?.items || []).map(h => ({
+        name: h.name,
+        name_native: h.name_native || h.name,
+        start: new Date(h.s),
+        end: new Date(h.e),
+      })),
+      meta:  { source: r.source, source_label: r.source_label, fetched_at: r.fetched_at, freshness: r.freshness },
+    };
+  } catch {
+    _holidayCache[code] = { items: [], meta: null };
+  }
+}
+
+function findNextHoliday(items, today) {
+  let best = null, min = Infinity;
+  for (const h of items) {
+    const diff = Math.round((h.start - today) / 86400000);
+    if (diff === 0) return { name: h.name, name_native: h.name_native, diff: 0 };
+    if (diff > 0 && diff < min) { min = diff; best = { name: h.name, name_native: h.name_native, diff }; }
+  }
+  return best;
+}
+
+// 复制文本到剪贴板(优先 navigator.clipboard,降级 textarea)
+function copyToClipboard(text) {
+  const showToast = () => {
+    const t = document.createElement('div');
+    t.textContent = '已复制: ' + text;
+    t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#202124;color:#fff;padding:8px 16px;border-radius:8px;font-size:13px;z-index:1000;box-shadow:0 2px 12px rgba(0,0,0,0.3);';
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 1500);
+  };
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(text).then(showToast).catch(() => fallbackCopy(text, showToast));
+  } else {
+    fallbackCopy(text, showToast);
+  }
+}
+function fallbackCopy(text, onDone) {
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.style.cssText = 'position:fixed;top:-100px;opacity:0;';
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy'); onDone?.(); } catch {}
+  ta.remove();
+}
+
+function renderWeekend() {
+  const weekendEl = document.getElementById('weekend-row');
+  if (!weekendEl) return;
+  const bjStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai' }).format(new Date());
+  const [ty, tm, td] = bjStr.split('-').map(Number);
+  const today = new Date(ty, tm - 1, td);
+
+  // 周末
+  const dow = today.getDay();
+  const daysToWeekend = (dow === 0 || dow === 6) ? 0 : (6 - dow);
+  let weekendHtml;
+  if (daysToWeekend === 0)      weekendHtml = '🎉 今天是周末';
+  else if (daysToWeekend === 1) weekendHtml = '距周末 <b>明天</b>';
+  else                          weekendHtml = `距周末 <b>${daysToWeekend}天</b>`;
+
+  // 距下个月 1 日
+  const nextMonth = tm === 12 ? new Date(ty + 1, 0, 1) : new Date(ty, tm, 1);
+  const daysToNextMonth = Math.round((nextMonth - today) / 86400000);
+  const nextMonthName = nextMonth.toLocaleDateString('zh-CN', { month: 'long' });
+  let monthHtml;
+  if (daysToNextMonth === 0)      monthHtml = `📅 今天${nextMonthName}1日`;
+  else if (daysToNextMonth === 1) monthHtml = `距${nextMonthName} <b>明天</b>`;
+  else                            monthHtml = `距${nextMonthName} <b>${daysToNextMonth}天</b>`;
+
+  weekendEl.innerHTML = weekendHtml + ' <span class="countdown-sep">·</span> ' + monthHtml;
+}
+renderWeekend();  // 立即渲染,不等节假日 API
+
+function renderCountdowns() {
+  const row = document.getElementById('countdown-row');
+  const bjStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai' }).format(new Date());
+  const [ty, tm, td] = bjStr.split('-').map(Number);
+  const today = new Date(ty, tm - 1, td);
+
+  const parts = [];
+
+  // 各国节假日(用户选中的)
+  // 节日名:中文显示;悬停 tooltip 显示原文 + "点击复制";click 复制原文
+  const escAttr = s => String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+  for (const code of getSelectedCountries()) {
+    const cache = _holidayCache[code];
+    if (!cache) continue;
+    const next = findNextHoliday(cache.items, today);
+    if (!next) continue;
+    const fr = cache.meta?.freshness;
+    const srcOnline = fr === 'fresh' || fr === 'stale';
+    const tip = srcTooltip(cache.meta).replace(/"/g, '&quot;');
+    const srcBadge = `<span class="holiday-src ${srcOnline ? 'holiday-src-online' : 'holiday-src-local'}" title="${tip}">${srcOnline ? '在线' : '本地'}</span>`;
+    const flagImg = `<img src="https://flagcdn.com/16x12/${code.toLowerCase()}.png" width="16" height="12" style="vertical-align:middle;border-radius:2px;margin-right:2px;" alt="${code}">`;
+
+    const native = next.name_native || next.name;
+    const showNative = native !== next.name;
+    const nameTip = showNative ? `${native}\n点击复制原文` : '点击复制';
+    const label = `<span class="holiday-name" data-copy="${escAttr(native)}" title="${escAttr(nameTip)}" style="cursor:pointer;text-decoration:underline dotted #bdc1c6;text-underline-offset:2px;">${escAttr(next.name)}</span>`;
+
+    if (next.diff === 0)      parts.push(`<span class="countdown-item">${flagImg}${label}假期中${srcBadge}</span>`);
+    else if (next.diff === 1) parts.push(`<span class="countdown-item">${flagImg}距${label} <b>明天</b>${srcBadge}</span>`);
+    else                      parts.push(`<span class="countdown-item">${flagImg}距${label} <b>${next.diff}天</b>${srcBadge}</span>`);
+  }
+
+  // 国家选择按钮
+  parts.push(`<span class="countdown-item" id="countryPickerBtn" style="cursor:pointer;color:#1a73e8;" title="自定义国家">⚙ 国家</span>`);
+
+  row.innerHTML = parts.join('<span class="countdown-sep">·</span>');
+  document.getElementById('countryPickerBtn')?.addEventListener('click', openCountryModal);
+  // 委托:点击节日名复制原文
+  row.querySelectorAll('[data-copy]').forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      copyToClipboard(el.dataset.copy);
+    });
+  });
+}
+
+async function loadAllSelectedCountries() {
+  const codes = getSelectedCountries();
+  await Promise.allSettled(codes.map(loadHolidayForCountry));
+  renderCountdowns();
+}
+
+// 国家选择弹窗
+let _allCountriesList = []; // [{code, name, flag}]
+
+async function ensureCountriesList() {
+  if (_allCountriesList.length) return;
+  try {
+    const r = await apiGet('/api/holidays/countries');
+    _allCountriesList = r.data || [];
+  } catch {}
+}
+
+async function openCountryModal() {
+  await ensureCountriesList();
+  const selected = getSelectedCountries();
+  const slots = document.getElementById('countrySlots');
+  slots.innerHTML = '';
+  // 5 个槽位
+  for (let i = 0; i < 5; i++) {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:10px;';
+
+    const tag = document.createElement('span');
+    tag.style.cssText = 'font-size:11px;color:#9aa0a6;width:50px;flex-shrink:0;';
+    tag.textContent = '槽位 ' + (i + 1);
+
+    const select = document.createElement('select');
+    select.className = 'modal-input';
+    select.dataset.slot = i;
+    select.style.flex = '1';
+
+    const empty = document.createElement('option');
+    empty.value = ''; empty.textContent = '— 不显示 —';
+    select.appendChild(empty);
+
+    for (const c of _allCountriesList) {
+      const opt = document.createElement('option');
+      opt.value = c.code;
+      opt.textContent = `${c.code} · ${c.name}`;
+      if (selected[i] === c.code) opt.selected = true;
+      select.appendChild(opt);
+    }
+
+    row.append(tag, select);
+    slots.appendChild(row);
+  }
+  document.getElementById('countryModal').classList.add('open');
+}
+
+document.getElementById('countryCancel').addEventListener('click', () => document.getElementById('countryModal').classList.remove('open'));
+document.getElementById('countryModal').addEventListener('click', e => { if (e.target.id === 'countryModal') e.target.classList.remove('open'); });
+document.getElementById('countryReset').addEventListener('click', () => {
+  saveSelectedCountries(DEFAULT_COUNTRIES);
+  document.getElementById('countryModal').classList.remove('open');
+  loadAllSelectedCountries();
+});
+document.getElementById('countrySave').addEventListener('click', () => {
+  const selects = document.querySelectorAll('#countrySlots select');
+  const codes = [];
+  const seen = new Set();
+  for (const s of selects) {
+    const v = s.value;
+    if (v && !seen.has(v)) { codes.push(v); seen.add(v); }
+  }
+  saveSelectedCountries(codes);
+  document.getElementById('countryModal').classList.remove('open');
+  loadAllSelectedCountries();
+});
+
+// 初始化
+loadHolidayCountries().then(loadAllSelectedCountries);
+
+// ============================================================
+// IP 定位 + 天气
+// ============================================================
+// IP 检测 & 天气
+// ============================================================
+
+// 国旗图片（flagcdn.com，Windows 上 emoji 不渲染所以用图片）
+function flagImg(code) {
+  if (!code || code.length !== 2) return '';
+  const c = code.toLowerCase();
+  return `<img src="https://flagcdn.com/16x12/${c}.png" width="16" height="12" style="vertical-align:middle;border-radius:2px;margin-right:3px;" alt="${c}">`;
+}
+
+// ── 国内 IP 检测（专用国内服务器，split-tunnel 代理不经过，返回真实 ISP IP）──
+// pconline: {ip, pro, city, addr, err}
+// ipip.net: 纯文本 "当前 IP：x.x.x.x  来自于：中国 广东省 东莞市  电信"
+const DOMESTIC_IP_APIS = [
+  { url: 'https://whois.pconline.com.cn/ipJson.jsp?json=true',
+    parse: d => d.ip && !d.err && { ip:d.ip, city:d.city||d.pro, country:'中国', countryCode:'CN' } },
+  { url: 'https://myip.ipip.net',
+    text: true,
+    parse: t => {
+      const ip  = (t.match(/当前 IP[：:]\s*([\d.]+)/) || [])[1];
+      const loc = (t.match(/来自于[：:]\s*\S+\s+\S+\s+(\S+)/) || [])[1]; // 省份后的城市
+      return ip ? { ip, city: loc||'', country:'中国', countryCode:'CN' } : null;
+    }
+  },
+];
+
+
+// 天气数据从 /api/weather 获取(后端已含主备 + Redis 缓存)
+let ipCity = '';
+const weatherEl = document.getElementById('weather-info');
+
+async function fetchWeatherViaBackend(query) {
+  try {
+    const r = await apiGet('/api/weather?' + query);
+    return r;
+  } catch { return null; }
+}
+
+async function refreshWeather() {
+  const parts = [];
+  const tooltipParts = [];
+
+  if (ipCity) {
+    const r = await fetchWeatherViaBackend('city=' + encodeURIComponent(ipCity));
+    if (r?.data?.text) {
+      parts.push(`${r.data.text} ${r.data.city || ipCity}`);
+      tooltipParts.push(`[${r.data.city || ipCity}] ${srcTooltip(r)}`);
+    }
+  }
+  for (const k of ['wxCity1', 'wxCity2']) {
+    const c = localStorage.getItem(k);
+    if (!c) continue;
+    const r = await fetchWeatherViaBackend('city=' + encodeURIComponent(c));
+    if (r?.data?.text) {
+      parts.push(`${r.data.text} ${r.data.city || c}`);
+      tooltipParts.push(`[${r.data.city || c}] ${srcTooltip(r)}`);
+    }
+  }
+
+  if (parts.length) {
+    weatherEl.textContent = parts.join('   ');
+    weatherEl.title = tooltipParts.join('\n\n') + '\n\n点击设置天气城市';
+  } else {
+    weatherEl.textContent = '天气 --';
+    weatherEl.title = '点击设置天气城市';
+  }
+}
+
+function renderWeather() {
+  if (!weatherEl.textContent || weatherEl.textContent === '--') {
+    weatherEl.textContent = '天气加载中…';
+  }
+  refreshWeather().catch(() => { weatherEl.textContent = '天气 --'; });
+}
+
+// 构建 IP 显示区域（并列内联：国内IP + 国外IP）
+function buildIpDisplay(domestic, google) {
+  const locEl = document.getElementById('ip-loc');
+
+  function entryHtml(label, info) {
+    if (!info) return `<span class="ip-entry"><span class="ip-entry-label">${label}</span>--</span>`;
+    const loc = info.city
+      ? (info.countryCode === 'CN' ? info.city : `${info.city} ${info.country||''}`.trim())
+      : (info.country || '');
+    return `<span class="ip-entry">
+      <span class="ip-entry-label">${label}</span>
+      ${flagImg(info.countryCode)}${loc}<span class="ip-entry-addr">${info.ip}</span>
+    </span>`;
+  }
+
+  locEl.innerHTML =
+    entryHtml('国内IP:', domestic) +
+    entryHtml('国外IP:', google);
+}
+
+async function initLocation() {
+  const locEl = document.getElementById('ip-loc');
+  locEl.textContent = '定位中…';
+
+  // 国内 IP（国内服务器，split-tunnel 代理不拦截，得到真实 ISP IP）
+  async function detectDomestic() {
+    for (const api of DOMESTIC_IP_APIS) {
+      try {
+        const res = await fetchT(api.url, 4000);
+        const info = api.parse(api.text ? await res.text() : await res.json());
+        if (info?.ip) return info;
+      } catch {}
+    }
+    return null;
+  }
+
+  // 国外 IP：境外服务（走代理出口）
+  async function detectGoogle() {
+    const apis = [
+      { url:'https://ipwho.is/',      parse:d=>d.success&&{ip:d.ip,city:d.city||d.region,country:d.country,countryCode:d.country_code} },
+      { url:'https://ipinfo.io/json', parse:d=>d.ip&&{ip:d.ip,city:d.city||d.region,country:d.country,countryCode:d.country} },
+      { url:'https://ip.sb/geoip',    parse:d=>d.ip&&{ip:d.ip,city:d.city||d.region,country:d.country,countryCode:d.country_code} },
+    ];
+    for (const api of apis) {
+      try {
+        const res = await fetchT(api.url, 4000);
+        const info = api.parse(await res.json());
+        if (info?.ip) return info;
+      } catch {}
+    }
+    return null;
+  }
+
+  let domesticInfo = null, googleInfo = null;
+
+  // 国内 IP 先获取（用于天气）
+  domesticInfo = await detectDomestic();
+
+  if (!domesticInfo) { locEl.textContent = '定位失败'; weatherEl.textContent = '天气 --'; return; }
+
+  // 拿到城市,后端会做 geocoding
+  ipCity = domesticInfo.city || '';
+  if (ipCity) document.getElementById('autoCity').placeholder = ipCity;
+  renderWeather();
+
+  // 渲染（国外待定）
+  buildIpDisplay(domesticInfo, null);
+
+  // 国外 IP 异步检测后更新
+  detectGoogle().then(r => {
+    googleInfo = r;
+    buildIpDisplay(domesticInfo, googleInfo);
+  });
+}
+
+const wxModal=document.getElementById('weatherModal');
+weatherEl.addEventListener('click',()=>{document.getElementById('city1').value=localStorage.getItem('wxCity1')||'';document.getElementById('city2').value=localStorage.getItem('wxCity2')||'';wxModal.classList.add('open');});
+document.getElementById('wxCancel').addEventListener('click',()=>wxModal.classList.remove('open'));
+wxModal.addEventListener('click',e=>{if(e.target===wxModal)wxModal.classList.remove('open');});
+document.getElementById('wxSave').addEventListener('click',()=>{localStorage.setItem('wxCity1',document.getElementById('city1').value.trim());localStorage.setItem('wxCity2',document.getElementById('city2').value.trim());wxModal.classList.remove('open');weatherEl.textContent='更新中…';renderWeather();});
+
+// ============================================================
+// 金融模块（数据从 /api/finance 获取,后端已含主备链 + Redis 缓存 + last-good fallback)
+// ============================================================
+const FIN_ITEMS = [
+  { id:'usdcny', label:'美元/人民币' },
+  { id:'nasdaq', label:'纳斯达克'   },
+  { id:'sp500',  label:'标普500'    },
+  { id:'djia',   label:'道琼斯'     },
+  { id:'gold',   label:'黄金/克'    },
+  { id:'sse',    label:'上证'       },
+  { id:'szse',   label:'深证成指'   },
+  { id:'csi300', label:'沪深300'    },
+  { id:'hsi',    label:'恒生'       },
+];
+
+let finPayload = null; // 整个 /api/finance 响应
+
+function renderFinance() {
+  const grid = document.getElementById('financeGrid');
+  grid.innerHTML = '';
+
+  const data    = finPayload?.data    || {};
+  const sources = finPayload?.sources || {};
+
+  for (const item of FIN_ITEMS) {
+    const d    = data[item.id];
+    const meta = sources[item.id];
+
+    const el = document.createElement('div');
+    el.className = 'finance-item';
+    const tip = srcTooltip(meta);
+    if (tip) el.title = tip;
+
+    const label = document.createElement('span');
+    label.className = 'fin-label';
+    label.textContent = item.label;
+
+    const value = document.createElement('span');
+    value.className = 'fin-value';
+    value.textContent = d ? d.value : '--';
+
+    const change = document.createElement('span');
+    change.className = 'fin-change fin-flat';
+    if (d?.changePct != null) {
+      const pct = d.changePct;
+      change.textContent = (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%';
+      change.className = 'fin-change ' + (pct > 0.01 ? 'fin-up' : pct < -0.01 ? 'fin-down' : 'fin-flat');
+    }
+
+    el.append(label, value, change);
+    grid.appendChild(el);
+  }
+}
+
+function updateFinanceNote() {
+  const noteEl = document.getElementById('financeNote');
+  const sources = finPayload?.sources || {};
+  const stamps = Object.values(sources).map(s => s.fetched_at).filter(Boolean);
+  if (!stamps.length) { noteEl.textContent = '行情加载中…'; return; }
+  const newest = Math.max(...stamps);
+  // 是否有任何 stale/fallback
+  const states = new Set(Object.values(sources).map(s => s.freshness));
+  const tag = states.has('stale') ? '(含缓存)' : states.has('fallback') ? '(含兜底)' : '';
+  const p = new Date(newest);
+  const hms = `${String(p.getHours()).padStart(2,'0')}:${String(p.getMinutes()).padStart(2,'0')}:${String(p.getSeconds()).padStart(2,'0')}`;
+  noteEl.textContent = `数据更新: ${hms} ${tag}`.trim();
+}
+
+async function loadFinance() {
+  try {
+    finPayload = await apiGet('/api/finance');
+    renderFinance();
+    updateFinanceNote();
+  } catch (e) {
+    console.warn('[finance]', e.message);
+  }
+}
+
+// ============================================================
+// 热榜（数据从 /api/hot/:id 获取,后端已含主备链 + Redis 缓存）
+// ============================================================
+const HOT_SOURCES = [
+  { id:'zhihu', title:'知乎热榜', side:'left',  link:'https://www.zhihu.com/hot',                icon:'https://zhihu.com/favicon.ico' },
+  { id:'weibo', title:'微博热搜', side:'left',  link:'https://weibo.com/hot/search',             icon:'https://weibo.com/favicon.ico' },
+  { id:'baidu', title:'百度热搜', side:'right', link:'https://top.baidu.com/board?tab=realtime', icon:'https://baidu.com/favicon.ico' },
+  { id:'bili',  title:'B站热榜', side:'right', link:'https://www.bilibili.com/v/popular/rank',  icon:'https://bilibili.com/favicon.ico' },
+];
+
+async function loadHotList(source, forceRefresh = false) {
+  const listEl   = document.getElementById('hot-' + source.id + '-list');
+  const sourceEl = document.getElementById('hot-' + source.id + '-source');
+  if (!listEl) return;
+  listEl.innerHTML = '<div class="hot-panel-loading">加载中…</div>';
+
+  let payload = null;
+  try {
+    if (forceRefresh) {
+      const r = await fetchT('/api/hot/' + source.id + '/refresh', 8000);
+      payload = await r.json();
+    } else {
+      payload = await apiGet('/api/hot/' + source.id);
+    }
+  } catch {
+    listEl.innerHTML = `<div class="hot-panel-loading" style="cursor:pointer" data-retry="${source.id}">加载失败，点击重试</div>`;
+    listEl.querySelector('[data-retry]')?.addEventListener('click', () => loadHotList(source));
+    return;
+  }
+
+  const items = Array.isArray(payload?.data) ? payload.data : [];
+  // 更新数据源标签 + tooltip
+  if (sourceEl) {
+    sourceEl.textContent = payload?.source_label ? '· ' + payload.source_label : '';
+    sourceEl.title = srcTooltip(payload);
+  }
+
+  if (!items.length || !items[0]?.title || items[0]?.title === '(暂无数据)') {
+    listEl.innerHTML = `<div class="hot-panel-loading" style="cursor:pointer" data-retry="${source.id}">暂无数据，点击重试</div>`;
+    listEl.querySelector('[data-retry]')?.addEventListener('click', () => loadHotList(source, true));
+    return;
+  }
+
+  listEl.innerHTML = '';
+  items.slice(0, 15).forEach((item, i) => {
+    const a = document.createElement('a');
+    a.className = 'hot-item';
+    a.href = item.url || source.link;
+    a.target = '_blank';
+    a.rel = 'noopener';
+
+    const rank = document.createElement('span');
+    rank.className = 'hot-rank' + (i===0?' top1':i===1?' top2':i===2?' top3':'');
+    rank.textContent = i + 1;
+
+    const title = document.createElement('span');
+    title.className = 'hot-title';
+    title.textContent = item.title;
+
+    a.append(rank, title);
+    listEl.appendChild(a);
+  });
+}
+
+function createHotPanel(source) {
+  const panel = document.createElement('div');
+  panel.className = 'hot-panel';
+  panel.id = 'hot-' + source.id + '-panel';
+
+  const header = document.createElement('div');
+  header.className = 'hot-panel-header';
+
+  const titleWrap = document.createElement('a');
+  titleWrap.href = source.link;
+  titleWrap.target = '_blank';
+  titleWrap.rel = 'noopener';
+  titleWrap.style.cssText = 'display:flex;align-items:center;gap:6px;text-decoration:none;color:inherit;';
+
+  if (source.icon) {
+    const img = document.createElement('img');
+    img.src = source.icon;
+    img.width = 14; img.height = 14;
+    img.style.cssText = 'border-radius:3px;flex-shrink:0;';
+    img.onerror = () => img.style.display = 'none';
+    titleWrap.appendChild(img);
+  }
+
+  const title = document.createElement('span');
+  title.className = 'hot-panel-title';
+  title.textContent = source.title;
+  titleWrap.appendChild(title);
+
+  const srcLabel = document.createElement('span');
+  srcLabel.id = 'hot-' + source.id + '-source';
+  srcLabel.className = 'hot-panel-source';
+
+  const refreshBtn = document.createElement('span');
+  refreshBtn.className = 'hot-panel-refresh';
+  refreshBtn.textContent = '刷新';
+  refreshBtn.title = '刷新热榜（强制服务端重新拉取）';
+  refreshBtn.addEventListener('click', () => loadHotList(source, true));
+
+  const leftWrap = document.createElement('span');
+  leftWrap.style.cssText = 'display:flex;align-items:center;gap:6px;flex:1;min-width:0;';
+  leftWrap.append(titleWrap, srcLabel);
+
+  header.append(leftWrap, refreshBtn);
+  panel.appendChild(header);
+
+  const list = document.createElement('div');
+  list.id = 'hot-' + source.id + '-list';
+  list.innerHTML = '<div class="hot-panel-loading">加载中…</div>';
+  panel.appendChild(list);
+
+  return panel;
+}
+
+function initHotLists() {
+  const leftSidebar  = document.getElementById('leftSidebar');
+  const rightSidebar = document.getElementById('rightSidebar');
+
+  for (const source of HOT_SOURCES) {
+    const panel = createHotPanel(source);
+    if (source.side === 'left') leftSidebar.appendChild(panel);
+    else rightSidebar.appendChild(panel);
+    loadHotList(source);
+  }
+}
+
+// ============================================================
+// 网站导航分组
+// ============================================================
+const DEFAULT_NAV = [
+  { id:'china', title:'中国媒体社区', sites:[
+    {name:'微博',   url:'https://weibo.com'},
+    {name:'知乎',   url:'https://zhihu.com'},
+    {name:'B站',    url:'https://bilibili.com'},
+    {name:'小红书', url:'https://xiaohongshu.com'},
+    {name:'豆瓣',   url:'https://douban.com'},
+    {name:'虎扑',   url:'https://hupu.com'},
+    {name:'澎湃',   url:'https://thepaper.cn'},
+    {name:'头条',   url:'https://toutiao.com'},
+  ]},
+  { id:'work', title:'工作与 AI', sites:[
+    {name:'ChatGPT', url:'https://chat.openai.com'},
+    {name:'Claude',  url:'https://claude.ai'},
+    {name:'Gemini',  url:'https://gemini.google.com'},
+    {name:'Grok',    url:'https://grok.com'},
+    {name:'GitHub',  url:'https://github.com'},
+    {name:'Notion',  url:'https://notion.so'},
+    {name:'Figma',   url:'https://figma.com'},
+    {name:'Slack',   url:'https://slack.com'},
+  ]},
+  { id:'social', title:'国外社交媒体', sites:[
+    {name:'X',         url:'https://x.com'},
+    {name:'Instagram', url:'https://instagram.com'},
+    {name:'YouTube',   url:'https://youtube.com'},
+    {name:'Facebook',  url:'https://facebook.com'},
+    {name:'TikTok',    url:'https://tiktok.com'},
+    {name:'LinkedIn',  url:'https://linkedin.com'},
+    {name:'Reddit',    url:'https://reddit.com'},
+    {name:'Discord',   url:'https://discord.com'},
+  ]},
+];
+
+let navGroups = (() => {
+  try { const s = JSON.parse(localStorage.getItem('navGroups')); if(Array.isArray(s) && s.length) return s; } catch {}
+  return DEFAULT_NAV;
+})();
+function saveNav() { localStorage.setItem('navGroups', JSON.stringify(navGroups)); }
+
+function getFavicon(url) {
+  try { return faviconUrl(new URL(url).hostname); } catch { return ''; }
+}
+
+let editingGroupId = null;
+let siteEditIdx    = { gIdx:-1, sIdx:-1 };
+
+function renderNavGroups() {
+  const container = document.getElementById('navGroups'); container.innerHTML = '';
+  navGroups.forEach((group, gIdx) => {
+    const isEditing = editingGroupId === group.id;
+    const sec = document.createElement('div'); sec.className = 'nav-group';
+
+    const header = document.createElement('div'); header.className = 'nav-group-header';
+
+    const titleWrap = document.createElement('span');
+    titleWrap.style.cssText = 'display:inline-flex;align-items:center;gap:6px;';
+    const titleEl = document.createElement('span'); titleEl.className = 'nav-group-title'; titleEl.textContent = group.title;
+    titleWrap.appendChild(titleEl);
+
+    if (isEditing) {
+      // 重命名按钮
+      const renameBtn = document.createElement('span');
+      renameBtn.className = 'nav-group-edit-btn';
+      renameBtn.style.cssText = 'font-size:10px;padding:1px 5px;';
+      renameBtn.textContent = '重命名';
+      renameBtn.addEventListener('click', () => openGroupModal(gIdx));
+      titleWrap.appendChild(renameBtn);
+      // 删除分组按钮
+      const delGroupBtn = document.createElement('span');
+      delGroupBtn.className = 'nav-group-edit-btn';
+      delGroupBtn.style.cssText = 'font-size:10px;padding:1px 5px;color:#d93025;';
+      delGroupBtn.textContent = '删除分组';
+      delGroupBtn.addEventListener('click', () => {
+        if (!confirm(`确定删除分组「${group.title}」及其所有网站？`)) return;
+        navGroups.splice(gIdx, 1);
+        if (editingGroupId === group.id) editingGroupId = null;
+        saveNav(); renderNavGroups();
+      });
+      titleWrap.appendChild(delGroupBtn);
+    }
+
+    const editBtn = document.createElement('span'); editBtn.className = 'nav-group-edit-btn';
+    editBtn.textContent = isEditing ? '完成' : '编辑';
+    editBtn.addEventListener('click', () => { editingGroupId = isEditing ? null : group.id; renderNavGroups(); });
+    header.append(titleWrap, editBtn); sec.appendChild(header);
+
+    const row = document.createElement('div'); row.className = 'nav-group-sites';
+    group.sites.forEach((site, sIdx) => {
+      const chip = document.createElement('div'); chip.className = 'site-chip' + (isEditing ? ' editing' : '');
+      const fav = getFavicon(site.url);
+      const nameSpan = document.createElement('span');
+      nameSpan.textContent = site.name;
+      chip.appendChild(nameSpan);
+      if (fav) {
+        const favImg = document.createElement('img');
+        favImg.src = fav; favImg.loading = 'lazy'; favImg.width = 16; favImg.height = 16;
+        favImg.onerror = function() { this.style.display = 'none'; };
+        chip.insertBefore(favImg, chip.firstChild);
+      }
+      if (isEditing) {
+        const rm = document.createElement('span'); rm.className = 'site-remove'; rm.textContent = '×';
+        rm.addEventListener('click', e => { e.stopPropagation(); navGroups[gIdx].sites.splice(sIdx,1); saveNav(); renderNavGroups(); });
+        chip.appendChild(rm);
+        chip.addEventListener('click', () => openSiteModal(gIdx, sIdx, site));
+      } else {
+        chip.addEventListener('click', () => window.open(site.url, '_blank', 'noopener'));
+      }
+      row.appendChild(chip);
+    });
+
+    if (isEditing) {
+      const addBtn = document.createElement('div'); addBtn.className = 'site-add-chip';
+      addBtn.textContent = '+ 添加'; addBtn.addEventListener('click', () => openSiteModal(gIdx, -1, null));
+      row.appendChild(addBtn);
+    }
+    sec.appendChild(row);
+    container.appendChild(sec);
+    if (gIdx < navGroups.length - 1) { const div = document.createElement('div'); div.className='nav-group-divider'; container.appendChild(div); }
+  });
+
+  // 新增分组按钮（始终显示在底部）
+  const addGroupDiv = document.createElement('div');
+  addGroupDiv.style.cssText = 'margin-top:4px;';
+  const addGroupBtn = document.createElement('span');
+  addGroupBtn.className = 'nav-group-edit-btn';
+  addGroupBtn.style.cssText = 'font-size:12px;padding:3px 10px;border:1px dashed #c5d8fc;border-radius:6px;';
+  addGroupBtn.textContent = '＋ 新增分组';
+  addGroupBtn.addEventListener('click', () => openGroupModal(-1));
+  addGroupDiv.appendChild(addGroupBtn);
+  container.appendChild(addGroupDiv);
+}
+
+function openSiteModal(gIdx, sIdx, site) {
+  siteEditIdx = { gIdx, sIdx };
+  document.getElementById('siteModalTitle').textContent = sIdx === -1 ? '添加网站' : '编辑网站';
+  document.getElementById('siteName').value = site?.name || '';
+  document.getElementById('siteUrl').value  = site?.url  || 'https://';
+  document.getElementById('siteModal').classList.add('open');
+  setTimeout(() => document.getElementById('siteName').focus(), 50);
+}
+
+// 分组弹窗
+let groupEditIdx = -1; // -1=新增，>=0=重命名
+function openGroupModal(gIdx) {
+  groupEditIdx = gIdx;
+  document.getElementById('groupModalTitle').textContent = gIdx === -1 ? '新增分组' : '重命名分组';
+  document.getElementById('groupName').value = gIdx === -1 ? '' : navGroups[gIdx].title;
+  document.getElementById('groupModal').classList.add('open');
+  setTimeout(() => document.getElementById('groupName').focus(), 50);
+}
+document.getElementById('groupCancel').addEventListener('click', () => document.getElementById('groupModal').classList.remove('open'));
+document.getElementById('groupModal').addEventListener('click', e => { if(e.target===document.getElementById('groupModal')) document.getElementById('groupModal').classList.remove('open'); });
+document.getElementById('groupSaveBtn').addEventListener('click', () => {
+  const name = document.getElementById('groupName').value.trim();
+  if (!name) return;
+  if (groupEditIdx === -1) {
+    navGroups.push({ id: 'g' + Date.now(), title: name, sites: [] });
+  } else {
+    navGroups[groupEditIdx].title = name;
+  }
+  saveNav(); renderNavGroups();
+  document.getElementById('groupModal').classList.remove('open');
+});
+
+document.getElementById('siteCancel').addEventListener('click', () => document.getElementById('siteModal').classList.remove('open'));
+document.getElementById('siteModal').addEventListener('click', e => { if(e.target===document.getElementById('siteModal')) document.getElementById('siteModal').classList.remove('open'); });
+document.getElementById('siteSaveBtn').addEventListener('click', () => {
+  const name = document.getElementById('siteName').value.trim();
+  let   url  = document.getElementById('siteUrl').value.trim();
+  if (!name || !url) return;
+  if (!/^https?:\/\//.test(url)) url = 'https://' + url;
+  const { gIdx, sIdx } = siteEditIdx;
+  if (sIdx === -1) navGroups[gIdx].sites.push({ name, url });
+  else             navGroups[gIdx].sites[sIdx] = { name, url };
+  saveNav(); renderNavGroups();
+  document.getElementById('siteModal').classList.remove('open');
+});
+
+// ============================================================
+// 初始化
+// ============================================================
+renderClockCards(); updateClocks();
+setInterval(() => { updateBJTime(); updateClocks(); }, 1000);
+updateBJTime();
+
+renderNavGroups();
+renderFinance();   // 渲染空骨架
+loadFinance();     // 从后端拉取实际数据
+setInterval(loadFinance, 30000);  // 每 30s 从后端读最新缓存(后端自己会定时刷新)
+
+initHotLists();
+initLocation();
+// 热榜每 5 分钟从后端读一次最新缓存(后端会自己定时刷新)
+setInterval(() => HOT_SOURCES.forEach(s => loadHotList(s)), 5 * 60 * 1000);
+</script>
+</body>
+</html>
