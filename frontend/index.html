@@ -1425,19 +1425,20 @@ async function initLocation() {
 
   // 国外 IP：境外服务（走代理出口）
   async function detectGoogle() {
+    // 三个 IP API 并发竞速,谁先返回用谁(原串行最坏 12s)
     const apis = [
       { url:'https://ipwho.is/',      parse:d=>d.success&&{ip:d.ip,city:d.city||d.region,country:d.country,countryCode:d.country_code} },
       { url:'https://ipinfo.io/json', parse:d=>d.ip&&{ip:d.ip,city:d.city||d.region,country:d.country,countryCode:d.country} },
       { url:'https://ip.sb/geoip',    parse:d=>d.ip&&{ip:d.ip,city:d.city||d.region,country:d.country,countryCode:d.country_code} },
     ];
-    for (const api of apis) {
-      try {
-        const res = await fetchT(api.url, 4000);
-        const info = api.parse(await res.json());
-        if (info?.ip) return info;
-      } catch {}
-    }
-    return null;
+    const wrapped = apis.map(async api => {
+      const res = await fetchT(api.url, 4000);
+      const info = api.parse(await res.json());
+      if (!info?.ip) throw new Error('empty');
+      return info;
+    });
+    try { return await Promise.any(wrapped); }
+    catch { return null; }
   }
 
   let domesticInfo = null, googleInfo = null;

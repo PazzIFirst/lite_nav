@@ -93,9 +93,11 @@ docker logs nav-backend --tail 20
 
 # 4. 在 1Panel UI 创建网站(类型选「静态」),申请 Let's Encrypt SSL
 
-# 5. 部署前端 + 注入反代配置
+# 5. 部署前端 + 注入反代配置(把 nav.example.com 换成你的域名)
 cd ../deploy
-sudo bash deploy-after-1panel-site.sh   # 脚本里改成你自己的域名
+sudo bash deploy-after-1panel-site.sh nav.example.com
+# 脚本会自动检测 OpenResty 容器名;如未识别可显式指定:
+# sudo bash deploy-after-1panel-site.sh nav.example.com 1Panel-openresty-XXXX
 ```
 
 ### 部署步骤(普通 Nginx / Caddy)
