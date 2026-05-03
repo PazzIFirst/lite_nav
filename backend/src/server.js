@@ -26,8 +26,8 @@ app.get('/api/health', (req, res) => res.json({ ok: true, ts: Date.now() }));
 // ===== 行情 =====
 app.get('/api/finance', async (req, res) => {
   const [indices, fx] = await Promise.all([
-    readThreeState('finance:indices', 60, null),
-    readThreeState('finance:fx',      3600, null),
+    readThreeState('finance:indices', null),
+    readThreeState('finance:fx',      null),
   ]);
 
   const merged = { ...(FINANCE_BUILTIN_FALLBACK.data) };
@@ -68,7 +68,7 @@ app.get('/api/finance', async (req, res) => {
 app.get('/api/hot/:id', async (req, res) => {
   const { id } = req.params;
   if (!HOT_IDS.includes(id)) return res.status(404).json({ error: 'unknown_hot_id' });
-  const r = await readThreeState('hot:' + id, 300, HOT_BUILTIN_FALLBACK);
+  const r = await readThreeState('hot:' + id, HOT_BUILTIN_FALLBACK);
   res.json(r);
 });
 
@@ -76,7 +76,7 @@ app.post('/api/hot/:id/refresh', async (req, res) => {
   const { id } = req.params;
   if (!HOT_IDS.includes(id)) return res.status(404).json({ error: 'unknown_hot_id' });
   await refreshHotList(id);
-  const r = await readThreeState('hot:' + id, 300, HOT_BUILTIN_FALLBACK);
+  const r = await readThreeState('hot:' + id, HOT_BUILTIN_FALLBACK);
   res.json(r);
 });
 
@@ -89,12 +89,19 @@ app.get('/api/holidays/countries', (req, res) => {
 
 app.get('/api/holidays', async (req, res) => {
   const country = String(req.query.country || 'CN').toUpperCase();
+  // 白名单校验:防止任意 country 触发外网调用(DoS 向量)
+  if (!SUPPORTED_COUNTRIES.some(c => c.code === country)) {
+    return res.status(400).json({
+      error: 'unsupported_country',
+      supported: SUPPORTED_COUNTRIES.map(c => c.code),
+    });
+  }
   const key = 'holiday:' + country;
-  let r = await readThreeState(key, 7 * 24 * 3600, null);
+  let r = await readThreeState(key, null);
   if (!r) {
     // 缓存未命中,实时拉取
     await refreshHolidayForCountry(country);
-    r = await readThreeState(key, 7 * 24 * 3600, HOLIDAY_BUILTIN_FALLBACK);
+    r = await readThreeState(key, HOLIDAY_BUILTIN_FALLBACK);
   }
   res.json(r);
 });
@@ -103,10 +110,10 @@ app.get('/api/holidays', async (req, res) => {
 app.get('/api/today', async (req, res) => {
   // 当天直接算,无需走缓存(算法每次都几毫秒)
   // 但仍然走 readThreeState 给前端一致的 source/freshness 字段
-  let r = await readThreeState('today', 24 * 3600, null);
+  let r = await readThreeState('today', null);
   if (!r) {
     await refreshToday();
-    r = await readThreeState('today', 24 * 3600, null);
+    r = await readThreeState('today', null);
   }
   // 兜底:就地算
   if (!r) {
@@ -128,11 +135,11 @@ app.get('/api/weather', async (req, res) => {
 
   if (city) {
     const key = 'weather:' + String(city).toLowerCase();
-    let r = await readThreeState(key, 1800, null);
+    let r = await readThreeState(key, null);
     if (!r) {
       // 完全无缓存,阻塞拉取
       await refreshWeatherForCity(String(city));
-      r = await readThreeState(key, 1800, WEATHER_BUILTIN_FALLBACK);
+      r = await readThreeState(key, WEATHER_BUILTIN_FALLBACK);
     } else if (r.freshness === 'stale' || r.freshness === 'fallback') {
       // 有旧数据,立即返回,后台异步刷新
       refreshWeatherForCity(String(city)).catch(() => {});
@@ -142,10 +149,10 @@ app.get('/api/weather', async (req, res) => {
 
   if (lat && lon) {
     const key = `weather:coords:${lat},${lon}`;
-    let r = await readThreeState(key, 1800, null);
+    let r = await readThreeState(key, null);
     if (!r) {
       await refreshWeatherForCoords(Number(lat), Number(lon), label || '');
-      r = await readThreeState(key, 1800, WEATHER_BUILTIN_FALLBACK);
+      r = await readThreeState(key, WEATHER_BUILTIN_FALLBACK);
     } else if (r.freshness === 'stale' || r.freshness === 'fallback') {
       refreshWeatherForCoords(Number(lat), Number(lon), label || '').catch(() => {});
     }

@@ -994,25 +994,34 @@ function renderAlmanac(a, container) {
   if (!a || !container) return;
   container.innerHTML = '';
 
+  function badgedSpan(badgeText, badgeClass, body) {
+    const wrap = document.createElement('span');
+    const badge = document.createElement('span');
+    badge.className = badgeClass;
+    badge.textContent = badgeText;
+    wrap.appendChild(badge);
+    wrap.appendChild(document.createTextNode(body));
+    return wrap;
+  }
+
   // 宜
   if (a.yi?.length) {
-    const yiSpan = document.createElement('span');
-    yiSpan.innerHTML = `<span class="almanac-yi-label">宜</span>${a.yi.slice(0, 5).join(' ')}`;
-    container.appendChild(yiSpan);
+    container.appendChild(badgedSpan('宜', 'almanac-yi-label', a.yi.slice(0, 5).join(' ')));
     container.appendChild(makeSep());
   }
   // 忌
   if (a.ji?.length) {
-    const jiSpan = document.createElement('span');
-    jiSpan.innerHTML = `<span class="almanac-ji-label">忌</span>${a.ji.slice(0, 5).join(' ')}`;
-    container.appendChild(jiSpan);
+    container.appendChild(badgedSpan('忌', 'almanac-ji-label', a.ji.slice(0, 5).join(' ')));
     container.appendChild(makeSep());
   }
   // 黄道/黑道
   if (a.shen_type) {
     const shenSpan = document.createElement('span');
-    const cls = a.shen_type === '黄道' ? 'huang' : 'hei';
-    shenSpan.innerHTML = `<span class="almanac-shen ${cls}">${a.shen_type}日</span>${a.shen_name ? ' ' + a.shen_name : ''}`;
+    const badge = document.createElement('span');
+    badge.className = 'almanac-shen ' + (a.shen_type === '黄道' ? 'huang' : 'hei');
+    badge.textContent = a.shen_type + '日';
+    shenSpan.appendChild(badge);
+    if (a.shen_name) shenSpan.appendChild(document.createTextNode(' ' + a.shen_name));
     container.appendChild(shenSpan);
   }
 
@@ -1166,7 +1175,7 @@ function renderCountdowns() {
     if (!next) continue;
     const fr = cache.meta?.freshness;
     const srcOnline = fr === 'fresh' || fr === 'stale';
-    const tip = srcTooltip(cache.meta).replace(/"/g, '&quot;');
+    const tip = escAttr(srcTooltip(cache.meta));
     const srcBadge = `<span class="holiday-src ${srcOnline ? 'holiday-src-online' : 'holiday-src-local'}" title="${tip}">${srcOnline ? '在线' : '本地'}</span>`;
     const flagImg = `<img src="https://flagcdn.com/16x12/${code.toLowerCase()}.png" width="16" height="12" style="vertical-align:middle;border-radius:2px;margin-right:2px;" alt="${code}">`;
 
@@ -1349,24 +1358,53 @@ function renderWeather() {
   refreshWeather().catch(() => { weatherEl.textContent = '天气 --'; });
 }
 
-// 构建 IP 显示区域（并列内联：国内IP + 国外IP）
+// 构建 IP 显示区域（DOM 操作,避免 XSS——IP API 数据来源不可信）
 function buildIpDisplay(domestic, google) {
   const locEl = document.getElementById('ip-loc');
+  locEl.innerHTML = '';
 
-  function entryHtml(label, info) {
-    if (!info) return `<span class="ip-entry"><span class="ip-entry-label">${label}</span>--</span>`;
+  function makeEntry(label, info) {
+    const wrap = document.createElement('span');
+    wrap.className = 'ip-entry';
+
+    const labelEl = document.createElement('span');
+    labelEl.className = 'ip-entry-label';
+    labelEl.textContent = label;
+    wrap.appendChild(labelEl);
+
+    if (!info) {
+      wrap.appendChild(document.createTextNode('--'));
+      return wrap;
+    }
+
+    // 国旗(只允许 2 字母 ISO 代码,避开任何注入)
+    const cc = info.countryCode;
+    if (cc && /^[A-Za-z]{2}$/.test(cc)) {
+      const flag = document.createElement('img');
+      flag.src = 'https://flagcdn.com/16x12/' + cc.toLowerCase() + '.png';
+      flag.width = 16; flag.height = 12;
+      flag.alt = cc;
+      flag.style.cssText = 'vertical-align:middle;border-radius:2px;margin-right:3px;';
+      wrap.appendChild(flag);
+    }
+
+    // 位置文本(textContent,绝不 innerHTML)
     const loc = info.city
-      ? (info.countryCode === 'CN' ? info.city : `${info.city} ${info.country||''}`.trim())
+      ? (cc === 'CN' ? info.city : `${info.city} ${info.country || ''}`.trim())
       : (info.country || '');
-    return `<span class="ip-entry">
-      <span class="ip-entry-label">${label}</span>
-      ${flagImg(info.countryCode)}${loc}<span class="ip-entry-addr">${info.ip}</span>
-    </span>`;
+    if (loc) wrap.appendChild(document.createTextNode(loc));
+
+    // IP 地址
+    const ipEl = document.createElement('span');
+    ipEl.className = 'ip-entry-addr';
+    ipEl.textContent = info.ip || '';
+    wrap.appendChild(ipEl);
+
+    return wrap;
   }
 
-  locEl.innerHTML =
-    entryHtml('国内IP:', domestic) +
-    entryHtml('国外IP:', google);
+  locEl.appendChild(makeEntry('国内IP:', domestic));
+  locEl.appendChild(makeEntry('国外IP:', google));
 }
 
 async function initLocation() {

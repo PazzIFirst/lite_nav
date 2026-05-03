@@ -1,6 +1,6 @@
 FROM node:20-alpine
 
-# 安装 wget 用于构建时拉取 holiday-cn
+# wget 用于构建时拉 holiday-cn 数据 + 容器内 healthcheck
 RUN apk add --no-cache wget ca-certificates
 
 WORKDIR /app
@@ -21,7 +21,15 @@ RUN mkdir -p /app/data/holiday-cn && \
     done && \
     ls -la /app/data/holiday-cn/
 
+# 降权:用 alpine 自带的 node 用户跑
+RUN chown -R node:node /app
+USER node
+
 ENV NODE_ENV=production
 EXPOSE 3000
+
+# 健康检查:容器进程在但卡死时 docker 也能识别
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget -qO /dev/null http://127.0.0.1:3000/api/health || exit 1
 
 CMD ["node", "src/server.js"]

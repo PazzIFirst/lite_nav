@@ -15,7 +15,7 @@ redis.on('connect', () => console.log('[redis] connected'));
 const HOT_PREFIX = 'cache:';
 const LASTGOOD_PREFIX = 'lastgood:';
 
-export async function readThreeState(key, hotTtlSec, builtinFallback) {
+export async function readThreeState(key, builtinFallback) {
   const [hot, lastGood] = await Promise.all([
     redis.get(HOT_PREFIX + key),
     redis.get(LASTGOOD_PREFIX + key),

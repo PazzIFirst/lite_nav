@@ -5,8 +5,6 @@ import redis, { writeBoth } from '../redis.js';
 const KEY = 'finance';
 const HOT_TTL = 60;
 
-const FIN_ITEMS_ORDER = ['usdcny', 'nasdaq', 'sp500', 'djia', 'gold', 'sse', 'szse', 'csi300', 'hsi'];
-
 function fmtNum(n, decimals = 2) {
   if (n == null || isNaN(n)) return '--';
   return n.toLocaleString('zh-CN', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });

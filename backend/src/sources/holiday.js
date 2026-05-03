@@ -97,76 +97,34 @@ async function cnFromPacked(year) {
 // 4. 算法兜底:用 lunar-javascript 算关键节日的农历日期
 //    ⚠ 不含调休信息,但能保证春节/端午/中秋等核心节日永远算得出来
 function cnFromAlgorithm(year) {
-  const out = [];
-  // 元旦
-  out.push({ name: '元旦', s: `${year}-01-01`, e: `${year}-01-01` });
+  const fmt = s => `${s.getYear()}-${String(s.getMonth()).padStart(2,'0')}-${String(s.getDay()).padStart(2,'0')}`;
+  const out = [
+    { name: '元旦',   s: `${year}-01-01`, e: `${year}-01-01` },
+    { name: '劳动节', s: `${year}-05-01`, e: `${year}-05-01` },
+    { name: '国庆节', s: `${year}-10-01`, e: `${year}-10-07` },
+  ];
 
-  // 农历新年(春节)
+  // 农历节日:Lunar.fromYmd(农历年, 月, 日).getSolar()
+  const lunarFestivals = [
+    { name: '春节(农历正月初一)', m: 1,  d: 1  },
+    { name: '端午节(农历五月初五)', m: 5,  d: 5  },
+    { name: '中秋节(农历八月十五)', m: 8,  d: 15 },
+  ];
+  for (const f of lunarFestivals) {
+    try {
+      const date = fmt(lunar.Lunar.fromYmd(year, f.m, f.d).getSolar());
+      out.push({ name: f.name, s: date, e: date });
+    } catch {}
+  }
+
+  // 清明:节气
   try {
-    const cny = Solar.fromYmd(year, 1, 1);
-    // 找正月初一
-    for (let m = 1; m <= 3; m++) {
-      for (let d = 1; d <= 31; d++) {
-        try {
-          const s = Solar.fromYmd(year, m, d);
-          const l = s.getLunar();
-          if (l.getMonth() === 1 && l.getDay() === 1 && l.getYear() === year) {
-            out.push({ name: '春节(农历正月初一)', s: `${year}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`, e: `${year}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}` });
-            break;
-          }
-        } catch {}
-      }
+    const qm = lunar.Lunar.fromDate(new Date(year, 3, 5)).getJieQiTable()['清明'];
+    if (qm) {
+      const date = fmt(qm);
+      out.push({ name: '清明', s: date, e: date });
     }
   } catch {}
-
-  // 清明节(节气日)
-  try {
-    const qm = lunar.SolarUtil ? null : null;
-    // lunar-javascript: 用 Lunar 的 getJieQiTable
-    const ly = lunar.Lunar.fromDate(new Date(year, 3, 5)); // 4 月初找清明
-    const qmDate = ly.getJieQiTable()['清明'];
-    if (qmDate) {
-      out.push({ name: '清明', s: `${year}-${String(qmDate.getMonth()).padStart(2,'0')}-${String(qmDate.getDay()).padStart(2,'0')}`, e: `${year}-${String(qmDate.getMonth()).padStart(2,'0')}-${String(qmDate.getDay()).padStart(2,'0')}` });
-    }
-  } catch {}
-
-  // 劳动节
-  out.push({ name: '劳动节', s: `${year}-05-01`, e: `${year}-05-01` });
-
-  // 端午节(农历五月初五)
-  try {
-    for (let m = 5; m <= 7; m++) {
-      for (let d = 1; d <= 31; d++) {
-        try {
-          const s = Solar.fromYmd(year, m, d);
-          const l = s.getLunar();
-          if (l.getMonth() === 5 && l.getDay() === 5 && l.getYear() === year) {
-            out.push({ name: '端午节(农历五月初五)', s: `${year}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`, e: `${year}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}` });
-            break;
-          }
-        } catch {}
-      }
-    }
-  } catch {}
-
-  // 中秋节(农历八月十五)
-  try {
-    for (let m = 8; m <= 10; m++) {
-      for (let d = 1; d <= 31; d++) {
-        try {
-          const s = Solar.fromYmd(year, m, d);
-          const l = s.getLunar();
-          if (l.getMonth() === 8 && l.getDay() === 15 && l.getYear() === year) {
-            out.push({ name: '中秋节(农历八月十五)', s: `${year}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`, e: `${year}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}` });
-            break;
-          }
-        } catch {}
-      }
-    }
-  } catch {}
-
-  // 国庆节
-  out.push({ name: '国庆节', s: `${year}-10-01`, e: `${year}-10-07` });
 
   return out.length ? out : null;
 }
