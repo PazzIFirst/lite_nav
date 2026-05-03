@@ -4,7 +4,10 @@
 
 services:
   nav-backend:
-    build: .
+    # 方案 A:用 Docker Hub 预构建镜像(默认,推荐;免去本地构建 30s+)
+    image: pazzifirst/lite-nav-backend:latest
+    # 方案 B:从源码自己 build(改了源码再来这条;同时把上面 image: 注释掉)
+    # build: .
     container_name: nav-backend
     restart: unless-stopped
     environment:

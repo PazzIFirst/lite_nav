@@ -85,9 +85,10 @@ cp backend/docker-compose.yml.example backend/docker-compose.yml
 # 编辑 backend/docker-compose.yml,改 REDIS_HOST / REDIS_PASSWORD
 # 注意:1Panel 的 Redis 容器名通常是 1Panel-redis-XXXX,网络是 1panel-network
 
-# 3. 起后端
+# 3. 起后端(默认 pull 预构建镜像,无需本地 build)
 cd backend
-docker compose up -d --build
+docker compose up -d
+# 想改源码自己 build → 编辑 docker-compose.yml,把 image: 注释掉,改用 build: .
 # 看日志确认 OK
 docker logs nav-backend --tail 20
 
@@ -99,6 +100,10 @@ sudo bash deploy-after-1panel-site.sh nav.example.com
 # 脚本会自动检测 OpenResty 容器名;如未识别可显式指定:
 # sudo bash deploy-after-1panel-site.sh nav.example.com 1Panel-openresty-XXXX
 ```
+
+预构建镜像在 Docker Hub:[`pazzifirst/lite-nav-backend`](https://hub.docker.com/r/pazzifirst/lite-nav-backend)
+支持架构:`linux/amd64` + `linux/arm64`(树莓派、Apple Silicon 等也能跑)
+更新到最新版:`docker compose pull && docker compose up -d`
 
 ### 部署步骤(普通 Nginx / Caddy)
 
@@ -254,19 +259,26 @@ lite-nav/
 |           +-- hot.js         # 热榜
 |           +-- weather.js     # 天气(国内/国外分流,内置 446 cityCode)
 |           +-- holiday.js     # 节假日(多国 + 多层 fallback)
-|           +-- holiday-i18n.js # 700+ 条节日中文翻译
+|           +-- holiday-i18n.js # 翻译 loader(从 i18n/*.json 加载)
+|           +-- i18n/          # 21 个 JSON: common.json + 20 国
 |           +-- today.js       # 农历 / 节气 / 老黄历
 |           +-- suggest.js     # 搜索联想
 +-- deploy/
-    +-- openresty-api-snippet.conf.example
-    +-- deploy-after-1panel-site.sh
+|   +-- openresty-api-snippet.conf.example
+|   +-- deploy-after-1panel-site.sh
++-- .github/workflows/
+    +-- docker-publish.yml     # 自动构建 + 推 Docker Hub(需配 secrets)
 ```
 
 ### 加新国家(节假日)
 
 1. 在 `backend/src/sources/holiday.js` 的 `SUPPORTED_COUNTRIES` 数组加一行
-2. 在 `backend/src/sources/holiday-i18n.js` 加翻译表
-3. 重建容器
+2. 在 `backend/src/sources/i18n/` 下新建 `<code>.json`(小写国家代码),内容是 `{ "原文": "中文", ... }`
+3. 重启容器(`docker compose restart` 即可,无需 rebuild,JSON 是运行时加载)
+
+### 改翻译
+
+直接编辑 `backend/src/sources/i18n/<code>.json`,加 / 改键值对,`docker compose restart` 即生效。
 
 ### 加新数据源
 
@@ -280,6 +292,23 @@ async function fromMyApi(/* args */) {
   return /* normalized data */;
 }
 ```
+
+### 自己发布到 Docker Hub(可选,Fork 后想推自己的镜像时)
+
+仓库自带 GitHub Actions workflow `.github/workflows/docker-publish.yml`,默认在以下情况触发:
+
+- 推 `main` 分支(且 `backend/` 有改动)→ 发布 `:latest`
+- 推 `v*` 标签(如 `git tag v1.0.0 && git push --tags`)→ 同时发布 `:latest` `:1.0.0` `:1.0`
+- 在 Actions 页面手动点 Run workflow
+
+需要配置两个 secret(GitHub repo Settings → Secrets and variables → Actions → New repository secret):
+
+| Secret | 值 |
+|---|---|
+| `DOCKERHUB_USERNAME` | 你的 Docker Hub 用户名 |
+| `DOCKERHUB_TOKEN` | Docker Hub Access Token([这里生成](https://hub.docker.com/settings/security)) |
+
+镜像仓库会推到 `<你的 DOCKERHUB_USERNAME>/lite-nav-backend`。配置好后,`docker-compose.yml.example` 里的 `image: pazzifirst/lite-nav-backend:latest` 改成你自己的用户名即可。
 
 ### 改前端
 
