@@ -4,6 +4,8 @@
 > 多源容灾,永不返回空。自部署 / 内网 / 本地皆可。
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+[![Docker Image](https://github.com/PazzIFirst/lite_nav/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/PazzIFirst/lite_nav/actions/workflows/docker-publish.yml)
+[![Docker Pulls](https://img.shields.io/docker/pulls/pazzifirst/lite-nav-backend.svg)](https://hub.docker.com/r/pazzifirst/lite-nav-backend)
 ![Backend: Node.js 20](https://img.shields.io/badge/Backend-Node.js%2020-339933)
 ![Frontend: Vanilla](https://img.shields.io/badge/Frontend-Vanilla%20HTML%2FJS-orange)
 ![Cache: Redis](https://img.shields.io/badge/Cache-Redis-DC382D)
