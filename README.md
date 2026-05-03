@@ -66,7 +66,7 @@ OpenResty           约  30 MB RAM
 | 多源并行合并 | 行情数据并行调东方财富 + 新浪 + 腾讯,每个数据点独立选最优源 |
 | stale-while-revalidate | 旧数据立即返回,后台异步刷新 |
 | 农历完全离线 | `lunar-javascript` 纯算法,无外网依赖,2030 年仍可用 |
-| 节假日 5 层 fallback | 在线 API 至 CDN 至**镜像内打包**(2024-2027) 至 npm 离线包 至 算法推算关键节日 至 内置 |
+| 节假日 5 层 fallback | 在线 API 至 CDN 至**镜像内打包**(2026-2030) 至 npm 离线包 至 算法推算关键节日 至 内置 |
 | 0 SQL 依赖 | 用户偏好走 localStorage,共享数据走 Redis |
 
 ---
@@ -173,7 +173,7 @@ sudo nginx -s reload
 
 | 国家 | 主源 | 备 1 | 备 2 | 离线兜底 |
 |---|---|---|---|---|
-| CN | timor.tech | NateScarlet/holiday-cn (CDN) | **镜像内打包**(2023-2027) | 算法推算(春节/端午/中秋等农历日) + 内置 |
+| CN | timor.tech | NateScarlet/holiday-cn (CDN) | **镜像内打包**(2026-2030,有数据的年份) | 算法推算(春节/端午/中秋等农历日) + 内置 |
 | US/GB/DE/JP/FR/KR/CA/AU/SG/IN/IT/ES/RU/BR/NL/CH/TH/MY/NZ | Nager.Date API | date-holidays npm(完全离线) | — | — |
 
 所有非中文节日名经过手工翻译(覆盖联邦/州/邦级 700+ 条目,如 `Truman Day` → 杜鲁门日(密苏里州)、`Vesak Day` → 卫塞节)。
