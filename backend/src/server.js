@@ -178,6 +178,18 @@ app.get('/api/today', a(async (req, res) => {
 }));
 
 // ===== 天气 =====
+// stale-while-revalidate 不适用:用户访问应该看到最新天气,而不是上次缓存
+// 所以 stale 时和 cache-miss 一样阻塞拉取;加 in-flight 去重防并发刷
+const weatherInflight = new Map();
+async function refreshWeatherDedup(key, runner) {
+  let p = weatherInflight.get(key);
+  if (!p) {
+    p = runner().finally(() => weatherInflight.delete(key));
+    weatherInflight.set(key, p);
+  }
+  await p;
+}
+
 app.get('/api/weather', a(async (req, res) => {
   const { city, lat, lon, label } = req.query;
 
@@ -185,11 +197,10 @@ app.get('/api/weather', a(async (req, res) => {
     const validated = validateCity(city);
     const key = 'weather:' + normalizeCityKey(validated);
     let r = await readThreeState(key, null);
-    if (!r) {
-      await refreshWeatherForCity(validated);
+    // 缓存空 / stale / fallback 都阻塞拉取
+    if (!r || r.freshness !== 'fresh') {
+      await refreshWeatherDedup(key, () => refreshWeatherForCity(validated));
       r = await readThreeState(key, WEATHER_BUILTIN_FALLBACK);
-    } else if (r.freshness === 'stale' || r.freshness === 'fallback') {
-      refreshWeatherForCity(validated).catch(() => {});
     }
     return res.json(r);
   }
@@ -199,11 +210,9 @@ app.get('/api/weather', a(async (req, res) => {
     const lab = validateShortText(label, 'label', 50);
     const key = `weather:coords:${la},${lo}`;
     let r = await readThreeState(key, null);
-    if (!r) {
-      await refreshWeatherForCoords(la, lo, lab);
+    if (!r || r.freshness !== 'fresh') {
+      await refreshWeatherDedup(key, () => refreshWeatherForCoords(la, lo, lab));
       r = await readThreeState(key, WEATHER_BUILTIN_FALLBACK);
-    } else if (r.freshness === 'stale' || r.freshness === 'fallback') {
-      refreshWeatherForCoords(la, lo, lab).catch(() => {});
     }
     return res.json(r);
   }
