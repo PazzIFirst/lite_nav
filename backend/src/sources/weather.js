@@ -454,21 +454,43 @@ const CN_CITY_CODES = {
   '齐齐哈尔': '101050201',
   '龙岩': '101230701',
 };
+// W-008 修复:增强 normalize 规则,处理多字行政区后缀
 function lookupCnCode(name) {
   if (!name) return null;
   if (CN_CITY_CODES[name]) return CN_CITY_CODES[name];
-  // 容错:去掉"市/省/区"后缀
-  const trimmed = name.replace(/[市省区县]$/, '');
-  return CN_CITY_CODES[trimmed] || null;
+  // 依次去除多字 / 单字行政区后缀
+  const candidates = [
+    name,
+    name.replace(/(自治区|自治州|特别行政区|地区|县级市|省辖市|盟|旗)$/, ''),
+    name.replace(/[市省区县盟州]$/, ''),
+    name.replace(/[市省区县盟州]+$/g, ''),
+  ];
+  for (const c of candidates) {
+    if (c && CN_CITY_CODES[c]) return CN_CITY_CODES[c];
+  }
+  return null;
 }
 
+// W-005 修复:补全 WMO 天气码
 function wmoText(c) {
   return {
-    0: '晴', 1: '少云', 2: '多云', 3: '阴', 45: '雾',
-    51: '小雨', 53: '小雨', 55: '中雨', 61: '小雨', 63: '中雨', 65: '大雨',
-    71: '小雪', 73: '中雪', 75: '大雪', 80: '阵雨', 81: '阵雨', 82: '暴雨',
-    95: '雷雨', 99: '强雷暴',
+    0: '晴', 1: '少云', 2: '多云', 3: '阴',
+    45: '雾', 48: '雾凇',
+    51: '毛毛雨', 53: '小雨', 55: '中雨',
+    56: '冻雨(轻)', 57: '冻雨',
+    61: '小雨', 63: '中雨', 65: '大雨',
+    66: '冻雨(轻)', 67: '冻雨',
+    71: '小雪', 73: '中雪', 75: '大雪',
+    77: '雪粒',
+    80: '阵雨', 81: '阵雨', 82: '暴雨',
+    85: '阵雪', 86: '强阵雪',
+    95: '雷雨', 96: '雷雨夹冰雹', 99: '强雷暴',
   }[c] ?? '--';
+}
+
+// W-002 修复:weather key normalize(trim+小写,长度限制)
+function normalizeCityKey(name) {
+  return String(name || '').trim().replace(/\s+/g, ' ').toLowerCase().slice(0, 50);
 }
 
 async function geocode(name) {
@@ -483,21 +505,26 @@ async function geocode(name) {
 }
 
 // 中国天气网(itboy 镜像)— 国内城市数据来自国家气象局,准确度高于 Open-Meteo
+// W-001 修复:优先 HTTPS,失败再 HTTP
 function makeItboySource(cityName) {
   return async () => {
     const code = lookupCnCode(cityName);
     if (!code) return null;
-    const r = await fetchT(`http://t.weather.itboy.net/api/weather/city/${code}`, { timeout: 5000 });
-    const d = await r.json();
-    if (d?.status !== 200 || !d?.data) return null;
-    const today = d.data.forecast?.[0];
-    const type  = today?.type || '';
-    const wendu = d.data.wendu;
-    if (!type && !wendu) return null;
-    return {
-      text: `${type} ${wendu}°`.trim(),
-      city: d.cityInfo?.city || cityName,
+    const tryFetch = async (proto) => {
+      const r = await fetchT(`${proto}://t.weather.itboy.net/api/weather/city/${code}`, { timeout: 5000 });
+      const d = await r.json();
+      if (d?.status !== 200 || !d?.data) return null;
+      const today = d.data.forecast?.[0];
+      const type  = today?.type || '';
+      const wendu = d.data.wendu;
+      if (!type && !wendu) return null;
+      return {
+        text: `${type} ${wendu}°`.trim(),
+        city: d.cityInfo?.city || cityName,
+      };
     };
+    try { return await tryFetch('https'); }
+    catch { return await tryFetch('http'); }
   };
 }
 
@@ -520,39 +547,51 @@ function makeOpenMeteoSource(getCoords) {
 
 function makeWttrSource(query) {
   return async () => {
-    const r = await fetchT(`https://wttr.in/${encodeURIComponent(query)}?format=j1`, { timeout: 6000 });
+    // W-006 修复:加 lang=zh
+    const r = await fetchT(`https://wttr.in/${encodeURIComponent(query)}?format=j1&lang=zh`, { timeout: 6000 });
     const d = await r.json();
     const cur = d?.current_condition?.[0];
     if (!cur) return null;
     const area = d.nearest_area?.[0]?.areaName?.[0]?.value || query;
+    // wttr.in 中文返回在 lang_zh 字段
+    const desc = cur.lang_zh?.[0]?.value || cur.weatherDesc?.[0]?.value || '';
     return {
-      text: `${cur.weatherDesc?.[0]?.value || ''} ${cur.temp_C}°`,
+      text: `${desc} ${cur.temp_C}°`.trim(),
       city: area,
     };
   };
 }
 
 export async function refreshWeatherForCity(city) {
-  const key = 'weather:' + city.toLowerCase();
-  // 国内城市优先用中国天气网(国家气象局数据),非国内自动跳过到 Open-Meteo
+  // W-002 修复:模块内 normalize
+  const trimmed = String(city || '').trim().replace(/\s+/g, ' ').slice(0, 50);
+  if (!trimmed) return;
+  const key = 'weather:' + normalizeCityKey(trimmed);
   await runAndCache({
     key,
     sources: [
-      { id: 'cn-weather', label: '中国天气网', fn: makeItboySource(city) },
-      { id: 'open-meteo', label: 'Open-Meteo', fn: makeOpenMeteoSource(() => geocode(city)) },
-      { id: 'wttr',       label: 'wttr.in',    fn: makeWttrSource(city) },
+      { id: 'cn-weather', label: '中国天气网', fn: makeItboySource(trimmed) },
+      { id: 'open-meteo', label: 'Open-Meteo', fn: makeOpenMeteoSource(() => geocode(trimmed)) },
+      { id: 'wttr',       label: 'wttr.in',    fn: makeWttrSource(trimmed) },
     ],
     hotTtlSec: HOT_TTL,
   });
 }
 
 export async function refreshWeatherForCoords(lat, lon, label) {
-  const key = `weather:coords:${lat},${lon}`;
+  // W-003/W-004 修复:模块内归一化 + 二次校验
+  const la = Number(lat), lo = Number(lon);
+  if (!Number.isFinite(la) || la < -90  || la > 90)  return;
+  if (!Number.isFinite(lo) || lo < -180 || lo > 180) return;
+  const laNorm = la.toFixed(3);
+  const loNorm = lo.toFixed(3);
+  const labelStr = String(label || '').trim().slice(0, 50);
+  const key = `weather:coords:${laNorm},${loNorm}`;
   await runAndCache({
     key,
     sources: [
-      { id: 'open-meteo', label: 'Open-Meteo', fn: makeOpenMeteoSource(async () => ({ lat, lon, name: label || '' })) },
-      { id: 'wttr',       label: 'wttr.in',    fn: makeWttrSource(`${lat},${lon}`) },
+      { id: 'open-meteo', label: 'Open-Meteo', fn: makeOpenMeteoSource(async () => ({ lat: la, lon: lo, name: labelStr })) },
+      { id: 'wttr',       label: 'wttr.in',    fn: makeWttrSource(`${laNorm},${loNorm}`) },
     ],
     hotTtlSec: HOT_TTL,
   });

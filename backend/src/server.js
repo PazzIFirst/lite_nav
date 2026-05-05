@@ -83,8 +83,9 @@ app.get('/api/finance', a(async (req, res) => {
   if (indices?.data) {
     const perSrc = indices.per_source || {};
     for (const [k, v] of Object.entries(indices.data)) {
-      merged[k] = v;
-      const ps = perSrc[k];
+      // strip _meta 内部字段,只暴露 value/changePct 给前端
+      merged[k] = { value: v.value, changePct: v.changePct };
+      const ps = perSrc[k] || v._meta;
       sources[k] = {
         source:       ps?.source       || indices.source,
         source_label: ps?.source_label || indices.source_label,

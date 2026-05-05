@@ -1,4 +1,4 @@
-// 多国节假日:支持任意 ISO 3166-1 alpha-2 国家代码
+// 多国节假日:支持白名单内的国家代码(见 SUPPORTED_COUNTRIES)
 // CN 走中国专用链(含调休信息);其他国家走 Nager.Date + date-holidays(离线兜底)
 import fs from 'node:fs';
 import path from 'node:path';
@@ -6,11 +6,13 @@ import lunar from 'lunar-javascript';
 import Holidays from 'date-holidays';
 import { fetchT, runAndCache } from '../fetcher.js';
 import { translateHolidayName } from './holiday-i18n.js';
+import { safeDate, safeHttpUrl } from '../safe.js';
 
 const { Solar } = lunar;
 
 const HOT_TTL = 7 * 24 * 3600;
-const PACKED_DATA_DIR = '/app/data/holiday-cn';
+// H-002 修复:打包数据路径走 env,默认仍是 /app/data/holiday-cn 兼容现有 Dockerfile
+const PACKED_DATA_DIR = process.env.PACKED_HOLIDAY_DIR || '/app/data/holiday-cn';
 
 // ===== 国家展示元信息 =====
 export const SUPPORTED_COUNTRIES = [
@@ -62,7 +64,7 @@ async function cnFromTimor(year) {
   const d = await r.json();
   if (!d?.holiday) return null;
   const dates = Object.entries(d.holiday)
-    .filter(([, v]) => v.holiday === true)
+    .filter(([k, v]) => v.holiday === true && /^\d{2}-\d{2}$/.test(k))   // H-010:校验 MM-DD 格式
     .map(([k, v]) => ({ date: `${year}-${k}`, name: v.name }));
   const merged = mergeRanges(dates);
   return merged.length ? merged : null;
@@ -94,17 +96,16 @@ async function cnFromPacked(year) {
   } catch { return null; }
 }
 
-// 4. 算法兜底:用 lunar-javascript 算关键节日的农历日期
-//    ⚠ 不含调休信息,但能保证春节/端午/中秋等核心节日永远算得出来
+// 4. 算法兜底(H-004 修复):仅输出节日当天,**不再写国庆 10/01-10/07** 的虚假调休
+//    实际调休由国务院前一年公告,任何离线方案都无法预测,只标节日本身即可
 function cnFromAlgorithm(year) {
   const fmt = s => `${s.getYear()}-${String(s.getMonth()).padStart(2,'0')}-${String(s.getDay()).padStart(2,'0')}`;
   const out = [
-    { name: '元旦',   s: `${year}-01-01`, e: `${year}-01-01` },
-    { name: '劳动节', s: `${year}-05-01`, e: `${year}-05-01` },
-    { name: '国庆节', s: `${year}-10-01`, e: `${year}-10-07` },
+    { name: '元旦(算法兜底,不含调休)',   s: `${year}-01-01`, e: `${year}-01-01` },
+    { name: '劳动节(算法兜底,不含调休)', s: `${year}-05-01`, e: `${year}-05-01` },
+    { name: '国庆节(算法兜底,不含调休)', s: `${year}-10-01`, e: `${year}-10-01` },
   ];
 
-  // 农历节日:Lunar.fromYmd(农历年, 月, 日).getSolar()
   const lunarFestivals = [
     { name: '春节(农历正月初一)', m: 1,  d: 1  },
     { name: '端午节(农历五月初五)', m: 5,  d: 5  },
@@ -117,7 +118,6 @@ function cnFromAlgorithm(year) {
     } catch {}
   }
 
-  // 清明:节气
   try {
     const qm = lunar.Lunar.fromDate(new Date(year, 3, 5)).getJieQiTable()['清明'];
     if (qm) {
@@ -140,29 +140,36 @@ async function fromNagerDate(country, year) {
   const r = await fetchT(`https://date.nager.at/api/v3/PublicHolidays/${year}/${country}`, { timeout: 6000 });
   const list = await r.json();
   if (!Array.isArray(list) || !list.length) return null;
-  return list.map(h => {
-    const native = h.localName || h.name;
-    return {
-      name: translateHolidayName(country, native),
-      name_native: native,
-      s: h.date,
-      e: h.date,
-    };
-  });
+  return list
+    .filter(h => safeDate(h.date))                     // 校验日期格式
+    .map(h => {
+      const native = h.localName || h.name;
+      return {
+        name: translateHolidayName(country, native),
+        name_native: native,
+        s: h.date.slice(0, 10),                        // H-003:用 ISO 字符串而非 new Date(避免时区漂移)
+        e: h.date.slice(0, 10),
+      };
+    });
 }
 
 // 2. date-holidays npm(完全离线,~200 国家)
 function fromDateHolidaysNpm(country, year) {
   try {
-    // 先取当地语言名(更接近 Nager.Date 的 key)
     const hdLocal = new Holidays(country);
     const localList = hdLocal.getHolidays(year);
     if (!Array.isArray(localList) || !localList.length) return null;
     return localList
       .filter(h => h.type === 'public')
       .map(h => {
-        const d = new Date(h.start);
-        const ymd = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        // H-003 修复:date-holidays 的 h.date 已是字符串,直接 slice 避开 new Date 时区问题
+        const dateStr = typeof h.date === 'string' ? h.date.slice(0, 10) :
+                        (() => {
+                          const d = new Date(h.start);
+                          return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;
+                        })();
+        const ymd = safeDate(dateStr);
+        if (!ymd) return null;
         const native = h.name;
         return {
           name: translateHolidayName(country, native),
@@ -170,7 +177,8 @@ function fromDateHolidaysNpm(country, year) {
           s: ymd,
           e: ymd,
         };
-      });
+      })
+      .filter(Boolean);
   } catch { return null; }
 }
 
@@ -215,10 +223,25 @@ async function fetchYearForCountry(country, year) {
   return null;
 }
 
+// 通用去重 + 排序(H-006/H-007/H-008 修复)
+function dedupAndSort(items) {
+  const seen = new Set();
+  const out = [];
+  for (const h of items) {
+    const key = `${h.name}|${h.s}|${h.e}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(h);
+  }
+  out.sort((a, b) => a.s.localeCompare(b.s));
+  return out;
+}
+
 export async function refreshHolidayForCountry(country) {
   const year = new Date().getFullYear();
   await runAndCache({
     key: `holiday:${country}`,
+    // H-005:source_label 包含真实子源
     sources: [{
       id: 'merged',
       label: '多源合并',
@@ -229,10 +252,20 @@ export async function refreshHolidayForCountry(country) {
         ]);
         const out = [];
         const subs = [];
-        if (cur.status === 'fulfilled' && cur.value)  { out.push(...cur.value.data);  subs.push(`${year}:${cur.value.source}`); }
-        if (next.status === 'fulfilled' && next.value){ out.push(...next.value.data); subs.push(`${year+1}:${next.value.source}`); }
+        if (cur.status === 'fulfilled' && cur.value)   { out.push(...cur.value.data);  subs.push(`${year}:${cur.value.source}`); }
+        if (next.status === 'fulfilled' && next.value) { out.push(...next.value.data); subs.push(`${year+1}:${next.value.source}`); }
         if (!out.length) return null;
-        return { items: out, sub_sources: subs };
+
+        // H-008:所有国家(含 CN)都走 mergeRanges 合并连续假期
+        const merged = mergeRanges(out.map(h => ({ name: h.name, date: h.s, name_native: h.name_native })));
+        // mergeRanges 不保留 name_native,需要重新拼回
+        const final = merged.map(m => {
+          const orig = out.find(h => h.name === m.name && h.s === m.s);
+          return { ...m, name_native: orig?.name_native || m.name };
+        });
+        const items = dedupAndSort(final);
+        const sourceLabel = subs.length ? `多源合并(${subs.join(', ')})` : '多源合并';
+        return { items, sub_sources: subs, source_label_detail: sourceLabel };
       },
     }],
     hotTtlSec: HOT_TTL,
@@ -243,7 +276,19 @@ export async function refreshAllHolidays(countries) {
   await Promise.allSettled((countries || ['CN','US','GB','DE','JP']).map(refreshHolidayForCountry));
 }
 
-// 内置兜底(防止全部失败)
+// 内置兜底(H-009 修复:CN 用算法兜底,其他国家空数组)
+const _now = new Date();
+const _curYear = _now.getFullYear();
+let _builtinCnItems = [];
+try {
+  const cur = cnFromAlgorithm(_curYear);
+  const next = cnFromAlgorithm(_curYear + 1);
+  _builtinCnItems = dedupAndSort([
+    ...(cur || []).map(h => ({ ...h, name_native: h.name })),
+    ...(next || []).map(h => ({ ...h, name_native: h.name })),
+  ]);
+} catch {}
+
 export const HOLIDAY_BUILTIN_FALLBACK = {
-  data: { items: [], sub_sources: ['empty'] },
+  data: { items: _builtinCnItems, sub_sources: ['algorithm-fallback'] },
 };
