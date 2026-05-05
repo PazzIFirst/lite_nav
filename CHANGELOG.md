@@ -1,0 +1,93 @@
+# Changelog
+
+## v1.1.0 — 2026-05-05
+
+第二轮全面代码审计后的安全 + 稳定性 + 隐私加固。涉及 ~95 项修复,5 次独立 commit。
+
+### Security & Privacy
+
+- **CORS** 默认不发(同域反代);通过 `CORS_ORIGIN` env 显式白名单
+- **限流**:`/api/*` 默认 120/min,`/api/hot/x/refresh` 5/min(可配置)
+- **POST /api/hot/x/refresh** 必须配 `REFRESH_TOKEN` env 才启用
+- **输入校验**:city/lat/lon/label/q/country 全部走中央 validators,统一 400 错误
+- **协议白名单**:fetcher 只允许 http(s),前端 site URL 校验同样
+- **响应清洗**:第三方数据进缓存前过 `safeHttpUrl/cleanText/safeNumber/safeDate`
+- **容器降权**:Node 进程跑 `node` 用户(uid 1000)
+- **IP 检测后端代理**:前端不再直连 ipwho.is / ipinfo.io / ip.sb / pconline / ipip — 访客 IP 仅由后端暴露给一家
+- **favicon 代理**:前端不再直接向各域名拉 favicon
+- **国旗本地化**:20 国国旗本地存储,不再依赖 flagcdn.com
+- **localStorage schema 校验**:污染数据被忽略
+- 前端关键 innerHTML 拼接替换为 DOM 操作 + textContent
+
+### Correctness
+
+- **时区**:`/api/today` 直接按北京时间计算(UTC 容器再不会显示昨天)
+- **cron** 全部带 `{ timezone: 'Asia/Shanghai' }`
+- **节假日**:多源结果排序 + 去重(`name|s|e`);所有国家走 `mergeRanges`
+- **finance**:每个数据点带独立 `_meta { source, fetched_at, freshness }`,
+  从 lastgood 继承时不再被伪装成 fresh
+- 数据值合理区间校验(usdcny ∈ [1,20],sse ∈ [500,20000] 等)
+- `Number()` 替代 `parseFloat` + `typeof`,`Number.isFinite()` 替代 `!n` 不再过滤 0
+- **节假日时区漂移**:`date-holidays` / `Nager.Date` 改用 `h.date.slice(0,10)` 而不是 `new Date(...)`
+- **CN 算法兜底**只标节日单天,不再写虚假调休(`国庆 10/01-10/07`)
+- 农历/节气计算修正闰月、节日去重、`getNextJieQi` 单次复用
+
+### Robustness
+
+- **Redis 异常容错**:`safeParse`、`pingRedis`、`writeBoth` 拆开 allSettled — 任一 SET 失败不阻塞
+- **lastgood TTL**:动态 key(weather:*)30 天 TTL,不再无限堆积
+- **fetcher 三段错误分离**:fetch/transform/cache 独立 catch,cache 失败不丢已获取数据
+- **优雅关闭**:SIGTERM/SIGINT 关闭 cron + http + redis,容器干净退出
+- **任务运行锁**:慢网时同 task 多次触发会跳过而非堆积
+- **in-flight Promise 去重**:`/api/holidays?country=X` 并发时只发一次外部请求
+- **stale-while-revalidate**:已存在,行为更明确
+- **Page Visibility API**:浏览器标签页隐藏时,前端 30s 行情 + 5min 热榜轮询暂停
+- 天气并行请求(原本串行),首屏时间提升
+
+### Code Hygiene
+
+- weather.js 561 → 161 行 — 446 城 cityCode 拆到 `data/cn-cities.json`
+- holiday-i18n.js 961 → 43 行 — 翻译表拆到 `i18n/{common,us,gb,...}.json`(v1.0 已做)
+- 删除多个死代码:`FIN_ITEMS_ORDER`、`DOMESTIC_IP_APIS`、`makeBa9Source` 死参 `label`、`cnFromAlgorithm` 内 `lunar.SolarUtil ? null : null`
+- `readThreeState` 删除未使用的 `hotTtlSec` 参数
+
+### New Endpoints
+
+| 路径 | 用途 |
+|---|---|
+| `GET /api/ip` | 后端代理 IP 检测,返回 `{ domestic, google, visitor_ip }` |
+| `GET /api/favicon?domain=X` | 后端代理 favicon |
+
+### New Env Vars
+
+| Env | 默认 | 说明 |
+|---|---|---|
+| `CORS_ORIGIN` | (空,不发 CORS 头) | 逗号分隔的允许 origin 列表 |
+| `RATE_LIMIT_PER_MIN` | 120 | 全局 API 限流 |
+| `REFRESH_LIMIT_PER_MIN` | 5 | 刷新接口单独限流 |
+| `REFRESH_TOKEN` | (空,接口禁用) | 配置后 POST /api/hot/x/refresh 需带 X-Refresh-Token |
+| `HOST` | 0.0.0.0 | 监听 host(可改 127.0.0.1 仅本地) |
+| `DYNAMIC_LASTGOOD_TTL_SEC` | 2592000(30 天) | 天气等动态 key 的 lastgood TTL |
+| `FETCH_MAX_BODY_BYTES` | 2097152(2MB) | 第三方响应最大 body |
+| `PACKED_HOLIDAY_DIR` | /app/data/holiday-cn | 容器内打包节假日数据路径 |
+
+### New Dependencies
+
+- `express-rate-limit ^7.4.1`
+
+### 推迟到 v2
+
+工作量过大、需要架构级讨论的 issue:
+
+- F-012 配置导入/导出
+- F-016 CSP 严格模式(需要把 inline JS/CSS 抽出来)
+- F-017 移动端 sidebar 改成可折叠面板
+- F-018 启动初屏延迟加载
+- M-005 腾讯财经字段固定 schema + fixture 测试
+- X-004 完整的 vitest 测试套件
+
+---
+
+## v1.0.0 — 2026-05-03
+
+首个稳定版本,详见 [Release Notes](https://github.com/PazzIFirst/lite_nav/releases/tag/v1.0.0)。

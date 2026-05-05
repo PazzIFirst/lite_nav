@@ -4,6 +4,7 @@
 > 多源容灾,永不返回空。自部署 / 内网 / 本地皆可。
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+[![Version](https://img.shields.io/github/v/release/PazzIFirst/lite_nav.svg)](https://github.com/PazzIFirst/lite_nav/releases)
 [![Docker Image](https://github.com/PazzIFirst/lite_nav/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/PazzIFirst/lite_nav/actions/workflows/docker-publish.yml)
 [![Docker Pulls](https://img.shields.io/docker/pulls/pazzifirst/lite-nav-backend.svg)](https://hub.docker.com/r/pazzifirst/lite-nav-backend)
 ![Backend: Node.js 20](https://img.shields.io/badge/Backend-Node.js%2020-339933)
@@ -214,13 +215,33 @@ sudo nginx -s reload
 
 ### 后端环境变量(`backend/docker-compose.yml`)
 
+#### 必需
+
 | 变量 | 默认 | 说明 |
 |---|---|---|
 | `PORT` | 3000 | 后端监听端口 |
+| `HOST` | 0.0.0.0 | 监听 host(可改 127.0.0.1 仅本地) |
 | `REDIS_HOST` | redis | Redis 主机/容器名 |
 | `REDIS_PORT` | 6379 | Redis 端口 |
 | `REDIS_PASSWORD` | (无) | Redis 密码 |
 | `TZ` | Asia/Shanghai | 时区 |
+
+#### 可选(安全 / 限流)
+
+| 变量 | 默认 | 说明 |
+|---|---|---|
+| `CORS_ORIGIN` | 空 | 逗号分隔的允许 origin。同域反代不需要;跨域才填 |
+| `RATE_LIMIT_PER_MIN` | 120 | `/api/*` 全局限流 |
+| `REFRESH_LIMIT_PER_MIN` | 5 | `/api/hot/x/refresh` 单独限流 |
+| `REFRESH_TOKEN` | 空(接口禁用) | 配置后 POST 刷新接口需带 `X-Refresh-Token` 头 |
+
+#### 可选(缓存 / 抓取)
+
+| 变量 | 默认 | 说明 |
+|---|---|---|
+| `DYNAMIC_LASTGOOD_TTL_SEC` | 2592000 | 天气等动态 key 的 lastgood TTL(30 天) |
+| `FETCH_MAX_BODY_BYTES` | 2097152 | 第三方响应最大 body(2MB) |
+| `PACKED_HOLIDAY_DIR` | /app/data/holiday-cn | 容器内节假日数据路径 |
 
 ### 前端用户偏好(浏览器 localStorage,无需配置)
 
