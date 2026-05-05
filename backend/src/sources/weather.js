@@ -58,13 +58,25 @@ function normalizeCityKey(name) {
 }
 
 async function geocode(name) {
+  // W-007 修复:取 5 个候选,智能选最合适(避开 Open-Meteo 数据集里的拼音脏值)
   const r = await fetchT(
-    `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(name)}&count=1&language=zh&format=json`,
+    `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(name)}&count=5&language=zh&format=json`,
     { timeout: 5000 }
   );
   const d = await r.json();
-  const hit = d?.results?.[0];
-  if (!hit) return null;
+  const results = d?.results || [];
+  if (!results.length) return null;
+  const lowerInput = String(name).toLowerCase();
+  const isCn    = s => /[一-鿿]/.test(s || '');
+  const isAscii = s => /^[\x20-\x7e]+$/.test(s || '');
+  // 优先级(language=zh 下中文 name 是规范的):
+  //   中文 name → 精确匹配输入 → 纯英文 name → 第一个
+  // 同名城市存在(如新加坡 vs 南非 Singapore)时,exact 反而会选错;
+  // language=zh 数据集第一个中文 name 通常就是用户预期那个
+  const cn    = results.find(r => isCn(r.name));
+  const exact = results.find(r => (r.name || '').toLowerCase() === lowerInput);
+  const en    = results.find(r => isAscii(r.name));
+  const hit = cn || exact || en || results[0];
   return { lat: hit.latitude, lon: hit.longitude, name: hit.name };
 }
 
