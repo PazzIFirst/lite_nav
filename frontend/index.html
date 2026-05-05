@@ -654,8 +654,12 @@ const FAVICON_OVERRIDES = {
   'npmjs.com':           'https://www.google.com/s2/favicons?sz=32&domain=npmjs.com',
 };
 
+// F-014:favicon 走后端代理(避开向各网站直接发请求暴露访问行为)
 function faviconUrl(domain) {
-  return FAVICON_OVERRIDES[domain] || `https://${domain}/favicon.ico`;
+  if (FAVICON_OVERRIDES[domain]) return FAVICON_OVERRIDES[domain];
+  // 域名规范化(只保留合法字符)
+  const safe = domain.toLowerCase().replace(/[^a-z0-9.-]/g, '');
+  return `/api/favicon?domain=${encodeURIComponent(safe)}`;
 }
 
 function engineFavicon(e) {
@@ -1222,7 +1226,7 @@ function renderCountdowns() {
   }
   function makeFlagImg(code) {
     const img = document.createElement('img');
-    img.src = `https://flagcdn.com/16x12/${code.toLowerCase()}.png`;
+    img.src = `flags/${code.toLowerCase()}.png`;
     img.width = 16; img.height = 12; img.alt = code;
     img.style.cssText = 'vertical-align:middle;border-radius:2px;margin-right:2px;';
     return img;
@@ -1381,24 +1385,10 @@ loadHolidayCountries().then(loadAllSelectedCountries);
 function flagImg(code) {
   if (!code || code.length !== 2) return '';
   const c = code.toLowerCase();
-  return `<img src="https://flagcdn.com/16x12/${c}.png" width="16" height="12" style="vertical-align:middle;border-radius:2px;margin-right:3px;" alt="${c}">`;
+  return `<img src="flags/${c}.png" width="16" height="12" style="vertical-align:middle;border-radius:2px;margin-right:3px;" alt="${c}">`;
 }
 
-// ── 国内 IP 检测（专用国内服务器，split-tunnel 代理不经过，返回真实 ISP IP）──
-// pconline: {ip, pro, city, addr, err}
-// ipip.net: 纯文本 "当前 IP：x.x.x.x  来自于：中国 广东省 东莞市  电信"
-const DOMESTIC_IP_APIS = [
-  { url: 'https://whois.pconline.com.cn/ipJson.jsp?json=true',
-    parse: d => d.ip && !d.err && { ip:d.ip, city:d.city||d.pro, country:'中国', countryCode:'CN' } },
-  { url: 'https://myip.ipip.net',
-    text: true,
-    parse: t => {
-      const ip  = (t.match(/当前 IP[：:]\s*([\d.]+)/) || [])[1];
-      const loc = (t.match(/来自于[：:]\s*\S+\s+\S+\s+(\S+)/) || [])[1]; // 省份后的城市
-      return ip ? { ip, city: loc||'', country:'中国', countryCode:'CN' } : null;
-    }
-  },
-];
+// IP 检测改走后端 /api/ip(F-013)— 前端不再向第三方 IP 服务直接发请求
 
 
 // 天气数据从 /api/weather 获取(后端已含主备 + Redis 缓存)
@@ -1479,7 +1469,10 @@ function buildIpDisplay(domestic, google) {
     const cc = info.countryCode;
     if (cc && /^[A-Za-z]{2}$/.test(cc)) {
       const flag = document.createElement('img');
-      flag.src = 'https://flagcdn.com/16x12/' + cc.toLowerCase() + '.png';
+      const lc = cc.toLowerCase();
+      flag.src = 'flags/' + lc + '.png';
+      // 不在本地 20 国时降级到 flagcdn
+      flag.onerror = () => { flag.onerror = null; flag.src = 'https://flagcdn.com/16x12/' + lc + '.png'; };
       flag.width = 16; flag.height = 12;
       flag.alt = cc;
       flag.style.cssText = 'vertical-align:middle;border-radius:2px;margin-right:3px;';
@@ -1509,61 +1502,26 @@ async function initLocation() {
   const locEl = document.getElementById('ip-loc');
   locEl.textContent = '定位中…';
 
-  // 国内 IP（国内服务器，split-tunnel 代理不拦截，得到真实 ISP IP）
-  async function detectDomestic() {
-    for (const api of DOMESTIC_IP_APIS) {
-      try {
-        const res = await fetchT(api.url, 4000);
-        const info = api.parse(api.text ? await res.text() : await res.json());
-        if (info?.ip) return info;
-      } catch {}
-    }
-    return null;
-  }
-
-  // 国外 IP：境外服务（走代理出口）
-  async function detectGoogle() {
-    // 三个 IP API 并发竞速,谁先返回用谁(原串行最坏 12s)
-    const apis = [
-      { url:'https://ipwho.is/',      parse:d=>d.success&&{ip:d.ip,city:d.city||d.region,country:d.country,countryCode:d.country_code} },
-      { url:'https://ipinfo.io/json', parse:d=>d.ip&&{ip:d.ip,city:d.city||d.region,country:d.country,countryCode:d.country} },
-      { url:'https://ip.sb/geoip',    parse:d=>d.ip&&{ip:d.ip,city:d.city||d.region,country:d.country,countryCode:d.country_code} },
-    ];
-    const wrapped = apis.map(async api => {
-      const res = await fetchT(api.url, 4000);
-      const info = api.parse(await res.json());
-      if (!info?.ip) throw new Error('empty');
-      return info;
-    });
-    try { return await Promise.any(wrapped); }
-    catch { return null; }
-  }
-
+  // F-013:走后端 /api/ip,前端不再直连第三方 IP 服务,避免暴露访客 IP 给多家
   let domesticInfo = null, googleInfo = null;
+  try {
+    const r = await apiGet('/api/ip');
+    domesticInfo = r?.data?.domestic || null;
+    googleInfo   = r?.data?.google   || null;
+  } catch {}
 
-  // 国内 IP 先获取（用于天气）
-  domesticInfo = await detectDomestic();
-
-  if (!domesticInfo) {
+  if (!domesticInfo && !googleInfo) {
     locEl.textContent = '定位失败';
-    // F-004:即使 IP 失败,也仍尝试用户手动设置的 wxCity1/wxCity2 渲染天气
-    renderWeather();
+    renderWeather();   // F-004:仍尝试 wxCity1/wxCity2
     return;
   }
 
-  // 拿到城市,后端会做 geocoding
-  ipCity = domesticInfo.city || '';
+  // 拿到城市,用于天气查询
+  ipCity = (domesticInfo?.city) || (googleInfo?.city) || '';
   if (ipCity) document.getElementById('autoCity').placeholder = ipCity;
   renderWeather();
 
-  // 渲染（国外待定）
-  buildIpDisplay(domesticInfo, null);
-
-  // 国外 IP 异步检测后更新
-  detectGoogle().then(r => {
-    googleInfo = r;
-    buildIpDisplay(domesticInfo, googleInfo);
-  });
+  buildIpDisplay(domesticInfo, googleInfo);
 }
 
 const wxModal=document.getElementById('weatherModal');

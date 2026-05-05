@@ -8,6 +8,7 @@ import { WEATHER_BUILTIN_FALLBACK, refreshWeatherForCity, refreshWeatherForCoord
 import { HOLIDAY_BUILTIN_FALLBACK, SUPPORTED_COUNTRIES, refreshHolidayForCountry } from './sources/holiday.js';
 import { getSuggestions } from './sources/suggest.js';
 import { computeTodayInfo } from './sources/today.js';
+import { lookupIp } from './sources/ip.js';
 import {
   ValidationError,
   validateCity, normalizeCityKey, validateLatLon,
@@ -208,6 +209,52 @@ app.get('/api/weather', a(async (req, res) => {
   }
 
   res.status(400).json({ error: 'need city or lat/lon' });
+}));
+
+// ===== IP 检测(F-013:走后端代理,前端不再直连第三方)=====
+app.get('/api/ip', a(async (req, res) => {
+  // 从反代头拿真实访客 IP(server.js 已 trust proxy)
+  const visitor = req.ip;
+  const r = await lookupIp(visitor);
+  res.json({
+    data: r,
+    visitor_ip: visitor,
+    fetched_at: Date.now(),
+    freshness: 'fresh',
+  });
+}));
+
+// ===== favicon 后端代理(F-014)=====
+const faviconCache = new Map();
+const FAVICON_TTL = 7 * 24 * 3600 * 1000;
+app.get('/api/favicon', a(async (req, res) => {
+  const domain = String(req.query.domain || '').toLowerCase()
+    .replace(/[^a-z0-9.-]/g, '').slice(0, 100);
+  if (!domain || !/^[a-z0-9][a-z0-9.-]+\.[a-z]{2,}$/.test(domain)) {
+    return res.status(400).end();
+  }
+  const cached = faviconCache.get(domain);
+  if (cached && Date.now() - cached.ts < FAVICON_TTL) {
+    res.setHeader('Content-Type', cached.contentType);
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    return res.end(cached.body);
+  }
+  // 用 Google s2 代理(支持任意域名)
+  try {
+    const r = await fetch(`https://www.google.com/s2/favicons?sz=32&domain=${domain}`, {
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const ct = r.headers.get('content-type') || 'image/png';
+    const buf = Buffer.from(await r.arrayBuffer());
+    if (faviconCache.size > 500) faviconCache.delete(faviconCache.keys().next().value);
+    faviconCache.set(domain, { body: buf, contentType: ct, ts: Date.now() });
+    res.setHeader('Content-Type', ct);
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.end(buf);
+  } catch {
+    res.status(502).end();
+  }
 }));
 
 // ===== 搜索联想 =====
