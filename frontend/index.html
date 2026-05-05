@@ -1498,41 +1498,22 @@ function buildIpDisplay(domestic, google) {
   locEl.appendChild(makeEntry('国外IP:', google));
 }
 
-// 国内 IP 必须前端直连(浏览器 split-tunnel 代理不会拦截 pconline 这类国内域名,
-// 拿到的是用户真实国内 ISP IP — 后端代理拿不到这个,因为出口走的是服务器自己的网)
-async function detectDomestic() {
-  const apis = [
-    {
-      url: 'https://whois.pconline.com.cn/ipJson.jsp?json=true',
-      parse: d => d?.ip && !d?.err && {
-        ip: d.ip, city: d.city || d.pro, country: '中国', countryCode: 'CN',
-      },
-    },
-  ];
-  for (const api of apis) {
-    try {
-      const res = await fetchT(api.url, 4000);
-      if (!res.ok) continue;
-      const info = api.parse(await res.json());
-      if (info?.ip) return info;
-    } catch {}
-  }
-  return null;
-}
-
+// IP 检测:仅走后端 /api/ip(pconline/ipip 不支持 CORS,前端跨域调被拦,无法拿到)
+// - 用户无代理:visitor IP = 真实国内 IP,两个槽位显示同一个 IP
+// - 用户用 split-tunnel 代理:visitor IP = 代理出口,国内 IP 槽位显示 --(浏览器侧无法绕开 CORS 拿真实 ISP IP)
 async function initLocation() {
   const locEl = document.getElementById('ip-loc');
   locEl.textContent = '定位中…';
 
-  // 国内 IP 走前端直连(拿到 ISP 真实 IP);国外 IP 走后端代理(拿到代理出口 IP)
-  // 两路并行,任一拿到都先渲染
   let domesticInfo = null, googleInfo = null;
-  const [domRes, ipRes] = await Promise.allSettled([
-    detectDomestic(),
-    apiGet('/api/ip'),
-  ]);
-  if (domRes.status === 'fulfilled') domesticInfo = domRes.value;
-  if (ipRes.status  === 'fulfilled') googleInfo   = ipRes.value?.data?.google || null;
+  try {
+    const r = await apiGet('/api/ip');
+    googleInfo = r?.data?.google || null;
+    // 如果 visitor IP 国家代码是 CN,这就是用户的真实国内 IP,复制到 domestic 槽位
+    if (googleInfo?.countryCode === 'CN') {
+      domesticInfo = { ...googleInfo, country: '中国' };
+    }
+  } catch {}
 
   if (!domesticInfo && !googleInfo) {
     locEl.textContent = '定位失败';
