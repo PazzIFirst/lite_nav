@@ -1,7 +1,7 @@
 {
   "name": "nav-backend",
-  "version": "1.0.0",
-  "description": "Backend for hi.xzsjno1.com nav page — caches third-party APIs in Redis with multi-fallback",
+  "version": "1.1.0",
+  "description": "Backend for lite-nav — caches third-party APIs in Redis with multi-fallback",
   "main": "src/server.js",
   "type": "module",
   "scripts": {
@@ -13,7 +13,8 @@
     "node-cron": "^3.0.3",
     "iconv-lite": "^0.6.3",
     "lunar-javascript": "^1.7.7",
-    "date-holidays": "^3.27.0"
+    "date-holidays": "^3.27.0",
+    "express-rate-limit": "^7.4.1"
   },
   "engines": {
     "node": ">=20"
