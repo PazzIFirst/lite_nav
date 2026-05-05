@@ -580,17 +580,31 @@
 // ============================================================
 // 通用：API 调用 + 数据源悬停提示
 // ============================================================
-async function fetchT(url, ms = 5000) {
+// F-002:fetchT 透传 method/body/headers
+async function fetchT(url, ms = 5000, options = {}) {
   const c = new AbortController();
   const t = setTimeout(() => c.abort(), ms);
-  try { const r = await fetch(url, { signal: c.signal }); clearTimeout(t); return r; }
-  catch (e) { clearTimeout(t); throw e; }
+  try {
+    const r = await fetch(url, { ...options, signal: c.signal });
+    return r;
+  } finally {
+    clearTimeout(t);
+  }
 }
 
 async function apiGet(path) {
   const r = await fetchT(path, 8000);
   if (!r.ok) throw new Error('HTTP ' + r.status);
   return r.json();
+}
+
+// F-009 / F-010:协议白名单 URL 校验,防 javascript:/data:
+function safeHttpUrl(url, fallback = '#') {
+  if (!url || typeof url !== 'string') return fallback;
+  try {
+    const u = new URL(url, location.href);
+    return ['http:', 'https:'].includes(u.protocol) ? u.href : fallback;
+  } catch { return fallback; }
 }
 
 function fmtAge(ts) {
@@ -697,7 +711,12 @@ let currentEngine = 'baidu';
   const input = document.getElementById('searchInput');
 
   function getHistory() {
-    try { return JSON.parse(localStorage.getItem(HIST_KEY)) || []; } catch { return []; }
+    try {
+      const v = JSON.parse(localStorage.getItem(HIST_KEY));
+      // F-011:schema 校验,只接受字符串数组
+      if (!Array.isArray(v)) return [];
+      return v.filter(x => typeof x === 'string' && x.length > 0).slice(0, 50);
+    } catch { return []; }
   }
   function saveHistory(h) {
     try { localStorage.setItem(HIST_KEY, JSON.stringify(h)); } catch {}
@@ -759,6 +778,7 @@ let currentEngine = 'baidu';
   form.appendChild(box);
 
   let timer = null, suggs = [], activeIdx = -1;
+  let suggSeq = 0;  // F-005:请求序号防竞态
 
   function open()  { form.classList.add('sug-open'); }
   function close() { form.classList.remove('sug-open'); box.innerHTML = ''; suggs = []; activeIdx = -1; }
@@ -770,18 +790,28 @@ let currentEngine = 'baidu';
 
   function pick(text) {
     input.value = text; close();
+    if (typeof addSearchHistory === 'function') addSearchHistory(text);  // F-006:联想入历史
     const eng = ENGINES.find(e => e.key === currentEngine);
     if (eng && text.trim()) window.open(eng.url + encodeURIComponent(text), '_blank', 'noopener');
   }
 
+  // F-007:用 DOM API + textContent 构建,避免 innerHTML
   function render(list) {
     suggs = list; activeIdx = -1; box.innerHTML = '';
     if (!list.length) { close(); return; }
-    const icon = `<svg class="sug-icon" viewBox="0 0 24 24"><path d="M21.71 20.29l-3.68-3.68A8.5 8.5 0 1 0 17 18l3.68 3.68a1 1 0 0 0 1.41-1.41zM10.5 17a6.5 6.5 0 1 1 0-13 6.5 6.5 0 0 1 0 13z"/></svg>`;
     list.forEach((text, i) => {
       const el = document.createElement('div');
       el.className = 'sug-item';
-      el.innerHTML = icon + `<span>${text.replace(/</g, '&lt;')}</span>`;
+
+      // 内联 SVG 是写死的,可以用 innerHTML
+      const iconWrap = document.createElement('span');
+      iconWrap.innerHTML = '<svg class="sug-icon" viewBox="0 0 24 24"><path d="M21.71 20.29l-3.68-3.68A8.5 8.5 0 1 0 17 18l3.68 3.68a1 1 0 0 0 1.41-1.41zM10.5 17a6.5 6.5 0 1 1 0-13 6.5 6.5 0 0 1 0 13z"/></svg>';
+      el.appendChild(iconWrap.firstChild);
+
+      const textSpan = document.createElement('span');
+      textSpan.textContent = text;  // 严格 textContent
+      el.appendChild(textSpan);
+
       el.addEventListener('mouseover', () => highlight(i));
       el.addEventListener('mousedown', e => { e.preventDefault(); pick(text); });
       box.appendChild(el);
@@ -791,9 +821,13 @@ let currentEngine = 'baidu';
 
   async function fetchSugg(q) {
     if (!q.trim()) { close(); return; }
+    const seq = ++suggSeq;
     try {
       const r = await fetchT(`/api/suggest?q=${encodeURIComponent(q)}`, 4000);
+      if (seq !== suggSeq) return;             // F-005:更晚的请求已发出,丢弃这次结果
+      if (!r.ok) throw new Error('HTTP ' + r.status);  // F-003 同款检查
       const d = await r.json();
+      if (seq !== suggSeq) return;
       const list = Array.isArray(d?.data) ? d.data : [];
       if (!list.length) { close(); return; }
       render(list.slice(0, 8));
@@ -885,7 +919,15 @@ const DEFAULT_CLOCKS = [
   { name:'迪拜',   tz:'Asia/Dubai'         },
 ];
 
-let clockCities = (() => { try { return JSON.parse(localStorage.getItem('clockCities')) || DEFAULT_CLOCKS; } catch { return DEFAULT_CLOCKS; } })();
+let clockCities = (() => {
+  try {
+    const v = JSON.parse(localStorage.getItem('clockCities'));
+    // F-011:必须是 [{name, tz}] 形态
+    if (!Array.isArray(v) || !v.length) return DEFAULT_CLOCKS;
+    const valid = v.filter(x => x && typeof x.name === 'string' && typeof x.tz === 'string');
+    return valid.length ? valid : DEFAULT_CLOCKS;
+  } catch { return DEFAULT_CLOCKS; }
+})();
 
 const clockFmts = {};
 function getClockFmt(tz) {
@@ -1053,7 +1095,11 @@ const DEFAULT_COUNTRIES = ['CN', 'US', 'GB', 'DE', 'JP'];
 function getSelectedCountries() {
   try {
     const s = JSON.parse(localStorage.getItem(COUNTRY_KEY));
-    if (Array.isArray(s) && s.length) return s.slice(0, 5);
+    // F-011:必须是 2 字母大写代码数组
+    if (Array.isArray(s) && s.length) {
+      const valid = s.filter(x => typeof x === 'string' && /^[A-Z]{2}$/.test(x));
+      if (valid.length) return valid.slice(0, 5);
+    }
   } catch {}
   return DEFAULT_COUNTRIES;
 }
@@ -1165,41 +1211,86 @@ function renderCountdowns() {
 
   const parts = [];
 
-  // 各国节假日(用户选中的)
-  // 节日名:中文显示;悬停 tooltip 显示原文 + "点击复制";click 复制原文
-  const escAttr = s => String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+  // 各国节假日(用户选中的)— F-008:全 DOM API,所有动态文本走 textContent
+  row.innerHTML = '';
+  const itemNodes = [];
+
+  function makeCountdownItem() {
+    const sp = document.createElement('span');
+    sp.className = 'countdown-item';
+    return sp;
+  }
+  function makeFlagImg(code) {
+    const img = document.createElement('img');
+    img.src = `https://flagcdn.com/16x12/${code.toLowerCase()}.png`;
+    img.width = 16; img.height = 12; img.alt = code;
+    img.style.cssText = 'vertical-align:middle;border-radius:2px;margin-right:2px;';
+    return img;
+  }
+  function makeSrcBadge(meta) {
+    const fr = meta?.freshness;
+    const srcOnline = fr === 'fresh' || fr === 'stale';
+    const span = document.createElement('span');
+    span.className = 'holiday-src ' + (srcOnline ? 'holiday-src-online' : 'holiday-src-local');
+    span.title = srcTooltip(meta);
+    span.textContent = srcOnline ? '在线' : '本地';
+    return span;
+  }
+  function makeHolidayLabel(next) {
+    const native = next.name_native || next.name;
+    const showNative = native !== next.name;
+    const span = document.createElement('span');
+    span.className = 'holiday-name';
+    span.style.cssText = 'cursor:pointer;text-decoration:underline dotted #bdc1c6;text-underline-offset:2px;';
+    span.title = showNative ? (native + '\n点击复制原文') : '点击复制';
+    span.dataset.copy = native;
+    span.textContent = next.name;
+    span.addEventListener('click', e => { e.stopPropagation(); copyToClipboard(native); });
+    return span;
+  }
+
   for (const code of getSelectedCountries()) {
     const cache = _holidayCache[code];
     if (!cache) continue;
     const next = findNextHoliday(cache.items, today);
     if (!next) continue;
-    const fr = cache.meta?.freshness;
-    const srcOnline = fr === 'fresh' || fr === 'stale';
-    const tip = escAttr(srcTooltip(cache.meta));
-    const srcBadge = `<span class="holiday-src ${srcOnline ? 'holiday-src-online' : 'holiday-src-local'}" title="${tip}">${srcOnline ? '在线' : '本地'}</span>`;
-    const flagImg = `<img src="https://flagcdn.com/16x12/${code.toLowerCase()}.png" width="16" height="12" style="vertical-align:middle;border-radius:2px;margin-right:2px;" alt="${code}">`;
 
-    const native = next.name_native || next.name;
-    const showNative = native !== next.name;
-    const nameTip = showNative ? `${native}\n点击复制原文` : '点击复制';
-    const label = `<span class="holiday-name" data-copy="${escAttr(native)}" title="${escAttr(nameTip)}" style="cursor:pointer;text-decoration:underline dotted #bdc1c6;text-underline-offset:2px;">${escAttr(next.name)}</span>`;
+    const item = makeCountdownItem();
+    item.appendChild(makeFlagImg(code));
 
-    if (next.diff === 0)      parts.push(`<span class="countdown-item">${flagImg}${label}假期中${srcBadge}</span>`);
-    else if (next.diff === 1) parts.push(`<span class="countdown-item">${flagImg}距${label} <b>明天</b>${srcBadge}</span>`);
-    else                      parts.push(`<span class="countdown-item">${flagImg}距${label} <b>${next.diff}天</b>${srcBadge}</span>`);
+    if (next.diff === 0) {
+      item.appendChild(makeHolidayLabel(next));
+      item.appendChild(document.createTextNode('假期中'));
+    } else {
+      item.appendChild(document.createTextNode('距'));
+      item.appendChild(makeHolidayLabel(next));
+      item.appendChild(document.createTextNode(' '));
+      const b = document.createElement('b');
+      b.textContent = next.diff === 1 ? '明天' : `${next.diff}天`;
+      item.appendChild(b);
+    }
+    item.appendChild(makeSrcBadge(cache.meta));
+    itemNodes.push(item);
   }
 
   // 国家选择按钮
-  parts.push(`<span class="countdown-item" id="countryPickerBtn" style="cursor:pointer;color:#1a73e8;" title="自定义国家">⚙ 国家</span>`);
+  const picker = makeCountdownItem();
+  picker.id = 'countryPickerBtn';
+  picker.style.cssText = 'cursor:pointer;color:#1a73e8;';
+  picker.title = '自定义国家';
+  picker.textContent = '⚙ 国家';
+  picker.addEventListener('click', openCountryModal);
+  itemNodes.push(picker);
 
-  row.innerHTML = parts.join('<span class="countdown-sep">·</span>');
-  document.getElementById('countryPickerBtn')?.addEventListener('click', openCountryModal);
-  // 委托:点击节日名复制原文
-  row.querySelectorAll('[data-copy]').forEach(el => {
-    el.addEventListener('click', (e) => {
-      e.stopPropagation();
-      copyToClipboard(el.dataset.copy);
-    });
+  // 用 sep 拼接节点
+  itemNodes.forEach((node, i) => {
+    if (i > 0) {
+      const sep = document.createElement('span');
+      sep.className = 'countdown-sep';
+      sep.textContent = '·';
+      row.appendChild(sep);
+    }
+    row.appendChild(node);
   });
 }
 
@@ -1321,26 +1412,33 @@ async function fetchWeatherViaBackend(query) {
   } catch { return null; }
 }
 
+// F-021:三城天气并行(原本是串行,慢)
 async function refreshWeather() {
-  const parts = [];
-  const tooltipParts = [];
-
-  if (ipCity) {
-    const r = await fetchWeatherViaBackend('city=' + encodeURIComponent(ipCity));
-    if (r?.data?.text) {
-      parts.push(`${r.data.text} ${r.data.city || ipCity}`);
-      tooltipParts.push(`[${r.data.city || ipCity}] ${srcTooltip(r)}`);
-    }
-  }
+  const targets = [];
+  if (ipCity) targets.push({ key: 'auto', city: ipCity });
   for (const k of ['wxCity1', 'wxCity2']) {
     const c = localStorage.getItem(k);
-    if (!c) continue;
-    const r = await fetchWeatherViaBackend('city=' + encodeURIComponent(c));
-    if (r?.data?.text) {
-      parts.push(`${r.data.text} ${r.data.city || c}`);
-      tooltipParts.push(`[${r.data.city || c}] ${srcTooltip(r)}`);
-    }
+    if (c) targets.push({ key: k, city: c });
   }
+
+  if (!targets.length) {
+    weatherEl.textContent = '天气 --';
+    weatherEl.title = '点击设置天气城市';
+    return;
+  }
+
+  const results = await Promise.allSettled(
+    targets.map(t => fetchWeatherViaBackend('city=' + encodeURIComponent(t.city)))
+  );
+
+  const parts = [], tooltipParts = [];
+  results.forEach((res, i) => {
+    if (res.status !== 'fulfilled' || !res.value?.data?.text) return;
+    const r = res.value;
+    const city = r.data.city || targets[i].city;
+    parts.push(`${r.data.text} ${city}`);
+    tooltipParts.push(`[${city}] ${srcTooltip(r)}`);
+  });
 
   if (parts.length) {
     weatherEl.textContent = parts.join('   ');
@@ -1446,7 +1544,12 @@ async function initLocation() {
   // 国内 IP 先获取（用于天气）
   domesticInfo = await detectDomestic();
 
-  if (!domesticInfo) { locEl.textContent = '定位失败'; weatherEl.textContent = '天气 --'; return; }
+  if (!domesticInfo) {
+    locEl.textContent = '定位失败';
+    // F-004:即使 IP 失败,也仍尝试用户手动设置的 wxCity1/wxCity2 渲染天气
+    renderWeather();
+    return;
+  }
 
   // 拿到城市,后端会做 geocoding
   ipCity = domesticInfo.city || '';
@@ -1566,7 +1669,9 @@ async function loadHotList(source, forceRefresh = false) {
   let payload = null;
   try {
     if (forceRefresh) {
-      const r = await fetchT('/api/hot/' + source.id + '/refresh', 8000);
+      // F-001:必须 POST;F-003:检查 r.ok
+      const r = await fetchT('/api/hot/' + source.id + '/refresh', 8000, { method: 'POST' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
       payload = await r.json();
     } else {
       payload = await apiGet('/api/hot/' + source.id);
@@ -1594,7 +1699,7 @@ async function loadHotList(source, forceRefresh = false) {
   items.slice(0, 15).forEach((item, i) => {
     const a = document.createElement('a');
     a.className = 'hot-item';
-    a.href = item.url || source.link;
+    a.href = safeHttpUrl(item.url || source.link, source.link);
     a.target = '_blank';
     a.rel = 'noopener';
 
@@ -1713,7 +1818,26 @@ const DEFAULT_NAV = [
 ];
 
 let navGroups = (() => {
-  try { const s = JSON.parse(localStorage.getItem('navGroups')); if(Array.isArray(s) && s.length) return s; } catch {}
+  // F-011:验证 navGroups 形状
+  try {
+    const s = JSON.parse(localStorage.getItem('navGroups'));
+    if (Array.isArray(s) && s.length) {
+      const valid = s.filter(g =>
+        g && typeof g.id === 'string' && typeof g.title === 'string' &&
+        Array.isArray(g.sites)
+      ).map(g => ({
+        id: g.id,
+        title: g.title.slice(0, 100),
+        sites: g.sites.filter(site =>
+          site && typeof site.name === 'string' && typeof site.url === 'string'
+        ).map(site => ({
+          name: site.name.slice(0, 100),
+          url: site.url.slice(0, 500),
+        })),
+      }));
+      if (valid.length) return valid;
+    }
+  } catch {}
   return DEFAULT_NAV;
 })();
 function saveNav() { localStorage.setItem('navGroups', JSON.stringify(navGroups)); }
@@ -1846,13 +1970,26 @@ document.getElementById('groupSaveBtn').addEventListener('click', () => {
 document.getElementById('siteCancel').addEventListener('click', () => document.getElementById('siteModal').classList.remove('open'));
 document.getElementById('siteModal').addEventListener('click', e => { if(e.target===document.getElementById('siteModal')) document.getElementById('siteModal').classList.remove('open'); });
 document.getElementById('siteSaveBtn').addEventListener('click', () => {
-  const name = document.getElementById('siteName').value.trim();
+  const name = document.getElementById('siteName').value.trim().slice(0, 100);
   let   url  = document.getElementById('siteUrl').value.trim();
   if (!name || !url) return;
-  if (!/^https?:\/\//.test(url)) url = 'https://' + url;
+  // F-010:用 URL constructor 严格校验 + 协议白名单
+  if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+  let validUrl;
+  try {
+    const u = new URL(url);
+    if (!['http:', 'https:'].includes(u.protocol)) {
+      alert('网址必须是 http:// 或 https://');
+      return;
+    }
+    validUrl = u.href;
+  } catch {
+    alert('网址格式无效');
+    return;
+  }
   const { gIdx, sIdx } = siteEditIdx;
-  if (sIdx === -1) navGroups[gIdx].sites.push({ name, url });
-  else             navGroups[gIdx].sites[sIdx] = { name, url };
+  if (sIdx === -1) navGroups[gIdx].sites.push({ name, url: validUrl });
+  else             navGroups[gIdx].sites[sIdx] = { name, url: validUrl };
   saveNav(); renderNavGroups();
   document.getElementById('siteModal').classList.remove('open');
 });
@@ -1865,14 +2002,33 @@ setInterval(() => { updateBJTime(); updateClocks(); }, 1000);
 updateBJTime();
 
 renderNavGroups();
-renderFinance();   // 渲染空骨架
-loadFinance();     // 从后端拉取实际数据
-setInterval(loadFinance, 30000);  // 每 30s 从后端读最新缓存(后端自己会定时刷新)
+renderFinance();
+loadFinance();
 
 initHotLists();
 initLocation();
-// 热榜每 5 分钟从后端读一次最新缓存(后端会自己定时刷新)
-setInterval(() => HOT_SOURCES.forEach(s => loadHotList(s)), 5 * 60 * 1000);
+
+// F-019/F-020:Page Visibility — 标签页隐藏时停止轮询,显示时立刻补一次
+let financeTimer = null, hotTimer = null;
+function startPolling() {
+  if (!financeTimer) {
+    loadFinance();
+    financeTimer = setInterval(loadFinance, 30000);
+  }
+  if (!hotTimer) {
+    HOT_SOURCES.forEach(s => loadHotList(s));
+    hotTimer = setInterval(() => HOT_SOURCES.forEach(s => loadHotList(s)), 5 * 60 * 1000);
+  }
+}
+function stopPolling() {
+  if (financeTimer) { clearInterval(financeTimer); financeTimer = null; }
+  if (hotTimer)     { clearInterval(hotTimer);     hotTimer = null; }
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) stopPolling();
+  else                 startPolling();
+});
+startPolling();
 </script>
 </body>
 </html>
