@@ -1985,21 +1985,29 @@ updateBJTime();
 
 renderNavGroups();
 renderFinance();
-loadFinance();
+// loadFinance 由下方 tickFinance() 首次调用统一处理(避免重复)
 
-initHotLists();
+initHotLists();   // 创建面板骨架并触发首次加载
 initLocation();
 
-// F-019/F-020:Page Visibility — 标签页隐藏时停止轮询,显示时立刻补一次
+// F-019/F-020:Page Visibility — 标签页隐藏时停止轮询,显示时**只在离上次刷新足够久**才补一次
+// 避免快速切窗每次都触发刷新,影响体验
+const FINANCE_INTERVAL = 30 * 1000;       // 30s
+const HOT_INTERVAL     = 5 * 60 * 1000;   // 5min
 let financeTimer = null, hotTimer = null;
+let lastFinanceAt = 0, lastHotAt = 0;
+
+function tickFinance() { loadFinance(); lastFinanceAt = Date.now(); }
+function tickHot()     { HOT_SOURCES.forEach(s => loadHotList(s)); lastHotAt = Date.now(); }
+
 function startPolling() {
   if (!financeTimer) {
-    loadFinance();
-    financeTimer = setInterval(loadFinance, 30000);
+    if (Date.now() - lastFinanceAt > FINANCE_INTERVAL) tickFinance();
+    financeTimer = setInterval(tickFinance, FINANCE_INTERVAL);
   }
   if (!hotTimer) {
-    HOT_SOURCES.forEach(s => loadHotList(s));
-    hotTimer = setInterval(() => HOT_SOURCES.forEach(s => loadHotList(s)), 5 * 60 * 1000);
+    if (Date.now() - lastHotAt > HOT_INTERVAL) tickHot();
+    hotTimer = setInterval(tickHot, HOT_INTERVAL);
   }
 }
 function stopPolling() {
@@ -2010,7 +2018,12 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) stopPolling();
   else                 startPolling();
 });
-startPolling();
+// 首次启动:loadFinance 跑一次(initHotLists 已经触发了热榜首次加载,不再重复),
+// 记录时间戳,然后启动周期性轮询
+tickFinance();
+lastHotAt = Date.now();   // initHotLists 算作"刚刚刷新过"
+financeTimer = setInterval(tickFinance, FINANCE_INTERVAL);
+hotTimer     = setInterval(tickHot,     HOT_INTERVAL);
 </script>
 </body>
 </html>
