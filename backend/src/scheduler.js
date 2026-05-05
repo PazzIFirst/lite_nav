@@ -4,11 +4,25 @@ import { refreshAllHot } from './sources/hot.js';
 import { refreshAllHolidays } from './sources/holiday.js';
 import { refreshToday } from './sources/today.js';
 
-// 预热的国家(默认五大);其他国家按需(用户访问时实时拉)
 const PREWARM_COUNTRIES = ['CN', 'US', 'GB', 'DE', 'JP'];
+const TZ = process.env.TZ || 'Asia/Shanghai';
 
-// 持有 cron 任务句柄,优雅关闭时调用 stop()
 const cronTasks = [];
+
+// 任务运行锁:同任务并发时跳过(T-003 修复)
+function withLock(name, fn) {
+  let running = false;
+  return async () => {
+    if (running) {
+      console.warn(`[scheduler] ${name} still running, skip`);
+      return;
+    }
+    running = true;
+    try { await fn(); }
+    catch (e) { console.error(`[scheduler] ${name} error:`, e?.message || e); }
+    finally { running = false; }
+  };
+}
 
 export function stopScheduler() {
   for (const t of cronTasks) {
@@ -19,31 +33,43 @@ export function stopScheduler() {
 }
 
 export function startScheduler() {
-  console.log('[scheduler] initial fetch...');
+  console.log(`[scheduler] starting (timezone=${TZ})`);
+
+  // 启动时预热(fire-and-forget;ready 状态由 /api/health Redis 检查代理)
   refreshFinance().catch(e => console.error('[scheduler] finance init', e));
   refreshAllHot().catch(e => console.error('[scheduler] hot init', e));
   refreshAllHolidays(PREWARM_COUNTRIES).catch(e => console.error('[scheduler] holidays init', e));
   refreshToday().catch(e => console.error('[scheduler] today init', e));
 
+  const opts = { timezone: TZ };
+
   // 行情:每 30 秒
-  cronTasks.push(cron.schedule('*/30 * * * * *', () => {
-    refreshFinance().catch(e => console.error('[scheduler] finance', e.message));
-  }));
+  cronTasks.push(cron.schedule(
+    '*/30 * * * * *',
+    withLock('finance', refreshFinance),
+    opts,
+  ));
 
   // 热榜:每 5 分钟
-  cronTasks.push(cron.schedule('*/5 * * * *', () => {
-    refreshAllHot().catch(e => console.error('[scheduler] hot', e.message));
-  }));
+  cronTasks.push(cron.schedule(
+    '*/5 * * * *',
+    withLock('hot', refreshAllHot),
+    opts,
+  ));
 
-  // 节假日(常用国家):每天凌晨 3 点
-  cronTasks.push(cron.schedule('0 3 * * *', () => {
-    refreshAllHolidays(PREWARM_COUNTRIES).catch(e => console.error('[scheduler] holidays', e.message));
-  }));
+  // 节假日(常用国家):每天 03:00 北京时间
+  cronTasks.push(cron.schedule(
+    '0 3 * * *',
+    withLock('holidays', () => refreshAllHolidays(PREWARM_COUNTRIES)),
+    opts,
+  ));
 
-  // 今日:每天凌晨 0:01(刚过零点更新农历)
-  cronTasks.push(cron.schedule('1 0 * * *', () => {
-    refreshToday().catch(e => console.error('[scheduler] today', e.message));
-  }));
+  // 今日(占位 — /api/today 现在直接计算,这里仅做周期性 sanity check)
+  cronTasks.push(cron.schedule(
+    '1 0 * * *',
+    withLock('today', refreshToday),
+    opts,
+  ));
 
   console.log('[scheduler] started');
 }
