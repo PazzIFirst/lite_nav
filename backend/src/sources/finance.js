@@ -140,7 +140,22 @@ async function loadFromTencent() {
   return Object.keys(out).length ? out : null;
 }
 
-// 新浪在岸人民币(秒级实时;Frankfurter/ER-API 都是 ECB/T+1 日终)
+// Yahoo Finance USD/CNH(离岸人民币,24h 交易,真正的实时数据)
+// 在岸 CNY 只在工作日盘中更新,周末/盘后会停滞;CNH 与在岸联动紧密但有 24h 流动性
+async function loadFXYahooCNH() {
+  const r = await fetchT('https://query1.finance.yahoo.com/v8/finance/chart/USDCNH=X', { timeout: 5000 });
+  const d = await r.json();
+  const m = d?.chart?.result?.[0]?.meta;
+  if (!m) return null;
+  const price = Number(m.regularMarketPrice);
+  const prev  = Number(m.chartPreviousClose);
+  if (!Number.isFinite(price) || price <= 0) return null;
+  const pct = Number.isFinite(prev) && prev > 0 ? ((price - prev) / prev) * 100 : null;
+  const filled = makeItem('usdcny', price, pct, 'yahoo-cnh', 'Yahoo 离岸 CNH');
+  return filled ? { usdcny: filled } : null;
+}
+
+// 新浪外汇 在岸人民币(工作日盘中更新;盘后/周末停滞,但作为兜底)
 async function loadFXSina() {
   const r = await fetchT('https://hq.sinajs.cn/list=fx_susdcny', {
     timeout: 5000,
@@ -151,12 +166,11 @@ async function loadFXSina() {
   const m = text.match(/hq_str_fx_susdcny="([^"]+)"/);
   if (!m) return null;
   const f = m[1].split(',');
-  // 字段:0=time 1=bid 2=ask 3=current 4=量 5=prev_close 6=high 7=low 8=open 9=name ...
   const price = Number(f[3]);
   const prev  = Number(f[5]);
   if (!Number.isFinite(price) || price <= 0) return null;
   const pct = Number.isFinite(prev) && prev > 0 ? ((price - prev) / prev) * 100 : null;
-  const filled = makeItem('usdcny', price, pct, 'sina-fx', '新浪外汇');
+  const filled = makeItem('usdcny', price, pct, 'sina-cny', '新浪在岸');
   return filled ? { usdcny: filled } : null;
 }
 
@@ -176,7 +190,8 @@ async function loadFXErApi() {
 }
 
 const FX_SOURCES = [
-  { id: 'sina-fx',     label: '新浪外汇',          fn: loadFXSina },
+  { id: 'yahoo-cnh',   label: 'Yahoo 离岸 CNH',    fn: loadFXYahooCNH },
+  { id: 'sina-cny',    label: '新浪在岸',          fn: loadFXSina },
   { id: 'frankfurter', label: 'Frankfurter',     fn: loadFXFrankfurter },
   { id: 'er-api',      label: 'ExchangeRate-API', fn: loadFXErApi },
 ];
