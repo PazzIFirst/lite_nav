@@ -140,22 +140,43 @@ async function loadFromTencent() {
   return Object.keys(out).length ? out : null;
 }
 
+// 新浪在岸人民币(秒级实时;Frankfurter/ER-API 都是 ECB/T+1 日终)
+async function loadFXSina() {
+  const r = await fetchT('https://hq.sinajs.cn/list=fx_susdcny', {
+    timeout: 5000,
+    headers: { 'Referer': 'https://finance.sina.com.cn/' },
+  });
+  const buf = Buffer.from(await r.arrayBuffer());
+  const text = iconv.decode(buf, 'gb18030');
+  const m = text.match(/hq_str_fx_susdcny="([^"]+)"/);
+  if (!m) return null;
+  const f = m[1].split(',');
+  // 字段:0=time 1=bid 2=ask 3=current 4=量 5=prev_close 6=high 7=low 8=open 9=name ...
+  const price = Number(f[3]);
+  const prev  = Number(f[5]);
+  if (!Number.isFinite(price) || price <= 0) return null;
+  const pct = Number.isFinite(prev) && prev > 0 ? ((price - prev) / prev) * 100 : null;
+  const filled = makeItem('usdcny', price, pct, 'sina-fx', '新浪外汇');
+  return filled ? { usdcny: filled } : null;
+}
+
 async function loadFXFrankfurter() {
   const r = await fetchT('https://api.frankfurter.app/latest?from=USD&to=CNY', { timeout: 5000 });
   const d = await r.json();
   if (!d?.rates?.CNY) return null;
-  const filled = makeItem('usdcny', Number(d.rates.CNY), null, 'frankfurter', 'Frankfurter');
+  const filled = makeItem('usdcny', Number(d.rates.CNY), null, 'frankfurter', 'Frankfurter(ECB 日终)');
   return filled ? { usdcny: filled } : null;
 }
 
 async function loadFXErApi() {
   const r = await fetchT('https://open.er-api.com/v6/latest/USD', { timeout: 5000 });
   const d = await r.json();
-  const filled = makeItem('usdcny', Number(d?.rates?.CNY), null, 'er-api', 'ExchangeRate-API');
+  const filled = makeItem('usdcny', Number(d?.rates?.CNY), null, 'er-api', 'ExchangeRate-API(日终)');
   return filled ? { usdcny: filled } : null;
 }
 
 const FX_SOURCES = [
+  { id: 'sina-fx',     label: '新浪外汇',          fn: loadFXSina },
   { id: 'frankfurter', label: 'Frankfurter',     fn: loadFXFrankfurter },
   { id: 'er-api',      label: 'ExchangeRate-API', fn: loadFXErApi },
 ];
@@ -259,7 +280,7 @@ export async function refreshFinance() {
     runAndCache({
       key: KEY + ':fx',
       sources: FX_SOURCES,
-      hotTtlSec: 3600,
+      hotTtlSec: HOT_TTL,   // 60s,跟指数同步
     }),
   ]);
   return {
