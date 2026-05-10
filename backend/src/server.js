@@ -81,11 +81,15 @@ app.get('/api/finance', a(async (req, res) => {
   const merged = { ...(FINANCE_BUILTIN_FALLBACK.data) };
   const sources = {};
 
+  // 通用 strip:删 _ 前缀的内部字段,保留 value / changePct / value_cnh 等非内部字段
+  const stripInternal = v => Object.fromEntries(
+    Object.entries(v).filter(([k]) => !k.startsWith('_'))
+  );
+
   if (indices?.data) {
     const perSrc = indices.per_source || {};
     for (const [k, v] of Object.entries(indices.data)) {
-      // strip _meta 内部字段,只暴露 value/changePct 给前端
-      merged[k] = { value: v.value, changePct: v.changePct };
+      merged[k] = stripInternal(v);
       const ps = perSrc[k] || v._meta;
       sources[k] = {
         source:       ps?.source       || indices.source,
@@ -96,7 +100,7 @@ app.get('/api/finance', a(async (req, res) => {
     }
   }
   if (fx?.data?.usdcny) {
-    merged.usdcny = fx.data.usdcny;
+    merged.usdcny = stripInternal(fx.data.usdcny);
     sources.usdcny = {
       source: fx.source,
       source_label: fx.source_label,

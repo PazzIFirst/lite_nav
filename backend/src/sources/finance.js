@@ -140,10 +140,9 @@ async function loadFromTencent() {
   return Object.keys(out).length ? out : null;
 }
 
-// Yahoo Finance USD/CNH(离岸人民币,24h 交易,真正的实时数据)
-// 在岸 CNY 只在工作日盘中更新,周末/盘后会停滞;CNH 与在岸联动紧密但有 24h 流动性
-async function loadFXYahooCNH() {
-  const r = await fetchT('https://query1.finance.yahoo.com/v8/finance/chart/USDCNH=X', { timeout: 5000 });
+// 通用 Yahoo Finance chart meta 拉取
+async function yahooQuote(symbol) {
+  const r = await fetchT(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}`, { timeout: 5000 });
   const d = await r.json();
   const m = d?.chart?.result?.[0]?.meta;
   if (!m) return null;
@@ -151,11 +150,45 @@ async function loadFXYahooCNH() {
   const prev  = Number(m.chartPreviousClose);
   if (!Number.isFinite(price) || price <= 0) return null;
   const pct = Number.isFinite(prev) && prev > 0 ? ((price - prev) / prev) * 100 : null;
-  const filled = makeItem('usdcny', price, pct, 'yahoo-cnh', 'Yahoo 离岸 CNH');
-  return filled ? { usdcny: filled } : null;
+  const marketTime = Number(m.regularMarketTime) || 0;
+  return { price, pct, marketTime };
 }
 
-// 新浪外汇 在岸人民币(工作日盘中更新;盘后/周末停滞,但作为兜底)
+// 同时拉在岸 + 离岸两个数据源,合并成一个 usdcny 数据点
+// 在岸 CNY 工作日 9:30-23:30 更新,盘后/周末停滞;离岸 CNH 24h 交易(周六 06:00-周日 06:00 北京除外)
+// 数据来自 Yahoo Finance(全球可达,实时性比 sina fx_susdcny 好——后者 5/9 后停摆)
+async function loadFXDual() {
+  const [cnyR, cnhR] = await Promise.allSettled([
+    yahooQuote('USDCNY=X'),
+    yahooQuote('USDCNH=X'),
+  ]);
+  const cny = cnyR.status === 'fulfilled' ? cnyR.value : null;
+  const cnh = cnhR.status === 'fulfilled' ? cnhR.value : null;
+  if (!cny && !cnh) return null;
+
+  // 主显示:优先离岸(实时),fallback 在岸
+  const primary = cnh || cny;
+  const filled = makeItem('usdcny', primary.price, primary.pct,
+    cnh ? 'yahoo-dual' : 'yahoo-cny',
+    cnh && cny ? 'Yahoo 在岸/离岸' : (cnh ? 'Yahoo 离岸 CNH' : 'Yahoo 在岸 CNY'));
+  if (!filled) return null;
+
+  // 副字段:cny + cnh 各自的值 + market 时间(给前端判断"休市")
+  if (cny) {
+    filled.value_cny      = fmtNum(cny.price, 4);
+    filled.changePct_cny  = cny.pct != null && cny.pct >= PCT_MIN && cny.pct <= PCT_MAX ? cny.pct : null;
+    filled.market_time_cny = cny.marketTime;
+  }
+  if (cnh) {
+    filled.value_cnh      = fmtNum(cnh.price, 4);
+    filled.changePct_cnh  = cnh.pct != null && cnh.pct >= PCT_MIN && cnh.pct <= PCT_MAX ? cnh.pct : null;
+    filled.market_time_cnh = cnh.marketTime;
+  }
+  // 主 value 也用 4 位小数(汇率波动很小,需要 4 位才看得到)
+  filled.value = fmtNum(primary.price, 4);
+  return { usdcny: filled };
+}
+
 async function loadFXSina() {
   const r = await fetchT('https://hq.sinajs.cn/list=fx_susdcny', {
     timeout: 5000,
@@ -171,6 +204,7 @@ async function loadFXSina() {
   if (!Number.isFinite(price) || price <= 0) return null;
   const pct = Number.isFinite(prev) && prev > 0 ? ((price - prev) / prev) * 100 : null;
   const filled = makeItem('usdcny', price, pct, 'sina-cny', '新浪在岸');
+  if (filled) filled.value = fmtNum(price, 4);
   return filled ? { usdcny: filled } : null;
 }
 
@@ -190,7 +224,7 @@ async function loadFXErApi() {
 }
 
 const FX_SOURCES = [
-  { id: 'yahoo-cnh',   label: 'Yahoo 离岸 CNH',    fn: loadFXYahooCNH },
+  { id: 'yahoo-dual',  label: 'Yahoo 在岸/离岸',    fn: loadFXDual },
   { id: 'sina-cny',    label: '新浪在岸',          fn: loadFXSina },
   { id: 'frankfurter', label: 'Frankfurter',     fn: loadFXFrankfurter },
   { id: 'er-api',      label: 'ExchangeRate-API', fn: loadFXErApi },

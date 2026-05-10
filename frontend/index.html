@@ -135,6 +135,40 @@
     .fin-up   { color: #34a853; }
     .fin-down { color: #d93025; }
     .fin-flat { color: #9aa0a6; }
+    /* 在岸/离岸双值排版 */
+    .fin-pair {
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 2px 10px;
+      align-items: baseline;
+      flex: 1;
+      min-width: 0;
+    }
+    .fin-pair-leg {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 4px;
+      white-space: nowrap;
+    }
+    .fin-pair-tag {
+      font-size: 10px;
+      color: #80868b;
+      font-weight: 500;
+      padding: 1px 4px;
+      background: #f1f3f4;
+      border-radius: 3px;
+    }
+    .fin-mkt {
+      font-size: 9px;
+      padding: 1px 4px;
+      border-radius: 3px;
+      margin-left: 2px;
+      vertical-align: middle;
+      font-weight: 500;
+    }
+    .fin-mkt-open    { color: #137333; background: #e6f4ea; }
+    .fin-mkt-delayed { color: #b06000; background: #fef7e0; }
+    .fin-mkt-closed  { color: #5f6368; background: #e8eaed; }
     .finance-note {
       font-size: 10px;
       color: #bdc1c6;
@@ -1598,32 +1632,90 @@ function renderFinance() {
   const data    = finPayload?.data    || {};
   const sources = finPayload?.sources || {};
 
+  // 判断市场状态:fetched_at 之前的 market_time(秒)若 > 4 小时 → 休市
+  function marketStateBadge(marketTimeSec) {
+    if (!marketTimeSec) return null;
+    const ageMin = Math.floor((Date.now() / 1000 - marketTimeSec) / 60);
+    if (ageMin < 30) return { type: 'open',   text: '实时', cls: 'fin-mkt-open' };
+    if (ageMin < 4 * 60) return { type: 'delayed', text: '延迟', cls: 'fin-mkt-delayed' };
+    return { type: 'closed', text: '休市', cls: 'fin-mkt-closed' };
+  }
+
+  function changeSpan(pct) {
+    const c = document.createElement('span');
+    c.className = 'fin-change fin-flat';
+    if (pct == null) return c;
+    c.textContent = (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%';
+    c.className = 'fin-change ' + (pct > 0.01 ? 'fin-up' : pct < -0.01 ? 'fin-down' : 'fin-flat');
+    return c;
+  }
+
   for (const item of FIN_ITEMS) {
     const d    = data[item.id];
     const meta = sources[item.id];
 
     const el = document.createElement('div');
     el.className = 'finance-item';
-    const tip = srcTooltip(meta);
-    if (tip) el.title = tip;
 
     const label = document.createElement('span');
     label.className = 'fin-label';
     label.textContent = item.label;
 
-    const value = document.createElement('span');
-    value.className = 'fin-value';
-    value.textContent = d ? d.value : '--';
+    // 美元/人民币 → 在岸 + 离岸双显示
+    if (item.id === 'usdcny' && d?.value_cny && d?.value_cnh) {
+      const dual = document.createElement('span');
+      dual.className = 'fin-pair';
+      const stateCny = marketStateBadge(d.market_time_cny);
+      const stateCnh = marketStateBadge(d.market_time_cnh);
 
-    const change = document.createElement('span');
-    change.className = 'fin-change fin-flat';
-    if (d?.changePct != null) {
-      const pct = d.changePct;
-      change.textContent = (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%';
-      change.className = 'fin-change ' + (pct > 0.01 ? 'fin-up' : pct < -0.01 ? 'fin-down' : 'fin-flat');
+      const onshore = document.createElement('span');
+      onshore.className = 'fin-pair-leg';
+      onshore.innerHTML = '<span class="fin-pair-tag">在岸</span>';
+      const cnyVal = document.createElement('span');
+      cnyVal.className = 'fin-value';
+      cnyVal.textContent = d.value_cny;
+      onshore.appendChild(cnyVal);
+      onshore.appendChild(changeSpan(d.changePct_cny));
+      if (stateCny) {
+        const b = document.createElement('span');
+        b.className = 'fin-mkt ' + stateCny.cls;
+        b.textContent = stateCny.text;
+        onshore.appendChild(b);
+      }
+
+      const offshore = document.createElement('span');
+      offshore.className = 'fin-pair-leg';
+      offshore.innerHTML = '<span class="fin-pair-tag">离岸</span>';
+      const cnhVal = document.createElement('span');
+      cnhVal.className = 'fin-value';
+      cnhVal.textContent = d.value_cnh;
+      offshore.appendChild(cnhVal);
+      offshore.appendChild(changeSpan(d.changePct_cnh));
+      if (stateCnh) {
+        const b = document.createElement('span');
+        b.className = 'fin-mkt ' + stateCnh.cls;
+        b.textContent = stateCnh.text;
+        offshore.appendChild(b);
+      }
+
+      dual.append(onshore, offshore);
+      el.append(label, dual);
+
+      // tooltip:数据源
+      const tip = srcTooltip(meta);
+      if (tip) el.title = tip;
+    } else {
+      // 其他项:原渲染
+      const tip = srcTooltip(meta);
+      if (tip) el.title = tip;
+
+      const value = document.createElement('span');
+      value.className = 'fin-value';
+      value.textContent = d ? d.value : '--';
+
+      el.append(label, value, changeSpan(d?.changePct));
     }
 
-    el.append(label, value, change);
     grid.appendChild(el);
   }
 }
