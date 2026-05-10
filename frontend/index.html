@@ -104,18 +104,18 @@
       flex-wrap: wrap;
       gap: 4px 0;
     }
-    /* 每个 cell 是 5 列内部 grid:label | tag(在岸/离岸) | value | change | 状态徽章 */
+    /* 每个 cell 5 列固定网格:label | tag(在岸/离岸) | value | change | 状态徽章
+       列宽固定 = 跨 cell 内容能纵向对齐(value 在所有 9 个 cell 都从同一 x 偏移开始) */
     .finance-item {
       flex: 0 0 33.333%;
       display: grid;
-      grid-template-columns: minmax(58px, auto) 24px 1fr auto auto;
+      grid-template-columns: 64px 22px 60px 52px 40px;
       align-items: baseline;
       column-gap: 6px;
       padding: 4px 8px;
       border-radius: 6px;
       min-width: 0;
     }
-    /* 普通项:value/change 默认放第 3/4 列,空的列 2 和 5 自动占位 */
     .finance-item:hover { background: #f1f3f4; }
     .fin-label {
       font-size: 11px;
@@ -124,7 +124,7 @@
       flex-shrink: 0;
     }
     .fin-value {
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 500;
       font-variant-numeric: tabular-nums;
       color: #202124;
@@ -1636,6 +1636,65 @@ function renderFinance() {
     return                      { text: '收盘', cls: 'fin-mkt-closed' };
   }
 
+  // 各指数硬编码交易时段(基于北京时间;周末全部收盘)
+  // 返回 { text, cls } 或 null(无法判断)
+  function indexMarketState(id) {
+    // 拿北京时间(分钟,0-1439)+ 星期几(0=日,1=一,...,6=六)
+    const fmt = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Shanghai',
+      weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false,
+    });
+    const parts = Object.fromEntries(fmt.formatToParts(new Date()).map(p => [p.type, p.value]));
+    const dowMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+    const dow = dowMap[parts.weekday];
+    const mins = Number(parts.hour) * 60 + Number(parts.minute);
+    const inRange = (start, end) => mins >= start && mins < end;
+
+    const cnIndex = ['sse', 'szse', 'csi300'].includes(id);
+    const isHsi   = id === 'hsi';
+    const isUs    = ['nasdaq', 'sp500', 'djia'].includes(id);
+    const isGold  = id === 'gold';
+
+    // 周末全部收盘(除美股可能跨日,见下)
+    const isWeekend = dow === 0 || dow === 6;
+
+    if (cnIndex) {
+      if (isWeekend) return { text: '收盘', cls: 'fin-mkt-closed' };
+      // A 股:9:30-11:30, 13:00-15:00 北京
+      if (inRange(9 * 60 + 30, 11 * 60 + 30) || inRange(13 * 60, 15 * 60)) {
+        return { text: '盘中', cls: 'fin-mkt-open' };
+      }
+      return { text: '收盘', cls: 'fin-mkt-closed' };
+    }
+    if (isHsi) {
+      if (isWeekend) return { text: '收盘', cls: 'fin-mkt-closed' };
+      // 港股:9:30-12:00, 13:00-16:00 香港(等于北京)
+      if (inRange(9 * 60 + 30, 12 * 60) || inRange(13 * 60, 16 * 60)) {
+        return { text: '盘中', cls: 'fin-mkt-open' };
+      }
+      return { text: '收盘', cls: 'fin-mkt-closed' };
+    }
+    if (isUs) {
+      // 美股美东 9:30-16:00 = 北京 22:30-05:00(隔日;夏令时偏移 1 小时,这里按常规)
+      // 工作日 22:30-23:59 或 (周二-周六 00:00-05:00)
+      const usOpenSession =
+        (dow >= 1 && dow <= 5 && mins >= 22 * 60 + 30) ||
+        (dow >= 2 && dow <= 6 && mins < 5 * 60);
+      return usOpenSession
+        ? { text: '盘中', cls: 'fin-mkt-open' }
+        : { text: '收盘', cls: 'fin-mkt-closed' };
+    }
+    if (isGold) {
+      // 上海金 9:00-15:30(日盘)+ 20:00-02:30(夜盘)
+      if (isWeekend) return { text: '收盘', cls: 'fin-mkt-closed' };
+      if (inRange(9 * 60, 15 * 60 + 30) || mins >= 20 * 60 || mins < 2 * 60 + 30) {
+        return { text: '盘中', cls: 'fin-mkt-open' };
+      }
+      return { text: '收盘', cls: 'fin-mkt-closed' };
+    }
+    return null;
+  }
+
   function changeSpan(pct) {
     const c = document.createElement('span');
     c.className = 'fin-change fin-flat';
@@ -1683,17 +1742,20 @@ function renderFinance() {
       addRow('在岸', d.value_cny, d.changePct_cny, d.market_time_cny);
       addRow('离岸', d.value_cnh, d.changePct_cnh, d.market_time_cnh);
     } else {
-      // 普通项:label + 占位 tag + value + change + 占位 badge,全部占满 5 列
+      // 普通项:label + 列 2 空 + value + change + 状态徽章
       el.appendChild(label);
-      const tagPlaceholder = document.createElement('span');   // 列 2 占位
+      const tagPlaceholder = document.createElement('span');
       el.appendChild(tagPlaceholder);
       const value = document.createElement('span');
       value.className = 'fin-value';
       value.textContent = d ? d.value : '--';
       el.appendChild(value);
       el.appendChild(changeSpan(d?.changePct));
-      const badgePlaceholder = document.createElement('span'); // 列 5 占位
-      el.appendChild(badgePlaceholder);
+      const state = indexMarketState(item.id);
+      const b = document.createElement('span');
+      b.className = 'fin-mkt ' + (state ? state.cls : '');
+      b.textContent = state ? state.text : '';
+      el.appendChild(b);
     }
 
     grid.appendChild(el);
