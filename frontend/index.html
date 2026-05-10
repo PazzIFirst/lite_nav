@@ -135,40 +135,45 @@
     .fin-up   { color: #34a853; }
     .fin-down { color: #d93025; }
     .fin-flat { color: #9aa0a6; }
-    /* 在岸/离岸双值排版 */
-    .fin-pair {
-      display: inline-flex;
-      flex-wrap: wrap;
-      gap: 2px 10px;
-      align-items: baseline;
-      flex: 1;
-      min-width: 0;
+    /* 在岸/离岸双值:上下两行,标签居左对齐,数字/涨跌幅在两行间内部对齐 */
+    .finance-item-dual {
+      flex-direction: column;
+      align-items: stretch;
+      padding: 4px 8px;
+      gap: 1px;
     }
-    .fin-pair-leg {
+    .finance-item-dual > .fin-label {
+      margin-bottom: 2px;
+    }
+    .fin-dual-row {
       display: inline-flex;
       align-items: baseline;
-      gap: 4px;
+      gap: 6px;
       white-space: nowrap;
     }
     .fin-pair-tag {
       font-size: 10px;
-      color: #80868b;
+      color: #5f6368;
       font-weight: 500;
-      padding: 1px 4px;
-      background: #f1f3f4;
-      border-radius: 3px;
+      min-width: 22px;     /* 在岸/离岸 各 2 字,对齐 */
+      flex-shrink: 0;
+    }
+    .finance-item-dual .fin-value {
+      min-width: 60px;     /* 6.8000 占位,与下一行 6.7985 对齐 */
+    }
+    .finance-item-dual .fin-change {
+      min-width: 52px;     /* -0.01% / -0.11% 对齐 */
     }
     .fin-mkt {
       font-size: 9px;
-      padding: 1px 4px;
+      padding: 1px 5px;
       border-radius: 3px;
-      margin-left: 2px;
       vertical-align: middle;
       font-weight: 500;
     }
-    .fin-mkt-open    { color: #137333; background: #e6f4ea; }
-    .fin-mkt-delayed { color: #b06000; background: #fef7e0; }
-    .fin-mkt-closed  { color: #5f6368; background: #e8eaed; }
+    .fin-mkt-open    { color: #137333; background: #e6f4ea; }   /* 盘中 绿 */
+    .fin-mkt-delayed { color: #b06000; background: #fef7e0; }   /* 延迟 黄 */
+    .fin-mkt-closed  { color: #c5221f; background: #fce8e6; }   /* 收盘 红 */
     .finance-note {
       font-size: 10px;
       color: #bdc1c6;
@@ -1632,13 +1637,13 @@ function renderFinance() {
   const data    = finPayload?.data    || {};
   const sources = finPayload?.sources || {};
 
-  // 判断市场状态:fetched_at 之前的 market_time(秒)若 > 4 小时 → 休市
+  // 市场状态徽章:盘中(绿)/ 延迟(黄)/ 收盘(红)
   function marketStateBadge(marketTimeSec) {
     if (!marketTimeSec) return null;
     const ageMin = Math.floor((Date.now() / 1000 - marketTimeSec) / 60);
-    if (ageMin < 30) return { type: 'open',   text: '实时', cls: 'fin-mkt-open' };
-    if (ageMin < 4 * 60) return { type: 'delayed', text: '延迟', cls: 'fin-mkt-delayed' };
-    return { type: 'closed', text: '休市', cls: 'fin-mkt-closed' };
+    if (ageMin < 30)     return { text: '盘中', cls: 'fin-mkt-open'    };
+    if (ageMin < 4 * 60) return { text: '延迟', cls: 'fin-mkt-delayed' };
+    return                      { text: '收盘', cls: 'fin-mkt-closed' };
   }
 
   function changeSpan(pct) {
@@ -1661,49 +1666,35 @@ function renderFinance() {
     label.className = 'fin-label';
     label.textContent = item.label;
 
-    // 美元/人民币 → 在岸 + 离岸双显示
+    // 美元/人民币 → 上下两行(在岸 / 离岸),tag 居左对齐
     if (item.id === 'usdcny' && d?.value_cny && d?.value_cnh) {
-      const dual = document.createElement('span');
-      dual.className = 'fin-pair';
-      const stateCny = marketStateBadge(d.market_time_cny);
-      const stateCnh = marketStateBadge(d.market_time_cnh);
-
-      const onshore = document.createElement('span');
-      onshore.className = 'fin-pair-leg';
-      onshore.innerHTML = '<span class="fin-pair-tag">在岸</span>';
-      const cnyVal = document.createElement('span');
-      cnyVal.className = 'fin-value';
-      cnyVal.textContent = d.value_cny;
-      onshore.appendChild(cnyVal);
-      onshore.appendChild(changeSpan(d.changePct_cny));
-      if (stateCny) {
-        const b = document.createElement('span');
-        b.className = 'fin-mkt ' + stateCny.cls;
-        b.textContent = stateCny.text;
-        onshore.appendChild(b);
-      }
-
-      const offshore = document.createElement('span');
-      offshore.className = 'fin-pair-leg';
-      offshore.innerHTML = '<span class="fin-pair-tag">离岸</span>';
-      const cnhVal = document.createElement('span');
-      cnhVal.className = 'fin-value';
-      cnhVal.textContent = d.value_cnh;
-      offshore.appendChild(cnhVal);
-      offshore.appendChild(changeSpan(d.changePct_cnh));
-      if (stateCnh) {
-        const b = document.createElement('span');
-        b.className = 'fin-mkt ' + stateCnh.cls;
-        b.textContent = stateCnh.text;
-        offshore.appendChild(b);
-      }
-
-      dual.append(onshore, offshore);
-      el.append(label, dual);
-
-      // tooltip:数据源
+      el.classList.add('finance-item-dual');
       const tip = srcTooltip(meta);
       if (tip) el.title = tip;
+      el.appendChild(label);
+
+      const makeRow = (tagText, valStr, pct, marketTime) => {
+        const row = document.createElement('div');
+        row.className = 'fin-dual-row';
+        const tag = document.createElement('span');
+        tag.className = 'fin-pair-tag';
+        tag.textContent = tagText;
+        const v = document.createElement('span');
+        v.className = 'fin-value';
+        v.textContent = valStr;
+        row.append(tag, v, changeSpan(pct));
+        const state = marketStateBadge(marketTime);
+        if (state) {
+          const b = document.createElement('span');
+          b.className = 'fin-mkt ' + state.cls;
+          b.textContent = state.text;
+          row.appendChild(b);
+        }
+        return row;
+      };
+
+      el.appendChild(makeRow('在岸', d.value_cny, d.changePct_cny, d.market_time_cny));
+      el.appendChild(makeRow('离岸', d.value_cnh, d.changePct_cnh, d.market_time_cnh));
     } else {
       // 其他项:原渲染
       const tip = srcTooltip(meta);
