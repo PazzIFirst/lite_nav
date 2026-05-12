@@ -41,7 +41,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SITE_ROOT="${PANEL_ROOT}/www/sites/${DOMAIN}/index"
 CONF_FILE="${PANEL_ROOT}/conf/conf.d/${DOMAIN}.conf"
 SNIPPET="${SCRIPT_DIR}/openresty-api-snippet.conf.example"
-SRC_HTML="${SCRIPT_DIR}/../frontend/index.html"
+FRONTEND_DIR="${SCRIPT_DIR}/../frontend"
 
 if [ ! -d "$SITE_ROOT" ]; then
   echo "站点目录不存在: $SITE_ROOT"
@@ -52,8 +52,8 @@ if [ ! -f "$CONF_FILE" ]; then
   echo "站点配置不存在: $CONF_FILE"
   exit 1
 fi
-if [ ! -f "$SRC_HTML" ]; then
-  echo "前端文件不存在: $SRC_HTML"
+if [ ! -d "$FRONTEND_DIR" ]; then
+  echo "前端目录不存在: $FRONTEND_DIR"
   exit 1
 fi
 if [ ! -f "$SNIPPET" ]; then
@@ -61,8 +61,8 @@ if [ ! -f "$SNIPPET" ]; then
   exit 1
 fi
 
-echo "[1/3] 部署 index.html → $SITE_ROOT/"
-cp "$SRC_HTML" "$SITE_ROOT/index.html"
+echo "[1/3] 部署 frontend/* → $SITE_ROOT/(含 index.html + css + js + flags + robots/sitemap)"
+cp -r "$FRONTEND_DIR"/* "$SITE_ROOT/"
 
 if grep -q "nav-backend API" "$CONF_FILE"; then
   echo "[2/3] 反代配置已存在,跳过注入"

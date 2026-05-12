@@ -8,7 +8,7 @@
 [![Docker Image](https://github.com/PazzIFirst/lite_nav/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/PazzIFirst/lite_nav/actions/workflows/docker-publish.yml)
 [![Docker Pulls](https://img.shields.io/docker/pulls/pazzifirst/lite-nav-backend.svg)](https://hub.docker.com/r/pazzifirst/lite-nav-backend)
 ![Backend: Node.js 20](https://img.shields.io/badge/Backend-Node.js%2020-339933)
-![Frontend: Vanilla](https://img.shields.io/badge/Frontend-Vanilla%20HTML%2FJS-orange)
+![Frontend: Vanilla ES Modules](https://img.shields.io/badge/Frontend-Vanilla%20ES%20Modules-orange)
 ![Cache: Redis](https://img.shields.io/badge/Cache-Redis-DC382D)
 
 一个符合中国大陆用户使用习惯的轻量级导航主页。无外部前端框架、单文件前端;后端可选(放弃后端会失去多源 fallback、缓存与跨设备一致性,但仍可单文件本地用)。
@@ -115,8 +115,8 @@ sudo bash deploy-after-1panel-site.sh nav.example.com
 ```bash
 # 1-3 同上
 
-# 4. 把 frontend/index.html 放到你的网站根目录
-sudo cp frontend/index.html /var/www/html/index.html
+# 4. 把整个 frontend 目录复制到网站根(包含 css/js/flags/robots.txt/sitemap.xml)
+sudo cp -r frontend/* /var/www/html/
 
 # 5. 在 Nginx 站点配置里追加 location /api/(参考 deploy/openresty-api-snippet.conf.example)
 location /api/ {
@@ -129,14 +129,17 @@ location /api/ {
 sudo nginx -s reload
 ```
 
-### 本地试用(无后端,纯静态)
+### 本地试用
 
-把 `frontend/index.html` 用浏览器直接打开。前端会因为 `/api/*` 调用全部失败而退化:
+前端用 ES Modules,**不能** `file://` 双击打开(浏览器 CORS 限制)。要本地试用,起一个简单 HTTP server:
 
-- 农历 / 节假日:看不到
-- 行情 / 热榜:加载失败
-- 天气:加载失败
-- 但**搜索、城市时钟、导航分组**仍可用
+```bash
+cd frontend
+python3 -m http.server 8080
+# 浏览器打开 http://localhost:8080
+```
+
+无后端时前端会因 `/api/*` 调用失败而退化(农历/节假日/行情/热榜/天气看不到),搜索/城市时钟/导航分组仍可用。
 
 要正常用,后端必须跑起来。
 
@@ -265,32 +268,56 @@ sudo nginx -s reload
 lite-nav/
 +-- README.md
 +-- LICENSE                 # GPL-3.0
++-- CHANGELOG.md
 +-- .gitignore
-+-- frontend/
-|   +-- index.html          # 约 70 KB 单文件,无构建
++-- frontend/                       # 静态资源(零构建,ES Modules)
+|   +-- index.html                  # 骨架 + SEO meta + JSON-LD,约 200 行
+|   +-- robots.txt
+|   +-- sitemap.xml
+|   +-- css/
+|   |   +-- main.css                # 全部样式
+|   +-- js/                         # ES Modules,浏览器原生 import
+|   |   +-- api.js                  # fetchT / apiGet / srcTooltip / safeHttpUrl / copyToClipboard
+|   |   +-- search.js               # 10 引擎 + 历史 + 联想
+|   |   +-- clocks.js               # 6 城市时钟 + 编辑弹窗
+|   |   +-- today.js                # 公历/北京时间 + 农历 + 老黄历
+|   |   +-- holidays.js             # 多国节假日 + 倒计时 + 国家选择
+|   |   +-- ip-weather.js           # IP 检测 + 天气联动 + 天气弹窗
+|   |   +-- finance.js              # 行情 + 双汇率 + 市场状态徽章
+|   |   +-- hot.js                  # 热榜面板
+|   |   +-- nav.js                  # 导航分组 + 站点弹窗
+|   |   +-- main.js                 # 入口,串联各模块 + Page Visibility 轮询
+|   +-- flags/                      # 20 国本地国旗 PNG
 +-- backend/
 |   +-- Dockerfile
 |   +-- docker-compose.yml.example
 |   +-- package.json
 |   +-- src/
-|       +-- server.js       # Express 路由
-|       +-- scheduler.js    # node-cron 定时任务
-|       +-- redis.js        # 三态读写封装
-|       +-- fetcher.js      # 主备链 + runAndCache
+|       +-- server.js               # Express 路由
+|       +-- scheduler.js            # node-cron 定时任务
+|       +-- redis.js                # 三态读写封装
+|       +-- fetcher.js              # 主备链 + runAndCache
+|       +-- safe.js / validators.js # 输出清洗 + 输入校验
 |       +-- sources/
-|           +-- finance.js     # 行情(三家并行合并)
-|           +-- hot.js         # 热榜
-|           +-- weather.js     # 天气(国内/国外分流,内置 446 cityCode)
-|           +-- holiday.js     # 节假日(多国 + 多层 fallback)
-|           +-- holiday-i18n.js # 翻译 loader(从 i18n/*.json 加载)
-|           +-- i18n/          # 21 个 JSON: common.json + 20 国
-|           +-- today.js       # 农历 / 节气 / 老黄历
-|           +-- suggest.js     # 搜索联想
+|           +-- finance.js          # 行情(并行多源)+ Yahoo USDCNY/CNH 双汇率
+|           +-- hot.js              # 热榜
+|           +-- weather.js          # 天气(中国天气网 + Open-Meteo + wttr)
+|           +-- data/cn-cities.json # 446 城 cityCode
+|           +-- holiday.js          # 多国节假日 + 5 层 fallback
+|           +-- holiday-i18n.js     # 翻译 loader
+|           +-- i18n/               # 21 个 JSON: common + 20 国
+|           +-- today.js            # 农历 / 节气 / 老黄历
+|           +-- suggest.js          # 搜索联想
+|           +-- ip.js               # /api/ip 备用代理
 +-- deploy/
 |   +-- openresty-api-snippet.conf.example
 |   +-- deploy-after-1panel-site.sh
++-- docs/
+|   +-- screenshot.png
+|   +-- dockerhub-overview.md       # Docker Hub Overview 同步源
 +-- .github/workflows/
-    +-- docker-publish.yml     # 自动构建 + 推 Docker Hub(需配 secrets)
+    +-- docker-publish.yml          # 自动构建 + 推 Docker Hub
+    +-- dockerhub-description.yml   # 同步 overview 到 Docker Hub
 ```
 
 ### 加新国家(节假日)
@@ -335,13 +362,20 @@ async function fromMyApi(/* args */) {
 
 ### 改前端
 
-`frontend/index.html` 是单文件,改完直接覆盖部署目录即可:
+`frontend/` 是 ES Modules 模块化结构,改完直接 cp 覆盖部署目录:
 
 ```bash
-sudo cp frontend/index.html /opt/1panel/apps/openresty/openresty/www/sites/<your-domain>/index/index.html
+sudo cp -r frontend/* /opt/1panel/apps/openresty/openresty/www/sites/<your-domain>/index/
 ```
 
-无需重启任何服务,浏览器 Ctrl+F5 即生效。
+各模块职责清晰(见上方目录结构),改 IP 检测就只动 `js/ip-weather.js`,改行情就只动 `js/finance.js`,不会误触别处。无需重启任何服务,浏览器 Ctrl+F5 即生效。
+
+### SEO
+
+- `<head>` 含完整 Open Graph / Twitter Card / 结构化数据(Schema.org `WebApplication` JSON-LD)
+- `frontend/robots.txt` 允许爬虫;`frontend/sitemap.xml` 列出主页
+- 项目卖点通过 `<header class="seo-only">` 写入 HTML 静态部分,对爬虫可见但视觉隐藏
+- 若你部署到自己的域名,记得修改 `index.html` 内的 `og:url` / `canonical` / `og:image` 和 `robots.txt` 内的 sitemap URL
 
 ---
 
@@ -357,7 +391,7 @@ A: 后端已尽量挑可访问性好的源(东方财富、Nager.Date 都全球�
 
 **Q: 怎么换默认导航分组?**
 
-A: 改 `frontend/index.html` 里 `DEFAULT_NAV` 数组(在 `script` 末段)。已有用户的浏览器仍会读 localStorage,需手动清掉才看到新默认。
+A: 改 `frontend/js/nav.js` 里 `DEFAULT_NAV` 数组。已有用户的浏览器仍会读 localStorage,需手动清掉才看到新默认。
 
 **Q: 怎么不让某个数据源被用?**
 

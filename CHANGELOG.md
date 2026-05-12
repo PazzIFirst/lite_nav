@@ -1,5 +1,52 @@
 # Changelog
 
+## v1.2.0 — 2026-05-12
+
+前端重构 + SEO 加固。后端无功能变化(版本同步升级)。
+
+### Refactor
+
+- **frontend/index.html**:从 2034 行单文件拆为
+  - `index.html`(~200 行,仅结构 + SEO `<head>`)
+  - `css/main.css`(449 行)
+  - `js/` 下 10 个 ES Module:
+    - `main.js`(入口)
+    - `api.js`(fetchT / apiGet / safeHttpUrl / fmtAge / freshnessText / srcTooltip / faviconUrl / copyToClipboard)
+    - `search.js`(10 搜索引擎 + 历史 + 建议,F-005 race seq / F-006 / F-007)
+    - `clocks.js`(6 城市时钟 + localStorage 校验)
+    - `today.js`(公历 + 农历 + 老黄历 + 北京时间)
+    - `holidays.js`(20 国节假日 + 倒计时 + 中文翻译)
+    - `ip-weather.js`(IP 定位 + 天气)
+    - `finance.js`(金融行情 + 双汇率 + 收盘徽章)
+    - `hot.js`(知乎/微博/百度/B 站热榜)
+    - `nav.js`(自定义导航分组 + URL 协议白名单)
+- **零构建**:浏览器原生 `<script type="module">`,无 webpack / vite / next 依赖
+- 每个模块独立可维护:改 IP 检测只动 `js/ip-weather.js`,改金融只动 `js/finance.js`
+
+### SEO
+
+- **`<title>` + `<meta name="description">` + keywords + author + canonical**
+- **Open Graph**(og:type / title / description / url / image / locale / site_name)
+- **Twitter Card**(summary_large_image)
+- **Schema.org JSON-LD**:`WebApplication` 类型,声明 GPL-3.0 license / 价格 / 语言 / 组织
+- **静态 `<header class="seo-only">`**:对爬虫可见的 h1 + 项目描述,视觉上 `clip: rect(0,0,0,0)` 隐藏
+- **语义化标签**:`<main class="page-layout">` 替代 `<div>`
+- **`robots.txt`** + **`sitemap.xml`**(自部署需改 `og:url` / `canonical` / `sitemap.xml` 里的域名)
+- **`<link rel="preconnect" href="https://flagcdn.com">`**:flag 兜底 CDN 预连接(本地 flag 优先)
+- **`theme-color`**(浏览器 UI 着色)
+
+### Deploy
+
+- `deploy/deploy-after-1panel-site.sh`:`cp` → `cp -r`(整个 `frontend/` 目录)
+- `README.md`:目录树更新;本地试用部分提示 ES Modules 需通过 HTTP server(`python3 -m http.server 8080`),不能 `file://` 直开
+
+### Compatibility
+
+- 浏览器要求:支持原生 ES Modules(Chrome 61+ / Firefox 60+ / Safari 11+ / Edge 16+ — 2017 年起)
+- 后端 API 协议 / Redis 缓存键 / Docker 镜像入口 100% 兼容,可平滑升级
+
+---
+
 ## v1.1.0 — 2026-05-05
 
 第二轮全面代码审计后的安全 + 稳定性 + 隐私加固。涉及 ~95 项修复,5 次独立 commit。
