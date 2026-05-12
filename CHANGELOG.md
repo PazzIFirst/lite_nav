@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.2.1 — 2026-05-12
+
+许可证从 **GPL-3.0** 切换为 **MIT**。衍生作品不再要求开源/同协议,可自由商用、闭源、二次分发,仅需保留版权声明。同步更新 README badge、目录树、`index.html` JSON-LD `license` 字段、meta description、`<header>` 可读文本。
+
 ## v1.2.0 — 2026-05-12
 
 前端重构 + SEO 加固。后端无功能变化(版本同步升级)。
@@ -28,7 +32,7 @@
 - **`<title>` + `<meta name="description">` + keywords + author + canonical**
 - **Open Graph**(og:type / title / description / url / image / locale / site_name)
 - **Twitter Card**(summary_large_image)
-- **Schema.org JSON-LD**:`WebApplication` 类型,声明 GPL-3.0 license / 价格 / 语言 / 组织
+- **Schema.org JSON-LD**:`WebApplication` 类型,声明 license / 价格 / 语言 / 组织
 - **静态 `<header class="seo-only">`**:对爬虫可见的 h1 + 项目描述,视觉上 `clip: rect(0,0,0,0)` 隐藏
 - **语义化标签**:`<main class="page-layout">` 替代 `<div>`
 - **`robots.txt`** + **`sitemap.xml`**(自部署需改 `og:url` / `canonical` / `sitemap.xml` 里的域名)

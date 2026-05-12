@@ -5,7 +5,7 @@
 
 ![lite-nav preview](https://raw.githubusercontent.com/PazzIFirst/lite_nav/main/docs/screenshot.png)
 
-GitHub: **[PazzIFirst/lite_nav](https://github.com/PazzIFirst/lite_nav)** · License: GPL-3.0
+GitHub: **[PazzIFirst/lite_nav](https://github.com/PazzIFirst/lite_nav)** · License: MIT
 
 ---
 

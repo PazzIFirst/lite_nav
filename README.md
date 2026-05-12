@@ -3,7 +3,7 @@
 > 轻量级个人/团队导航主页:农历、多国节假日、实时行情、热榜聚合
 > 多源容灾,永不返回空。自部署 / 内网 / 本地皆可。
 
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Version](https://img.shields.io/github/v/release/PazzIFirst/lite_nav.svg)](https://github.com/PazzIFirst/lite_nav/releases)
 [![Docker Image](https://github.com/PazzIFirst/lite_nav/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/PazzIFirst/lite_nav/actions/workflows/docker-publish.yml)
 [![Docker Pulls](https://img.shields.io/docker/pulls/pazzifirst/lite-nav-backend.svg)](https://hub.docker.com/r/pazzifirst/lite-nav-backend)
@@ -267,7 +267,7 @@ python3 -m http.server 8080
 ```
 lite-nav/
 +-- README.md
-+-- LICENSE                 # GPL-3.0
++-- LICENSE                 # MIT
 +-- CHANGELOG.md
 +-- .gitignore
 +-- frontend/                       # 静态资源(零构建,ES Modules)
@@ -429,9 +429,9 @@ PR 前请:
 
 ## License
 
-[GPL-3.0](LICENSE)
+[MIT](LICENSE)
 
-本项目使用 GPL-3.0 协议。衍生作品必须开源且使用相同/兼容协议。商用前请阅读 LICENSE 全文。
+本项目使用 MIT 协议:可自由使用、修改、分发、商用,无需开源衍生作品,仅需保留版权声明。
 
 ---
 
