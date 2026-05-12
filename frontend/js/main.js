@@ -8,6 +8,17 @@ import { renderFinance, loadFinance } from './finance.js';
 import { initHotLists, loadHotList, HOT_SOURCES } from './hot.js';
 import { renderNavGroups, initNavModule } from './nav.js';
 
+// 明暗主题切换(主题已由 <head> 内联脚本应用,这里只挂事件)
+const themeToggle = document.getElementById('themeToggle');
+if (themeToggle) {
+  themeToggle.addEventListener('click', () => {
+    const cur = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+    const next = cur === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    try { localStorage.setItem('theme', next); } catch(_) {}
+  });
+}
+
 initSearchModule();
 initClocksModule();
 initHolidaysModule();

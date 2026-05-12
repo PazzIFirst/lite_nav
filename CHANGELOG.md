@@ -1,5 +1,47 @@
 # Changelog
 
+## v1.3.0 — 2026-05-13
+
+UI 重设计:design system + 明/暗主题 + 玻璃质感 + 响应式。后端 / API / 所有 JS 模块行为零改动,纯 CSS + 少量 HTML 变化。
+
+### Design System
+
+- **设计 token**:`:root` 下统一 spacing(8px 节奏)/ type scale / radius / shadow / motion / z-index;主题切换只需替换一组 token
+- **明/暗主题**:`<html data-theme>` 控制;首次访问跟随 `prefers-color-scheme`,用户切换后写入 `localStorage`
+- **抗 FOUC**:`<head>` 内联脚本在首次绘制前应用主题,避免主题闪烁
+- **明暗切换按钮**:固定右上角,玻璃质感小圆按钮,sun/moon SVG 互换
+- **字体**:Inter → SF Pro → 苹方 / 微软雅黑 / 思源黑体 系统回落栈;数字使用 `tabular-nums` + `font-feature-settings: "tnum"`
+- **降级 / 无障碍**:`prefers-reduced-motion` 自动关闭过渡;`color-scheme: light dark` 让浏览器原生控件适配
+
+### Visual Upgrades
+
+- **背景渐变**:大尺寸 radial-gradient 光晕(右上 cyan / 左下 purple),`background-attachment: fixed`
+- **卡片玻璃化**:所有卡片(时钟、行情、热榜、Module A、modal)用 `backdrop-filter: blur(20px) saturate(180%)` + 1px 边 + 柔阴影
+- **Module A 重构**:
+  - 整体变成玻璃卡片,内部用 hairline(`border-top: 1px subtle`)分四段:日期 → 实时信息 → 老黄历 → 国家倒计时
+  - 北京时间变成带绿色脉动 live-dot 的 pill
+  - IP 信息从三色文本变成 chip,label 作大写迷你标签,IP 地址作 0.65 透明度尾随小字
+  - 天气从淡灰背景变成 accent 色 pill(hover 抬起 1px)
+  - 老黄历宜/忌/黄道徽章变更圆,letter-spacing 拉开
+  - **国家倒计时强制单行**:`flex-wrap: nowrap` + `overflow-x: auto`,装不下时横向滚动(细滚动条 + 两端 mask 渐隐);"在线/本地" 文本徽章压成 6×6px 彩色圆点(emerald=在线,muted=本地),tooltip 信息保留
+- **颜色信号**:涨用 emerald,跌用 rose,提醒用 amber,品牌色 cyan;light/dark 各有专属饱和度
+- **微交互**:卡片 hover 抬起 1px + 阴影加深;chip hover 边变色;modal 进场 `fadeIn` + `scaleIn` 动画;按钮按下 `scale(0.97)`
+- **骨架屏**:"行情加载中…" 上方加 1.6s 循环 shimmer 横条
+- **modal**:背景 `backdrop-filter: blur(4px)`,圆角 18px,进场动画
+
+### Responsive
+
+- **< 1260px**(平板/小笔记本):隐藏侧栏(原本就有)
+- **< 768px**(平板纵向):时钟 3 列,行情 2 列,模块内边距收紧;`date-divider` 隐藏避免行太挤
+- **< 480px**(手机):时钟 2 列,行情 1 列,搜索框字号下调
+
+### Files changed
+
+- `frontend/css/main.css`:449 → ~830 行(完整 design system + 全面重写)
+- `frontend/index.html`:`<head>` 加抗 FOUC 主题脚本;`<body>` 顶部加主题切换按钮
+- `frontend/js/main.js`:主题切换按钮 click handler(7 行)
+- 后端 / 其他 9 个 JS 模块:**零改动**
+
 ## v1.2.1 — 2026-05-12
 
 许可证从 **GPL-3.0** 切换为 **MIT**。衍生作品不再要求开源/同协议,可自由商用、闭源、二次分发,仅需保留版权声明。同步更新 README badge、目录树、`index.html` JSON-LD `license` 字段、meta description、`<header>` 可读文本。
