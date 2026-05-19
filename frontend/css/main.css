@@ -529,26 +529,32 @@ body {
 }
 .finance-grid {
   display: flex; flex-wrap: wrap;
-  gap: var(--sp-1) 0;
+  justify-content: flex-start;
+  gap: var(--sp-1) var(--sp-2);
 }
+/* Items grow to fill the row (no side gaps), never shrink below 260px content
+   width (so columns never overlap). Auto-wrap: 3-col wide, 2-col squeezed,
+   1-col phone. Internal 5-col grid is fixed px → values align across items. */
 .finance-item {
-  flex: 0 0 33.333%;
+  flex: 1 0 260px;
   display: grid;
-  grid-template-columns: 68px 24px 64px 56px 44px;
+  grid-template-columns: 62px 24px 56px 50px 36px;
   align-items: baseline;
-  column-gap: var(--sp-2);
-  padding: var(--sp-1) var(--sp-2);
+  column-gap: 5px;
+  padding: var(--sp-1) 6px;
   border-radius: var(--r-md);
-  min-width: 0;
   transition: background-color var(--dur-fast) var(--ease-out);
 }
 .finance-item:hover { background: var(--bg-hover); }
 .fin-label {
   font-size: var(--fs-xs); color: var(--text-muted);
   font-weight: 500;
-  white-space: nowrap; flex-shrink: 0;
+  white-space: nowrap;
   letter-spacing: 0.02em;
+  min-width: 0;
+  overflow: hidden; text-overflow: ellipsis;
 }
+.fin-value, .fin-change { min-width: 0; }
 .fin-value {
   font-size: var(--fs-base); font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -577,6 +583,7 @@ body {
   font-size: var(--fs-2xs);
   color: var(--text-tertiary);
   font-weight: 500;
+  white-space: nowrap;
 }
 .fin-mkt {
   grid-column: 5;
@@ -1031,14 +1038,12 @@ body {
   .page-layout { justify-content: center; }
 }
 
-/* Tablet narrow: finance 2-col */
+/* Tablet narrow — finance auto-wraps via fixed 256px items, no override needed */
 @media (max-width: 768px) {
   body { padding: var(--sp-2) 0 var(--sp-6); }
   .page-layout { padding: 0 var(--sp-3); gap: var(--sp-3); }
   .main-wrapper { gap: var(--sp-3); }
   .city-clocks { grid-template-columns: repeat(3, 1fr); }
-  .finance-item { flex-basis: 50%; }
-  .finance-grid { gap: var(--sp-1) 0; }
   .module-a { padding: var(--sp-4) var(--sp-3); gap: var(--sp-2); }
   .date-row { gap: var(--sp-2); }
   .solar-date { font-size: var(--fs-xl); }
@@ -1052,7 +1057,7 @@ body {
 /* Phone: stack everything */
 @media (max-width: 480px) {
   .city-clocks { grid-template-columns: repeat(2, 1fr); }
-  .finance-item { flex-basis: 100%; }
+  .finance-item { flex: 1 1 100%; }
   .engine-tabs { gap: 2px; }
   .engine-btn { padding: 5px var(--sp-2); font-size: var(--fs-xs); }
   .info-row { font-size: var(--fs-sm); }
@@ -1073,6 +1078,7 @@ body {
   .info-row     { font-size: 15px; }
   .ip-entry, .ip-entry-label, .ip-entry-addr { font-size: 13px; }
   .countdown-row { font-size: 13px; }
+  .finance-item { flex: 1 0 326px; grid-template-columns: 84px 28px 74px 64px 44px; }
   .fin-label    { font-size: var(--fs-sm); }
   .fin-value    { font-size: 15px; }
   .fin-change   { font-size: var(--fs-sm); }
