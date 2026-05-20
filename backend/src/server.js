@@ -224,14 +224,19 @@ app.get('/api/weather', a(async (req, res) => {
   res.status(400).json({ error: 'need city or lat/lon' });
 }));
 
-// ===== IP 检测(F-013:走后端代理,前端不再直连第三方)=====
+// ===== IP 检测:对「访客访问本站所用的 IP」做服务端 geo =====
+// 访客的「国内分流 IP」无法在后端检测(要观察访客自己的路由),由前端浏览器侧完成。
 app.get('/api/ip', a(async (req, res) => {
-  // 从反代头拿真实访客 IP(server.js 已 trust proxy)
-  const visitor = req.ip;
-  const r = await lookupIp(visitor);
+  const visitor = (req.ip || '').replace(/^::ffff:/, '');
+  let r = await lookupIp(visitor);
+  // geo 查询失败也把 IP 给前端(至少显示 IP,不显示地点)
+  if (!r && visitor) r = { ip: visitor, city: '', country: '', countryCode: '', source_label: '' };
+  res.setHeader('Cache-Control', 'no-store');
   res.json({
     data: r,
     visitor_ip: visitor,
+    source: 'ip-geo',
+    source_label: r?.source_label ? `${r.source_label}(服务端 geo)` : '服务端 geo',
     fetched_at: Date.now(),
     freshness: 'fresh',
   });

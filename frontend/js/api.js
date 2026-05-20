@@ -56,9 +56,14 @@ const FAVICON_OVERRIDES = {
   'npmjs.com':           'https://www.google.com/s2/favicons?sz=32&domain=npmjs.com',
 };
 
+// 1x1 透明 GIF — 解析不出合法域名时的占位,避免向 /api/favicon 发空请求(后端会 400)
+const BLANK_ICON = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+
 export function faviconUrl(domain) {
-  if (FAVICON_OVERRIDES[domain]) return FAVICON_OVERRIDES[domain];
-  const safe = domain.toLowerCase().replace(/[^a-z0-9.-]/g, '');
+  if (domain && FAVICON_OVERRIDES[domain]) return FAVICON_OVERRIDES[domain];
+  const safe = String(domain || '').toLowerCase().replace(/[^a-z0-9.-]/g, '');
+  // 空 / 非法域名 → 不请求(否则后端 400),返回透明占位
+  if (!safe || !/^[a-z0-9][a-z0-9.-]*\.[a-z]{2,}$/.test(safe)) return BLANK_ICON;
   return `/api/favicon?domain=${encodeURIComponent(safe)}`;
 }
 
