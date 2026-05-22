@@ -1,10 +1,9 @@
 // IP 检测(国内 + 国外)+ 天气联动 + 天气城市弹窗
 import { fetchT, apiGet, srcTooltip } from './api.js';
 
-// 国内 IP 检测 — 浏览器直连国内 API,顺序兜底,命中即停。
-// 仅在「经代理访问本站」时才需要(直连时 /api/ip 已给出国内 IP,见 initLocation)。
-// ipip 放第一:其域名无 AAAA 记录,强制走 IPv4 → 返回 IPv4,与 /api/ip 统一,
-// 避免双栈用户这里拿到一长串 IPv6、跟 /api/ip 的 IPv4 对不上。
+// 国内 IP 检测 — 浏览器直连国内 IP 服务。分流代理通常把国内域名走直连,
+// 故这里测得「你访问国内站点所用的 IP」。顺序兜底,命中即停。
+// ipip 放第一:其域名无 AAAA 记录,强制走 IPv4 → 返回 IPv4(双栈用户不会拿到一长串 IPv6)。
 const DOMESTIC_IP_APIS = [
   // ipip.net — 域名 IPv4-only,强制 IPv4;纯文本,省份级(正则取第 2 段 = 省)
   { url: 'https://myip.ipip.net', text: true,
@@ -25,6 +24,23 @@ const DOMESTIC_IP_APIS = [
     parse: d => d?.data?.ip
       ? { ip: d.data.ip, city: d.data.city || '', country: '中国', countryCode: 'CN' }
       : null },
+];
+
+// 国外 IP 检测 — 浏览器直连境外 IP 服务。
+// 你的分流代理按规则路由这些请求:走代理的线路 → 服务看到你的代理出口 IP。
+// 故这里反映「你访问境外站点所用的 IP」。顺序兜底,命中即停。
+const FOREIGN_IP_APIS = [
+  { url: 'https://ipinfo.io/json',
+    parse: d => d?.ip
+      ? { ip: d.ip, city: d.city || d.region || '', country: d.country || '', countryCode: d.country || '' }
+      : null },
+  { url: 'https://ipapi.co/json/',
+    parse: d => d?.ip
+      ? { ip: d.ip, city: d.city || d.region || '',
+          country: d.country_name || d.country || '', countryCode: d.country_code || d.country || '' }
+      : null },
+  { url: 'https://api.ipify.org?format=json',
+    parse: d => d?.ip ? { ip: d.ip, city: '', country: '', countryCode: '' } : null },
 ];
 
 let ipCity = '';
@@ -118,24 +134,21 @@ function makeIpEntry(label, info, fallbackText) {
   return wrap;
 }
 
-// domestic = 你的国内 IP(直连访问本站时 = /api/ip 结果;经代理时 = 浏览器侧检测)
-// foreign  = 你的境外出口 IP(仅经代理访问本站时有值;直连时为 null → 显示「本站直连」)
+// domestic = 浏览器请求国内 IP 服务测得 — 你访问国内站点所用的 IP
+// foreign  = 浏览器请求境外 IP 服务测得 — 你访问境外站点所用的 IP
+// 两个独立测量。开了代理且代理走境外线路时,foreign 即代理出口 IP。
 function buildIpDisplay(domestic, foreign) {
   const locEl = document.getElementById('ip-loc');
   locEl.innerHTML = '';
 
-  locEl.appendChild(makeIpEntry('国内IP:', domestic));
+  const de = makeIpEntry('国内IP:', domestic);
+  de.title = '你访问国内站点所用的 IP(浏览器实测国内 IP 服务)';
+  locEl.appendChild(de);
 
-  if (foreign) {
-    const e = makeIpEntry('国外IP:', foreign);
-    e.title = '你经代理访问本站所用的境外出口 IP(后端实测)';
-    locEl.appendChild(e);
-  } else {
-    const e = makeIpEntry('国外IP:', null, '本站直连');
-    e.title = '你访问本站走的是直连(用国内 IP),未经境外代理。\n'
-            + '本站只有一台服务器,无法测出你访问谷歌等被墙网站时的出口 IP。';
-    locEl.appendChild(e);
-  }
+  const fe = makeIpEntry('国外IP:', foreign);
+  if (foreign) fe.title = '你访问境外站点所用的 IP(浏览器实测境外 IP 服务)。\n'
+                        + '开了代理且该线路走代理时,这里即代理出口 IP。';
+  locEl.appendChild(fe);
 }
 
 export async function initLocation() {
@@ -143,18 +156,9 @@ export async function initLocation() {
   const locEl = document.getElementById('ip-loc');
   locEl.textContent = '定位中…';
 
-  // 访问本站所用的 IP:后端 /api/ip(读 XFF + 服务端 geo,同源无 CORS)
-  // hi.xzsjno1.com 无 AAAA → 永远 IPv4;ip-api.com → 城市级
-  async function detectViaSite() {
-    try {
-      const r = await apiGet('/api/ip');
-      return r?.data?.ip ? r.data : null;
-    } catch { return null; }
-  }
-
-  // 国内 IP:浏览器顺序兜底直连国内 API(命中即停 → 后续不发请求 → console 干净)
-  async function detectDomestic() {
-    for (const api of DOMESTIC_IP_APIS) {
+  // 顺序兜底:逐个试 apis,命中即停(后续不再发请求 → console 干净)
+  async function detectChain(apis) {
+    for (const api of apis) {
       try {
         const res = await fetchT(api.url, 4500, { cache: 'no-store' });
         if (!res.ok) continue;
@@ -165,19 +169,13 @@ export async function initLocation() {
     return null;
   }
 
-  const viaSite = await detectViaSite();
-  let domestic, foreign;
-
-  if (viaSite && viaSite.countryCode === 'CN') {
-    // 用国内 IP 访问本站 = 直连。viaSite 本身(IPv4 + 城市级)即你的国内 IP,
-    // 无需再做浏览器侧检测 → 不发任何第三方请求,console 全静。
-    domestic = viaSite;
-    foreign  = null;
-  } else {
-    // 经代理访问本站:viaSite 是境外出口;国内 IP 需浏览器侧检测
-    domestic = await detectDomestic();
-    foreign  = viaSite;
-  }
+  // 国内、国外两路并行,各自独立测量
+  const [domRes, fgRes] = await Promise.allSettled([
+    detectChain(DOMESTIC_IP_APIS),
+    detectChain(FOREIGN_IP_APIS),
+  ]);
+  const domestic = domRes.status === 'fulfilled' ? domRes.value : null;
+  const foreign  = fgRes.status === 'fulfilled' ? fgRes.value : null;
 
   if (!domestic && !foreign) {
     locEl.textContent = '定位失败';
@@ -185,7 +183,7 @@ export async function initLocation() {
     return;
   }
 
-  // 天气联动城市:去掉末尾「省/市」便于后端地理编码
+  // 天气联动城市:用国内 IP 的城市,去掉末尾「省/市」便于后端地理编码
   ipCity = (domestic?.city || '').replace(/[省市]$/, '');
   if (ipCity) document.getElementById('autoCity').placeholder = ipCity;
   renderWeather();
