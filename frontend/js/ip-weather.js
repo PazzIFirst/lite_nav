@@ -1,26 +1,26 @@
 // IP 检测(国内 + 国外)+ 天气联动 + 天气城市弹窗
 import { fetchT, apiGet, srcTooltip } from './api.js';
 
-// 国内 IP 检测 — 浏览器直连国内 IP 服务。分流代理通常把国内域名走直连,
-// 故这里测得「你访问国内站点所用的 IP」。顺序兜底,命中即停。
-// ipip 放第一:其域名无 AAAA 记录,强制走 IPv4 → 返回 IPv4(双栈用户不会拿到一长串 IPv6)。
+// 国内 IP 检测 — 浏览器直连国内 IP 服务。3 源并行,结果合并:
+//   · IP   取 IPv4 优先(ipip 域名 v4-only,稳定给 IPv4,双栈用户不会显示一长串 IPv6)
+//   · 城市 取「城市级」源优先(今日头条到市,ipip/mir6 只到省)→ 天气联动更准
 const DOMESTIC_IP_APIS = [
-  // ipip.net — 域名 IPv4-only,强制 IPv4;纯文本,省份级(正则取第 2 段 = 省)
-  { url: 'https://myip.ipip.net', text: true,
+  // ipip.net — 域名 IPv4-only → 强制 IPv4;纯文本,省级(正则取第 2 段 = 省)
+  { url: 'https://myip.ipip.net', level: 'province', text: true,
     parse: t => {
       const ip  = (t.match(/当前 IP[：:]\s*([\d.]+)/) || [])[1];
       const loc = (t.match(/来自于[：:]\s*\S+\s+(\S+)/) || [])[1];
       return ip ? { ip, city: loc || '', country: '中国', countryCode: 'CN' } : null;
     } },
-  // mir6 — 省份级
-  { url: 'https://api.mir6.com/api/ip?type=json',
+  // mir6 — 省级
+  { url: 'https://api.mir6.com/api/ip?type=json', level: 'province',
     parse: d => d?.data?.ip
       ? { ip: d.data.ip,
           city: String(d.data.city || d.data.province || '').replace(/[省市]$/, ''),
           country: '中国', countryCode: 'CN' }
       : null },
-  // 今日头条 widget — 城市级,但域名双栈,可能返回 IPv6
-  { url: 'https://www.toutiao.com/stream/widget/local_weather/data/',
+  // 今日头条 widget — 城市级(域名双栈,IP 可能是 IPv6 → 合并时只采它的 city)
+  { url: 'https://www.toutiao.com/stream/widget/local_weather/data/', level: 'city',
     parse: d => d?.data?.ip
       ? { ip: d.data.ip, city: d.data.city || '', country: '中国', countryCode: 'CN' }
       : null },
@@ -156,7 +156,7 @@ export async function initLocation() {
   const locEl = document.getElementById('ip-loc');
   locEl.textContent = '定位中…';
 
-  // 顺序兜底:逐个试 apis,命中即停(后续不再发请求 → console 干净)
+  // 国外:顺序兜底,逐个试,命中即停(后续不再发请求 → console 干净)
   async function detectChain(apis) {
     for (const api of apis) {
       try {
@@ -169,9 +169,26 @@ export async function initLocation() {
     return null;
   }
 
+  // 国内:3 源并行,合并 —— IP 取 IPv4 优先,城市取「城市级」源优先
+  async function detectDomestic() {
+    const settled = await Promise.allSettled(DOMESTIC_IP_APIS.map(async api => {
+      const res = await fetchT(api.url, 4500, { cache: 'no-store' });
+      if (!res.ok) throw 0;
+      const info = api.parse(api.text ? await res.text() : await res.json());
+      if (!info?.ip) throw 0;
+      return { ...info, _level: api.level };
+    }));
+    const got = settled.filter(s => s.status === 'fulfilled').map(s => s.value);
+    if (!got.length) return null;
+    const ip   = (got.find(g => !g.ip.includes(':')) || got[0]).ip;            // IPv4 优先
+    const city = (got.find(g => g._level === 'city' && g.city)
+                  || got.find(g => g.city) || got[0]).city || '';              // 城市级优先
+    return { ip, city, country: '中国', countryCode: 'CN' };
+  }
+
   // 国内、国外两路并行,各自独立测量
   const [domRes, fgRes] = await Promise.allSettled([
-    detectChain(DOMESTIC_IP_APIS),
+    detectDomestic(),
     detectChain(FOREIGN_IP_APIS),
   ]);
   const domestic = domRes.status === 'fulfilled' ? domRes.value : null;
