@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.4.1 — 2026-05-22
+
+小修。
+
+### Fixed
+
+- **`/api/favicon` 对 `x.com` 等单字符首段域名报 400**:后端域名正则用了 `[a-z0-9.-]+`(要求首段后至少 1 字符),把合法域名 `x.com`(X/推特)挡掉了 → 改 `+` 为 `*`,与前端正则一致
+- **国家倒计时行未居中**:v1.3.0 把该行设为「强制单行 + 可横滚」时用了 `justify-content: flex-start`,内容未撑满时左对齐,与上方居中内容不一致 → 改 `safe center`(放得下居中,放不下退回左对齐可滚动、不裁切)
+
+### CI
+
+- `docker-publish.yml` 构建任务加 `timeout-minutes: 30` —— 偶发 runner / QEMU 卡死时 30 分钟即失败,不再耗满 GitHub Actions 的 6h 上限(v1.4.0 的 tag 构建就曾卡满 6h 被杀)
+- 约定:`backend/package.json` 的 `version` 字段不再随版本号变动 —— 它不发布到 npm、运行时不读,纯装饰;改它会使 Docker 的 `npm install` 缓存层失效、拖慢构建。版本以 git tag + 镜像 tag 为准
+
 ## v1.4.0 — 2026-05-21
 
 IP 检测重做。第三方 IP API 大面积 CORS / 403 失效,改为「国内浏览器侧多源 + 国外后端代理」。

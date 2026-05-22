@@ -21,6 +21,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # 构建卡住 30 分钟即失败 — 防止偶发 runner/QEMU 卡死耗满 6h 上限
+    timeout-minutes: 30
     permissions:
       contents: read
 

@@ -248,7 +248,8 @@ const FAVICON_TTL = 7 * 24 * 3600 * 1000;
 app.get('/api/favicon', a(async (req, res) => {
   const domain = String(req.query.domain || '').toLowerCase()
     .replace(/[^a-z0-9.-]/g, '').slice(0, 100);
-  if (!domain || !/^[a-z0-9][a-z0-9.-]+\.[a-z]{2,}$/.test(domain)) {
+  // * 而非 +:接受 x.com 等单字符首段的合法域名
+  if (!domain || !/^[a-z0-9][a-z0-9.-]*\.[a-z]{2,}$/.test(domain)) {
     return res.status(400).end();
   }
   const cached = faviconCache.get(domain);
