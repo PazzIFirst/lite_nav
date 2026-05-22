@@ -1,5 +1,5 @@
 // 热榜面板(知乎/微博/百度/B 站)
-import { fetchT, apiGet, srcTooltip, safeHttpUrl } from './api.js';
+import { apiGet, srcTooltip, safeHttpUrl } from './api.js';
 
 export const HOT_SOURCES = [
   { id:'zhihu', title:'知乎热榜', side:'left',  link:'https://www.zhihu.com/hot',                icon:'https://zhihu.com/favicon.ico' },
@@ -8,21 +8,17 @@ export const HOT_SOURCES = [
   { id:'bili',  title:'B站热榜', side:'right', link:'https://www.bilibili.com/v/popular/rank',  icon:'https://bilibili.com/favicon.ico' },
 ];
 
-export async function loadHotList(source, forceRefresh = false) {
+export async function loadHotList(source) {
   const listEl   = document.getElementById('hot-' + source.id + '-list');
   const sourceEl = document.getElementById('hot-' + source.id + '-source');
   if (!listEl) return;
   listEl.innerHTML = '<div class="hot-panel-loading">加载中…</div>';
 
+  // 普通 GET 读取(后端 cron 定期刷新缓存)。强制重拉是 token 保护的管理接口,
+  // 不暴露给浏览器,故刷新按钮只做重新加载。
   let payload = null;
   try {
-    if (forceRefresh) {
-      const r = await fetchT('/api/hot/' + source.id + '/refresh', 8000, { method: 'POST' });
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      payload = await r.json();
-    } else {
-      payload = await apiGet('/api/hot/' + source.id);
-    }
+    payload = await apiGet('/api/hot/' + source.id);
   } catch {
     listEl.innerHTML = `<div class="hot-panel-loading" style="cursor:pointer" data-retry="${source.id}">加载失败,点击重试</div>`;
     listEl.querySelector('[data-retry]')?.addEventListener('click', () => loadHotList(source));
@@ -97,8 +93,8 @@ function createHotPanel(source) {
   const refreshBtn = document.createElement('span');
   refreshBtn.className = 'hot-panel-refresh';
   refreshBtn.textContent = '刷新';
-  refreshBtn.title = '刷新热榜(强制服务端重新拉取)';
-  refreshBtn.addEventListener('click', () => loadHotList(source, true));
+  refreshBtn.title = '重新加载热榜';
+  refreshBtn.addEventListener('click', () => loadHotList(source));
 
   const leftWrap = document.createElement('span');
   leftWrap.style.cssText = 'display:flex;align-items:center;gap:6px;flex:1;min-width:0;';

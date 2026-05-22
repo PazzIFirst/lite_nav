@@ -4,8 +4,8 @@ import redis, { readThreeState, pingRedis } from './redis.js';
 import { startScheduler, stopScheduler } from './scheduler.js';
 import { FINANCE_BUILTIN_FALLBACK } from './sources/finance.js';
 import { HOT_IDS, HOT_BUILTIN_FALLBACK, refreshHotList } from './sources/hot.js';
-import { WEATHER_BUILTIN_FALLBACK, refreshWeatherForCity, refreshWeatherForCoords } from './sources/weather.js';
-import { HOLIDAY_BUILTIN_FALLBACK, SUPPORTED_COUNTRIES, refreshHolidayForCountry } from './sources/holiday.js';
+import { WEATHER_BUILTIN_FALLBACK, coordsKey, refreshWeatherForCity, refreshWeatherForCoords } from './sources/weather.js';
+import { holidayFallback, SUPPORTED_COUNTRIES, refreshHolidayForCountry } from './sources/holiday.js';
 import { getSuggestions } from './sources/suggest.js';
 import { computeTodayInfo } from './sources/today.js';
 import { lookupIp } from './sources/ip.js';
@@ -164,7 +164,7 @@ app.get('/api/holidays', a(async (req, res) => {
       holidayInflight.set(country, inflight);
     }
     await inflight;
-    r = await readThreeState(key, HOLIDAY_BUILTIN_FALLBACK);
+    r = await readThreeState(key, holidayFallback(country));
   }
   res.json(r);
 }));
@@ -212,7 +212,7 @@ app.get('/api/weather', a(async (req, res) => {
   if (lat != null && lon != null) {
     const { lat: la, lon: lo } = validateLatLon(lat, lon);
     const lab = validateShortText(label, 'label', 50);
-    const key = `weather:coords:${la},${lo}`;
+    const key = coordsKey(la, lo);
     let r = await readThreeState(key, null);
     if (!r || r.freshness !== 'fresh') {
       await refreshWeatherDedup(key, () => refreshWeatherForCoords(la, lo, lab));

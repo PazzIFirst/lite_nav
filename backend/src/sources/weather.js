@@ -151,6 +151,11 @@ export async function refreshWeatherForCity(city) {
   });
 }
 
+// 坐标天气缓存键 — 读(server.js)、写(本模块)必须用同一格式,否则刷新写入后读不到
+export function coordsKey(lat, lon) {
+  return `weather:coords:${Number(lat).toFixed(3)},${Number(lon).toFixed(3)}`;
+}
+
 export async function refreshWeatherForCoords(lat, lon, label) {
   // W-003/W-004 修复:模块内归一化 + 二次校验
   const la = Number(lat), lo = Number(lon);
@@ -159,7 +164,7 @@ export async function refreshWeatherForCoords(lat, lon, label) {
   const laNorm = la.toFixed(3);
   const loNorm = lo.toFixed(3);
   const labelStr = String(label || '').trim().slice(0, 50);
-  const key = `weather:coords:${laNorm},${loNorm}`;
+  const key = coordsKey(la, lo);
   await runAndCache({
     key,
     sources: [

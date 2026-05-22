@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.4.5 — 2026-05-23
+
+修复 3 个 code review 发现的 bug(GitHub issue #1 #2 #3)。
+
+### Fixed
+
+- **#1 坐标天气缓存键读写不一致**:`/api/weather` 坐标路径,读用 `weather:coords:${la},${lo}`(原始数字)、写用 `toFixed(3)`,键对不上 → 刷新写入后仍读旧键 → 永远返回内置兜底。`weather.js` 导出 `coordsKey()`,读写共用同一格式
+- **#2 热榜刷新按钮调了 token 保护接口**:刷新按钮发 `POST /api/hot/:id/refresh`,该接口未配 `REFRESH_TOKEN` 时 403、配了但请求不带 token 时 401 → 默认部署下点刷新必失败。按钮改为普通 `GET` 重新加载;强制重拉(token 保护)保留为管理接口,不暴露给浏览器
+- **#3 非中国节假日套用了中国兜底**:`/api/holidays` 所有国家都用 `HOLIDAY_BUILTIN_FALLBACK`(中国农历算法生成),Redis 不可用 / 数据源全失败时 `?country=US` 会返回中国节假日。新增 `holidayFallback(country)`:CN 用算法兜底,其他国家返回空 `items`(假数据比空更糟)
+
+### 影响
+
+- #1:仅影响用 `lat/lon` 调天气的调用方(当前前端走 `city=`,未踩到)
+- #2:用户可见 —— 热榜刷新按钮默认即坏
+- #3:数据源故障时非中国节假日显示错误数据
+
 ## v1.4.4 — 2026-05-23
 
 国内 IP 检测改为并行合并 —— 同时拿到 IPv4 + 城市级。纯前端。

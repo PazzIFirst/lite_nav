@@ -292,3 +292,13 @@ try {
 export const HOLIDAY_BUILTIN_FALLBACK = {
   data: { items: _builtinCnItems, sub_sources: ['algorithm-fallback'] },
 };
+
+// 非中国国家不能套用中国农历兜底(返回错国家的节日 = 假数据,比空更糟)
+const HOLIDAY_EMPTY_FALLBACK = {
+  data: { items: [], sub_sources: ['empty-fallback'] },
+};
+
+// 按请求的国家选兜底:CN 用算法推算,其他国家返回空 items
+export function holidayFallback(country) {
+  return country === 'CN' ? HOLIDAY_BUILTIN_FALLBACK : HOLIDAY_EMPTY_FALLBACK;
+}
