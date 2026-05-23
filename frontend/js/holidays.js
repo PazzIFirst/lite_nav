@@ -49,9 +49,16 @@ async function loadHolidayForCountry(code) {
 function findNextHoliday(items, today) {
   let best = null, min = Infinity;
   for (const h of items) {
-    const diff = Math.round((h.start - today) / 86400000);
-    if (diff === 0) return { name: h.name, name_native: h.name_native, diff: 0 };
-    if (diff > 0 && diff < min) { min = diff; best = { name: h.name, name_native: h.name_native, diff }; }
+    // issue#6:用完整范围判断「假期中」,多天假期第 2 天起也算
+    const diffStart = Math.round((h.start - today) / 86400000);
+    const diffEnd   = Math.round((h.end   - today) / 86400000);
+    if (diffStart <= 0 && diffEnd >= 0) {
+      return { name: h.name, name_native: h.name_native, diff: 0 };
+    }
+    if (diffStart > 0 && diffStart < min) {
+      min = diffStart;
+      best = { name: h.name, name_native: h.name_native, diff: diffStart };
+    }
   }
   return best;
 }

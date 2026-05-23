@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.4.6 — 2026-05-23
+
+第二轮 code review 4 个 issue 修复(GitHub issue #4 #5 #6 #7)。
+
+### Fixed
+
+- **#4 后端把多天假期压成 1 天**:`holiday.js` 最终聚合 `out.map(h => ({date: h.s}))` 丢了 `h.e`,春节/国庆等多天假期范围只剩首日。新增 `expandHolidayDays()`:聚合前展开 `{s,e}` 为单日,`mergeRanges` 再合并出完整范围
+- **#5 Redis 不可用时降级路径会卡**:`ioredis` 客户端用默认配置 → 命令无超时、无重试上限,Redis 挂时降级要等命令 30s 默认超时,import 时也会触发持续重连。改:`lazyConnect: true` + `connectTimeout: 3s` + `commandTimeout: 2s` + `maxRetriesPerRequest: 2` + `retryStrategy` 5 次后返回 null
+- **#6 前端「假期中」只在第一天显示**:`findNextHoliday()` 只比 `today` 和 `h.start`,完全没用 `h.end` → 春节第 2-7 天显示成"已过去"。改为 `diffStart<=0 && diffEnd>=0` 双边判断,覆盖整个假期范围(时区/浮点容差用 `Math.round`)
+
+> #4 修后端只是给前端正确数据,#6 修前端才能用到 —— **两者配套生效**。
+
+### Chore
+
+- **#7 提交 `backend/package-lock.json` + Dockerfile 改 `npm ci`**:
+  - 此前无 lockfile,Docker `npm install` 每次重新解析 → 依赖版本可能漂移、构建不可复现
+  - 改 `npm ci --omit=dev` 严格按 lockfile 安装,构建结果一致
+  - 实测当前依赖 `node-cron@3.0.3 → uuid@8.3.2` 触发 npm audit moderate 告警(uuid <11.1.1);`node-cron@4.x` 为 breaking change,本次**不升**,作为已知接受风险跟踪。该 advisory 仅影响 v3-v7 UUID 生成路径,本项目未使用;影响极小
+
 ## v1.4.5 — 2026-05-23
 
 修复 3 个 code review 发现的 bug(GitHub issue #1 #2 #3)。

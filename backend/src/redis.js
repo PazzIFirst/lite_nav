@@ -5,9 +5,14 @@ const redis = new Redis({
   host: process.env.REDIS_HOST || '127.0.0.1',
   port: Number(process.env.REDIS_PORT || 6379),
   password: process.env.REDIS_PASSWORD || undefined,
-  lazyConnect: false,
+  // issue#5:模块加载时不要立即连接,首次操作触发(避免 import 即触发持续重连)
+  lazyConnect: true,
   enableReadyCheck: true,
-  retryStrategy: (times) => Math.min(times * 200, 5000),
+  // 有界超时 + 重试上限 — Redis 不可用时降级路径不卡(返回 fallback 即可)
+  connectTimeout: 3000,         // 连接握手 3s 超时
+  commandTimeout: 2000,         // 单个命令 2s 超时
+  maxRetriesPerRequest: 2,      // 每请求最多 2 次重试
+  retryStrategy: (times) => times > 5 ? null : Math.min(times * 200, 2000),
 });
 
 redis.on('error', (e) => console.error('[redis]', e.message));

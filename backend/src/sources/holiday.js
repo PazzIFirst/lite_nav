@@ -56,6 +56,23 @@ function mergeRanges(items) {
   return ranges;
 }
 
+// 把含 {s,e} 的范围展开成单日 [{name,date}] —— mergeRanges 输入需为单日
+// 否则多天假期(春节/国庆)在最终聚合时会被压成 1 天(issue #4)
+function expandHolidayDays(h) {
+  const days = [];
+  const s = h.s, e = h.e || h.s;
+  let cur = s;
+  while (cur <= e) {
+    days.push({ name: h.name, date: cur });
+    const [y, m, d] = cur.split('-').map(Number);
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    dt.setUTCDate(dt.getUTCDate() + 1);
+    cur = dt.toISOString().slice(0, 10);
+    if (days.length > 60) break;   // 防御:单个假期最多展开 60 天
+  }
+  return days;
+}
+
 // ===== CN 数据源链 =====
 
 // 1. timor.tech(含调休)
@@ -256,11 +273,11 @@ export async function refreshHolidayForCountry(country) {
         if (next.status === 'fulfilled' && next.value) { out.push(...next.value.data); subs.push(`${year+1}:${next.value.source}`); }
         if (!out.length) return null;
 
-        // H-008:所有国家(含 CN)都走 mergeRanges 合并连续假期
-        const merged = mergeRanges(out.map(h => ({ name: h.name, date: h.s, name_native: h.name_native })));
-        // mergeRanges 不保留 name_native,需要重新拼回
+        // H-008/issue#4:展开多天范围 → mergeRanges 重新合并 → 保留完整 e
+        const merged = mergeRanges(out.flatMap(expandHolidayDays));
+        // mergeRanges 不保留 name_native,按 name 重新拼回(同名假期翻译相同)
         const final = merged.map(m => {
-          const orig = out.find(h => h.name === m.name && h.s === m.s);
+          const orig = out.find(h => h.name === m.name);
           return { ...m, name_native: orig?.name_native || m.name };
         });
         const items = dedupAndSort(final);
