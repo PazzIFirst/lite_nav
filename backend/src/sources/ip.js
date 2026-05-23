@@ -5,7 +5,7 @@
 //
 // 注:无法在后端检测访客的「国内分流 IP」—— 那要观察访客自己的分流路由,
 //     只能由浏览器侧完成(见 frontend/js/ip-weather.js 的 detectDomestic)。
-import { fetchT } from '../fetcher.js';
+import { fetchT, readJsonLimited } from '../fetcher.js';
 import { cleanText } from '../safe.js';
 
 // 内存缓存 IP → geo(避免每次访问都打外部 API)
@@ -77,7 +77,7 @@ async function geoLookup(ip) {
   for (const api of apis) {
     try {
       const r = await fetchT(api.url, { timeout: 4500 });
-      const info = api.parse(await r.json());
+      const info = api.parse(await readJsonLimited(r));
       const norm = normalizeInfo(info && { ...info, source_label: api.label });
       if (norm) return norm;
     } catch {}

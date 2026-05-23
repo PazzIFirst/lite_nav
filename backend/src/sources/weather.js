@@ -1,4 +1,4 @@
-import { fetchT, runAndCache } from '../fetcher.js';
+import { fetchT, runAndCache, readJsonLimited } from '../fetcher.js';
 
 const HOT_TTL = 1800; // 30min
 
@@ -63,7 +63,7 @@ async function geocode(name) {
     `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(name)}&count=5&language=zh&format=json`,
     { timeout: 5000 }
   );
-  const d = await r.json();
+  const d = await readJsonLimited(r);
   const results = d?.results || [];
   if (!results.length) return null;
   const lowerInput = String(name).toLowerCase();
@@ -88,7 +88,7 @@ function makeItboySource(cityName) {
     if (!code) return null;
     const tryFetch = async (proto) => {
       const r = await fetchT(`${proto}://t.weather.itboy.net/api/weather/city/${code}`, { timeout: 5000 });
-      const d = await r.json();
+      const d = await readJsonLimited(r);
       if (d?.status !== 200 || !d?.data) return null;
       const today = d.data.forecast?.[0];
       const type  = today?.type || '';
@@ -109,7 +109,7 @@ function makeOpenMeteoSource(getCoords) {
       `https://api.open-meteo.com/v1/forecast?latitude=${c.lat}&longitude=${c.lon}&current=temperature_2m,weather_code&timezone=auto`,
       { timeout: 5000 }
     );
-    const d = await r.json();
+    const d = await readJsonLimited(r);
     if (d?.current?.temperature_2m == null) return null;
     return {
       text: `${wmoText(d.current.weather_code)} ${Math.round(d.current.temperature_2m)}°`,
@@ -122,7 +122,7 @@ function makeWttrSource(query) {
   return async () => {
     // W-006 修复:加 lang=zh
     const r = await fetchT(`https://wttr.in/${encodeURIComponent(query)}?format=j1&lang=zh`, { timeout: 6000 });
-    const d = await r.json();
+    const d = await readJsonLimited(r);
     const cur = d?.current_condition?.[0];
     if (!cur) return null;
     const area = d.nearest_area?.[0]?.areaName?.[0]?.value || query;
@@ -138,9 +138,10 @@ function makeWttrSource(query) {
 export async function refreshWeatherForCity(city) {
   // W-002 修复:模块内 normalize
   const trimmed = String(city || '').trim().replace(/\s+/g, ' ').slice(0, 50);
-  if (!trimmed) return;
+  if (!trimmed) return null;
   const key = 'weather:' + normalizeCityKey(trimmed);
-  await runAndCache({
+  // issue#8:返回 fresh payload,让路由在 Redis 写失败时仍能直接使用
+  return runAndCache({
     key,
     sources: [
       { id: 'cn-weather', label: '中国天气网', fn: makeItboySource(trimmed) },
@@ -159,13 +160,14 @@ export function coordsKey(lat, lon) {
 export async function refreshWeatherForCoords(lat, lon, label) {
   // W-003/W-004 修复:模块内归一化 + 二次校验
   const la = Number(lat), lo = Number(lon);
-  if (!Number.isFinite(la) || la < -90  || la > 90)  return;
-  if (!Number.isFinite(lo) || lo < -180 || lo > 180) return;
+  if (!Number.isFinite(la) || la < -90  || la > 90)  return null;
+  if (!Number.isFinite(lo) || lo < -180 || lo > 180) return null;
   const laNorm = la.toFixed(3);
   const loNorm = lo.toFixed(3);
   const labelStr = String(label || '').trim().slice(0, 50);
   const key = coordsKey(la, lo);
-  await runAndCache({
+  // issue#8:返回 fresh payload,让路由在 Redis 写失败时仍能直接使用
+  return runAndCache({
     key,
     sources: [
       { id: 'open-meteo', label: 'Open-Meteo', fn: makeOpenMeteoSource(async () => ({ lat: la, lon: lo, name: labelStr })) },

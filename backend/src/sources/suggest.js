@@ -1,4 +1,4 @@
-import { fetchT } from '../fetcher.js';
+import { fetchT, readJsonLimited } from '../fetcher.js';
 
 // 搜索联想:每个查询独立、不缓存(用户输入即时变化),后端做主备 + CORS 终结
 export async function getSuggestions(query) {
@@ -14,7 +14,7 @@ export async function getSuggestions(query) {
           `https://www.baidu.com/sugrec?prod=pc&wd=${encodeURIComponent(query)}`,
           { timeout: 3000 }
         );
-        const d = await r.json();
+        const d = await readJsonLimited(r);
         const list = Array.isArray(d?.g) ? d.g.map(x => x.q).filter(Boolean) : null;
         return list?.length ? list : null;
       },
@@ -27,7 +27,7 @@ export async function getSuggestions(query) {
           `https://suggestqueries.google.com/complete/search?client=firefox&q=${encodeURIComponent(query)}&hl=zh-CN`,
           { timeout: 3000 }
         );
-        const d = await r.json();
+        const d = await readJsonLimited(r);
         const list = Array.isArray(d?.[1]) ? d[1] : null;
         return list?.length ? list : null;
       },
@@ -40,7 +40,7 @@ export async function getSuggestions(query) {
           `https://api.bing.com/osjson.aspx?query=${encodeURIComponent(query)}`,
           { timeout: 3000 }
         );
-        const d = await r.json();
+        const d = await readJsonLimited(r);
         const list = Array.isArray(d?.[1]) ? d[1] : null;
         return list?.length ? list : null;
       },

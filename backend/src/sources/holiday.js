@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import lunar from 'lunar-javascript';
 import Holidays from 'date-holidays';
-import { fetchT, runAndCache } from '../fetcher.js';
+import { fetchT, runAndCache, readJsonLimited } from '../fetcher.js';
 import { translateHolidayName } from './holiday-i18n.js';
 import { safeDate, safeHttpUrl } from '../safe.js';
 
@@ -78,7 +78,7 @@ function expandHolidayDays(h) {
 // 1. timor.tech(含调休)
 async function cnFromTimor(year) {
   const r = await fetchT(`https://timor.tech/api/holiday/year/${year}`, { timeout: 6000 });
-  const d = await r.json();
+  const d = await readJsonLimited(r);
   if (!d?.holiday) return null;
   const dates = Object.entries(d.holiday)
     .filter(([k, v]) => v.holiday === true && /^\d{2}-\d{2}$/.test(k))   // H-010:校验 MM-DD 格式
@@ -93,7 +93,7 @@ async function cnFromGitHub(year) {
     `https://cdn.jsdelivr.net/gh/NateScarlet/holiday-cn@master/${year}.json`,
     { timeout: 6000 }
   );
-  const d = await r.json();
+  const d = await readJsonLimited(r);
   if (!Array.isArray(d?.days)) return null;
   const offDays = d.days.filter(x => x.isOffDay).map(x => ({ name: x.name, date: x.date }));
   const merged = mergeRanges(offDays);
@@ -155,7 +155,7 @@ function cnFromAlgorithm(year) {
 // 1. Nager.Date API(localName 是当地原文)
 async function fromNagerDate(country, year) {
   const r = await fetchT(`https://date.nager.at/api/v3/PublicHolidays/${year}/${country}`, { timeout: 6000 });
-  const list = await r.json();
+  const list = await readJsonLimited(r);
   if (!Array.isArray(list) || !list.length) return null;
   return list
     .filter(h => safeDate(h.date))                     // 校验日期格式
@@ -256,7 +256,8 @@ function dedupAndSort(items) {
 
 export async function refreshHolidayForCountry(country) {
   const year = new Date().getFullYear();
-  await runAndCache({
+  // issue#8:返回 fresh payload,让路由在 Redis 写失败时仍能直接使用
+  return runAndCache({
     key: `holiday:${country}`,
     // H-005:source_label 包含真实子源
     sources: [{

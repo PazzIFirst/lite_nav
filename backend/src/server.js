@@ -6,6 +6,7 @@ import { FINANCE_BUILTIN_FALLBACK } from './sources/finance.js';
 import { HOT_IDS, HOT_BUILTIN_FALLBACK, refreshHotList } from './sources/hot.js';
 import { WEATHER_BUILTIN_FALLBACK, coordsKey, refreshWeatherForCity, refreshWeatherForCoords } from './sources/weather.js';
 import { holidayFallback, SUPPORTED_COUNTRIES, refreshHolidayForCountry } from './sources/holiday.js';
+import { readBufferLimited } from './fetcher.js';
 import { getSuggestions } from './sources/suggest.js';
 import { computeTodayInfo } from './sources/today.js';
 import { lookupIp } from './sources/ip.js';
@@ -17,7 +18,13 @@ import {
 
 const app = express();
 app.disable('x-powered-by');
-app.set('trust proxy', 1); // 反代后正确识别客户端 IP(给 rate-limit 用)
+// issue#10:仅在通过 env 显式配置时才信任 XFF —— 直接暴露后端时关闭以防 IP 伪造
+// TRUST_PROXY 可填:'1'(信任最近 1 跳,Caddy/Nginx 反代后用这个) | 'true'(信任全部)
+// | 'loopback' | CIDR 列表。默认不设 → req.ip 用 socket 对端 IP
+const TRUST_PROXY = process.env.TRUST_PROXY;
+if (TRUST_PROXY) {
+  app.set('trust proxy', /^\d+$/.test(TRUST_PROXY) ? Number(TRUST_PROXY) : TRUST_PROXY);
+}
 app.use(express.json({ limit: '64kb' }));
 
 // ===== CORS:从 env 读白名单,不再 * =====
@@ -163,8 +170,10 @@ app.get('/api/holidays', a(async (req, res) => {
         .finally(() => holidayInflight.delete(country));
       holidayInflight.set(country, inflight);
     }
-    await inflight;
-    r = await readThreeState(key, holidayFallback(country));
+    // issue#8:用 refresh 返回的 fresh payload,Redis 写失败时仍可用
+    const fresh = await inflight;
+    r = fresh ? { ...fresh, freshness: 'fresh' }
+             : (await readThreeState(key, null) || holidayFallback(country));
   }
   res.json(r);
 }));
@@ -191,7 +200,7 @@ async function refreshWeatherDedup(key, runner) {
     p = runner().finally(() => weatherInflight.delete(key));
     weatherInflight.set(key, p);
   }
-  await p;
+  return p;        // issue#8:返回 fresh payload(Promise<payload | null>)
 }
 
 app.get('/api/weather', a(async (req, res) => {
@@ -203,8 +212,10 @@ app.get('/api/weather', a(async (req, res) => {
     let r = await readThreeState(key, null);
     // 缓存空 / stale / fallback 都阻塞拉取
     if (!r || r.freshness !== 'fresh') {
-      await refreshWeatherDedup(key, () => refreshWeatherForCity(validated));
-      r = await readThreeState(key, WEATHER_BUILTIN_FALLBACK);
+      // issue#8:用 refresh 返回的 fresh payload,Redis 写失败时仍可用
+      const fresh = await refreshWeatherDedup(key, () => refreshWeatherForCity(validated));
+      r = fresh ? { ...fresh, freshness: 'fresh' }
+               : (await readThreeState(key, null) || WEATHER_BUILTIN_FALLBACK);
     }
     return res.json(r);
   }
@@ -215,8 +226,9 @@ app.get('/api/weather', a(async (req, res) => {
     const key = coordsKey(la, lo);
     let r = await readThreeState(key, null);
     if (!r || r.freshness !== 'fresh') {
-      await refreshWeatherDedup(key, () => refreshWeatherForCoords(la, lo, lab));
-      r = await readThreeState(key, WEATHER_BUILTIN_FALLBACK);
+      const fresh = await refreshWeatherDedup(key, () => refreshWeatherForCoords(la, lo, lab));
+      r = fresh ? { ...fresh, freshness: 'fresh' }
+               : (await readThreeState(key, null) || WEATHER_BUILTIN_FALLBACK);
     }
     return res.json(r);
   }
@@ -265,7 +277,7 @@ app.get('/api/favicon', a(async (req, res) => {
     });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const ct = r.headers.get('content-type') || 'image/png';
-    const buf = Buffer.from(await r.arrayBuffer());
+    const buf = await readBufferLimited(r);                  // issue#9:限额流式读取
     if (faviconCache.size > 500) faviconCache.delete(faviconCache.keys().next().value);
     faviconCache.set(domain, { body: buf, contentType: ct, ts: Date.now() });
     res.setHeader('Content-Type', ct);

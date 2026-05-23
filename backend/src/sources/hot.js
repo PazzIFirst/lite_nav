@@ -1,4 +1,4 @@
-import { fetchT, runAndCache } from '../fetcher.js';
+import { fetchT, runAndCache, readJsonLimited } from '../fetcher.js';
 import { safeHttpUrl, cleanText } from '../safe.js';
 
 const HOT_TTL = 300; // 5min
@@ -38,14 +38,14 @@ function parseBa9(d) {
 function makeBa9Source(slug) {
   return async () => {
     const r = await fetchT(`https://api.ba9.cn/api/get.${slug}`, { timeout: 5000 });
-    return parseBa9(await r.json());
+    return parseBa9(await readJsonLimited(r));
   };
 }
 
 function makeVvhanSource(slug) {
   return async () => {
     const r = await fetchT(`https://api.vvhan.com/api/hotlist/${slug}`, { timeout: 5000 });
-    const d = await r.json();
+    const d = await readJsonLimited(r);
     if (!d?.success || !Array.isArray(d.data)) return null;
     const items = d.data
       .slice(0, 30)
@@ -74,7 +74,7 @@ const SOURCE_DEFS = {
       label: 'B站官方-每日热门',
       fn: async () => {
         const r = await fetchT('https://api.bilibili.com/x/web-interface/popular?ps=30&pn=1', { timeout: 5000 });
-        const d = await r.json();
+        const d = await readJsonLimited(r);
         if (d?.code !== 0) return null;
         const items = (d.data?.list || [])
           .filter(i => i?.title && i?.bvid)            // B-003:bvid 必须存在
@@ -91,7 +91,7 @@ const SOURCE_DEFS = {
       label: 'B站官方-综合排行',
       fn: async () => {
         const r = await fetchT('https://api.bilibili.com/x/web-interface/ranking/v2?rid=0&type=1', { timeout: 5000 });
-        const d = await r.json();
+        const d = await readJsonLimited(r);
         if (d?.code !== 0) return null;
         const items = (d.data?.list || [])
           .filter(i => i?.title && i?.bvid)

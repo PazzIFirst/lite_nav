@@ -2,6 +2,45 @@ import { writeBoth } from './redis.js';
 
 const MAX_BODY_BYTES = Number(process.env.FETCH_MAX_BODY_BYTES || 2 * 1024 * 1024); // 2MB
 
+// issue#9:边读边计数的 body 读取器 —— 第三方不返 Content-Length 时仍能强制限额
+// 取代裸 res.json() / res.arrayBuffer(),避免无限读流到内存
+async function readBodyLimited(res, maxBytes) {
+  const reader = res.body && res.body.getReader && res.body.getReader();
+  if (!reader) { // 无流接口,fallback 到 arrayBuffer(预检 content-length 已过)
+    return Buffer.from(await res.arrayBuffer());
+  }
+  const chunks = [];
+  let total = 0;
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    total += value.length;
+    if (total > maxBytes) {
+      try { await reader.cancel('body too large'); } catch {}
+      throw new Error(`response too large: ${total}+ bytes (max ${maxBytes})`);
+    }
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks);
+}
+
+export async function readJsonLimited(res, maxBytes = MAX_BODY_BYTES) {
+  const cl = Number(res.headers.get('content-length'));
+  if (Number.isFinite(cl) && cl > maxBytes) {
+    throw new Error(`response too large: ${cl} bytes (max ${maxBytes})`);
+  }
+  const buf = await readBodyLimited(res, maxBytes);
+  return JSON.parse(buf.toString('utf8'));
+}
+
+export async function readBufferLimited(res, maxBytes = MAX_BODY_BYTES) {
+  const cl = Number(res.headers.get('content-length'));
+  if (Number.isFinite(cl) && cl > maxBytes) {
+    throw new Error(`response too large: ${cl} bytes (max ${maxBytes})`);
+  }
+  return await readBodyLimited(res, maxBytes);
+}
+
 // 通用 fetch 包装:超时、body size 限制、协议白名单、透传 method/body/headers
 export async function fetchT(url, opts = {}) {
   // 协议白名单

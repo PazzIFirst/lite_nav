@@ -1,5 +1,5 @@
 import iconv from 'iconv-lite';
-import { fetchT, runAndCache } from '../fetcher.js';
+import { fetchT, runAndCache, readJsonLimited, readBufferLimited } from '../fetcher.js';
 import redis, { writeBoth } from '../redis.js';
 import { safeNumber, safeParse } from '../safe.js';
 
@@ -49,7 +49,7 @@ async function loadFromEastMoney() {
   const secids = '1.000001,0.399001,1.000300,100.HSI,100.NDX,100.SPX,100.DJIA,118.AU9999';
   const url = `https://push2.eastmoney.com/api/qt/ulist.np/get?ut=fa5fd1943c7b386f172d6893dbfba10b&fltt=2&invt=2&fields=f2,f3,f12,f14&secids=${secids}`;
   const r = await fetchT(url, { timeout: 5000 });
-  const d = await r.json();
+  const d = await readJsonLimited(r);
   const list = d?.data?.diff;
   if (!Array.isArray(list)) return null;
   const codeMap = {
@@ -76,7 +76,7 @@ async function loadFromSina() {
     timeout: 6000,
     headers: { 'Referer': 'https://finance.sina.com.cn/' },
   });
-  const buf = Buffer.from(await r.arrayBuffer());
+  const buf = await readBufferLimited(r);
   const text = iconv.decode(buf, 'gb18030');
   const SINA_MAP = [
     { sym: 's_sh000001', id: 'sse',    pi: 1, ci: 3 },
@@ -104,7 +104,7 @@ async function loadFromTencent() {
   const syms = 'sh000001,sz399001,sh000300,hkHSI,usIXIC,usINX,usDJI';
   const url = `https://qt.gtimg.cn/q=${syms}`;
   const r = await fetchT(url, { timeout: 5000 });
-  const buf = Buffer.from(await r.arrayBuffer());
+  const buf = await readBufferLimited(r);
   const text = iconv.decode(buf, 'gb18030');
   const map = {
     'sh000001': 'sse', 'sz399001': 'szse', 'sh000300': 'csi300',
@@ -143,7 +143,7 @@ async function loadFromTencent() {
 // 通用 Yahoo Finance chart meta 拉取
 async function yahooQuote(symbol) {
   const r = await fetchT(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}`, { timeout: 5000 });
-  const d = await r.json();
+  const d = await readJsonLimited(r);
   const m = d?.chart?.result?.[0]?.meta;
   if (!m) return null;
   const price = Number(m.regularMarketPrice);
@@ -194,7 +194,7 @@ async function loadFXSina() {
     timeout: 5000,
     headers: { 'Referer': 'https://finance.sina.com.cn/' },
   });
-  const buf = Buffer.from(await r.arrayBuffer());
+  const buf = await readBufferLimited(r);
   const text = iconv.decode(buf, 'gb18030');
   const m = text.match(/hq_str_fx_susdcny="([^"]+)"/);
   if (!m) return null;
@@ -210,7 +210,7 @@ async function loadFXSina() {
 
 async function loadFXFrankfurter() {
   const r = await fetchT('https://api.frankfurter.app/latest?from=USD&to=CNY', { timeout: 5000 });
-  const d = await r.json();
+  const d = await readJsonLimited(r);
   if (!d?.rates?.CNY) return null;
   const filled = makeItem('usdcny', Number(d.rates.CNY), null, 'frankfurter', 'Frankfurter(ECB 日终)');
   return filled ? { usdcny: filled } : null;
@@ -218,7 +218,7 @@ async function loadFXFrankfurter() {
 
 async function loadFXErApi() {
   const r = await fetchT('https://open.er-api.com/v6/latest/USD', { timeout: 5000 });
-  const d = await r.json();
+  const d = await readJsonLimited(r);
   const filled = makeItem('usdcny', Number(d?.rates?.CNY), null, 'er-api', 'ExchangeRate-API(日终)');
   return filled ? { usdcny: filled } : null;
 }

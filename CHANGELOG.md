@@ -1,5 +1,27 @@
 # Changelog
 
+## v1.4.7 — 2026-05-23
+
+第三轮 code review 3 个 issue 修复(GitHub issue #8 #9 #10)。
+
+### Fixed
+
+- **#8 Redis 写失败时新鲜数据被丢弃**:`runAndCache()` 即使 Redis 写失败也会返回新鲜 payload,但 `refreshWeather*` / `refreshHolidayForCountry` 没 return,路由再去读 Redis 拿不到 → 返回内置兜底 → 把 Redis 变成了硬依赖。改:refresh 函数全部 `return runAndCache(...)`;`refreshWeatherDedup` 返回 Promise<payload>;路由 `const fresh = await refresh*; r = fresh? {...fresh, freshness:'fresh'} : await read() ?? fallback`
+- **#9 body 大小限制只看 Content-Length,流读取无限**:第三方不返 `Content-Length` 时 `res.json()`/`arrayBuffer()` 仍可无限读到内存。`fetcher.js` 新增 `readJsonLimited` / `readBufferLimited`,**边读边计数,超限即抛**;迁移 19 处 `res.json()` + 4 处 `arrayBuffer()`(weather/holiday/finance/hot/ip/suggest 各源 + favicon 代理)
+- **#10 trust proxy 总是启用**:`app.set('trust proxy', 1)` 永远开 → 后端若直接暴露,客户端可伪造 `X-Forwarded-For` 欺骗 `req.ip`、绕过限流。改 `TRUST_PROXY` env 控制(默认关;`1` = 信任 1 跳,适合 Caddy/Nginx 反代;`true` 或 CIDR 列表也支持)
+
+### Deployment note
+
+**升级到 v1.4.7 必须在 docker-compose 给 backend 加 `TRUST_PROXY=1` 环境变量**,否则:
+- `/api/ip` 会拿到 Caddy 的内网 IP(`172.x.x.x`)而不是访客真实 IP
+- 限流变成所有用户共享一个桶(Caddy IP 为 key)
+
+```yaml
+backend:
+  environment:
+    - TRUST_PROXY=1   # 反代场景必需
+```
+
 ## v1.4.6 — 2026-05-23
 
 第二轮 code review 4 个 issue 修复(GitHub issue #4 #5 #6 #7)。
