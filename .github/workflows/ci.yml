@@ -1,0 +1,91 @@
+name: CI
+
+# 触发:
+#   - 推到 main(只在代码/脚本变动时,改 README 不跑)
+#   - 任何指向 main 的 PR
+#   - Actions 页面手动触发
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - 'scripts/**'
+      - '.github/workflows/ci.yml'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    # 后端把 Redis 当软依赖(挂了会降级),但冒烟测试要覆盖正常路径,所以起一个
+    services:
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 与 backend/Dockerfile 的 node:20-alpine 对齐,避免"本地过 CI 过、生产炸"
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      # npm ci 严格按 lockfile 安装:package.json 与 lock 不一致时这一步就会失败
+      - name: Install backend deps (validates lockfile)
+        working-directory: backend
+        run: npm ci
+
+      # 语法 + 前端 import 解析 + DOM id 契约
+      - name: Static checks
+        run: node scripts/static-checks.mjs
+
+      - name: Start backend
+        working-directory: backend
+        env:
+          PORT: '3000'
+          HOST: '127.0.0.1'
+          REDIS_HOST: '127.0.0.1'
+          REDIS_PORT: '6379'
+          TZ: Asia/Shanghai
+        run: |
+          node src/server.js > "$RUNNER_TEMP/backend.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/backend.pid"
+          for i in $(seq 1 40); do
+            if curl -fsS -m 2 http://127.0.0.1:3000/api/health >/dev/null 2>&1; then
+              echo "backend ready after ${i} attempts"; exit 0
+            fi
+            sleep 0.5
+          done
+          echo "::error::backend failed to become ready within 20s"
+          cat "$RUNNER_TEMP/backend.log"
+          exit 1
+
+      # 只断言不依赖第三方外网的端点 —— 热榜/行情要打外网,在 CI 里断言只会随机变红
+      - name: Smoke test
+        env:
+          BASE: http://127.0.0.1:3000
+        run: node scripts/smoke-test.mjs
+
+      # 无论成败都把后端日志贴出来,失败时不用重跑就能看到原因
+      - name: Backend log
+        if: always()
+        run: |
+          echo "--- backend.log ---"
+          cat "$RUNNER_TEMP/backend.log" 2>/dev/null || echo "(无日志)"
+          kill "$(cat "$RUNNER_TEMP/backend.pid")" 2>/dev/null || true
