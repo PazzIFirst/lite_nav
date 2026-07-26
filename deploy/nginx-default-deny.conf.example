@@ -1,0 +1,60 @@
+# ===== 兜底 server:切断「源站 IP → 域名」的自动关联 =====
+#
+# 解决什么问题:
+#   套了 CF 橙云后,源站 IP 仍然直接暴露在公网。Shodan / Censys / BinaryEdge 这类
+#   服务持续扫描整个 IPv4 空间,把每个 IP 的 TLS 证书里的 SAN 域名建成可搜索索引。
+#   于是「在 Censys 搜域名 → 反查出源站 IP」变成一件自动化、无门槛的事。
+#   这是套了 CF 的源站 IP 最常见的泄露途径。
+#
+# 为什么不能在 HTTP 层按 Host 拦:
+#   TCP 握手 → TLS 握手【证书在这一步就发出去了】→ HTTP 请求【Host 头此时才可见】
+#   扫描器根本不发 HTTP 请求,一次 TLS 握手就拿到证书了。按 Host 拦截来不及。
+#   所以必须控制「握手时给谁看哪张证书」,也就是用 default_server 兜住所有
+#   不带正确 SNI 的连接。
+#
+# 效果边界(重要,别误以为万无一失):
+#   ✅ 挡住「全网扫描按 IP 收集证书」—— 无差别、自动化、大规模的那类
+#   ❌ 挡不住「已知域名,逐个 IP 带正确 SNI 去验证哪个是源站」
+#      —— 因为 CF 回源就是这么做的(连你的 IP + 带 SNI),堵死它等于堵死 CF
+#   已被扫描器收录过的历史数据不会因此消失,彻底干净只能换 IP。
+#
+# 用法:
+#   1. 生成一张不含任何域名线索的自签证书
+#        mkdir -p /etc/ssl/dummy && chmod 700 /etc/ssl/dummy
+#        openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 \
+#          -keyout /etc/ssl/dummy/self.key -out /etc/ssl/dummy/self.pem \
+#          -days 7300 -nodes -subj "/CN=localhost" -addext "subjectAltName=DNS:localhost"
+#        chmod 600 /etc/ssl/dummy/self.key
+#   2. 把本文件放进 sites-available 并 enable(文件名建议以 00- 开头便于识别)
+#   3. nginx -t && systemctl reload nginx
+#
+# ⚠ 与 certbot 的冲突:
+#   certbot --nginx 会在站点块里写 `listen [::]:443 ssl ipv6only=on;`,
+#   与本文件的 `listen [::]:443 ssl default_server;` 冲突,nginx 会起不来。
+#   把站点块里那句改成 `listen [::]:443 ssl;`(去掉 ipv6only=on)即可。
+#
+# 撤销:
+#   rm /etc/nginx/sites-enabled/00-default-deny && nginx -t && systemctl reload nginx
+
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+    return 444;                     # nginx 私有状态码:直接断连,不返回任何内容
+}
+
+server {
+    listen 443 ssl default_server;
+    listen [::]:443 ssl default_server;
+    server_name _;
+
+    # 不含任何域名信息的自签证书 —— 扫描器采集不到线索
+    ssl_certificate     /etc/ssl/dummy/self.pem;
+    ssl_certificate_key /etc/ssl/dummy/self.key;
+
+    # 保持 off:先完成握手再断连,行为更像一个普通空站点。
+    # 置 on 会在握手阶段直接拒绝(TLS alert),反而是个更醒目的特征。
+    ssl_reject_handshake off;
+
+    return 444;
+}

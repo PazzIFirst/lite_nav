@@ -173,6 +173,19 @@ curl -s https://your-domain/api/ip | python3 -m json.tool
 
 CF 网段偶尔会变,建议每年核对一次(命令见该文件头部注释)。
 
+#### 顺手切断「源站 IP → 域名」的关联(可选)
+
+套了 CF 之后源站 IP 仍然直接暴露在公网,而且**源站会主动告诉任何连上来的人它服务哪个域名** —— TLS 握手时发出的证书里就带着 SAN。Shodan / Censys 这类服务持续扫描全网并把这个映射建成索引,于是「搜域名反查源站 IP」是自动化、无门槛的。
+
+注意**不能在 HTTP 层按 Host 拦**:证书在 TLS 握手阶段就发出去了,而 Host 头要到下一步的 HTTP 请求才可见,扫描器压根不发 HTTP 请求。必须用 `default_server` 兜住所有不带正确 SNI 的连接:
+
+```bash
+sudo cp deploy/nginx-default-deny.conf.example /etc/nginx/sites-available/00-default-deny
+# 按文件头部注释生成自签证书,然后 enable + reload
+```
+
+CF 回源时带 SNI,命中正常站点块,不受影响。效果边界见该文件注释 —— 它挡的是无差别全网扫描,挡不住「已知域名逐个 IP 验证」。
+
 ### 本地试用
 
 前端用 ES Modules,**不能** `file://` 双击打开(浏览器 CORS 限制)。要本地试用,起一个简单 HTTP server:
@@ -375,6 +388,7 @@ lite-nav/
 +-- deploy/
 |   +-- openresty-api-snippet.conf.example
 |   +-- cloudflare-realip.conf.example   # 套 CF 橙云时还原访客真实 IP
+|   +-- nginx-default-deny.conf.example  # 切断「源站 IP → 域名」的自动关联
 |   +-- deploy-after-1panel-site.sh
 +-- docs/
 |   +-- screenshot.png
