@@ -1,30 +1,42 @@
 // IP 检测(国内 + 国外)+ 天气联动 + 天气城市弹窗
 import { fetchT, apiGet, srcTooltip } from './api.js';
 
-// 国内 IP 检测 — 浏览器直连国内 IP 服务。3 源并行,结果合并:
-//   · IP   取 IPv4 优先(ipip 域名 v4-only,稳定给 IPv4,双栈用户不会显示一长串 IPv6)
-//   · 城市 取「城市级」源优先(今日头条到市,ipip/mir6 只到省)→ 天气联动更准
+// 国内 IP 检测 — 浏览器直连国内 IP 服务。多源并行,IP 与城市分两路取:
+//
+//   · IP   只认 `v4only` 源 —— 域名仅有 A 记录,浏览器无 IPv6 可选、被迫走 IPv4,
+//          测到的必然是你的 IPv4 出口地址。双栈源(toutiao 有 AAAA=240e:...)在
+//          IPv6 优先的客户端上返回的是 v6 地址,其 ip 字段一律不采信。
+//   · 城市 取「城市级」源优先(今日头条到市,其余只到省)→ 天气联动更准。
+//
+// 注:`v4only` 只是声明该域名当前仅有 A 记录,合并时仍用 IPV4_RE 复核返回值,
+//     源方哪天加了 AAAA 也不会把 IPv6 当成 IPv4 显示出来。
+const IPV4_RE = /^(\d{1,3}\.){3}\d{1,3}$/;
+
+// 下列 v4only 源均已实测:域名仅 A 记录无 AAAA、响应带 CORS 头、返回纯文本 IPv4。
+// 选源还有一条隐性约束:域名必须是分流规则会判为「直连」的国内服务 —— 境外托管的
+// v4 源(如 v4.myip.la,A 记录在 Vultr)会被代理接管,测出代理出口 IPv4,
+// 那是错的「国内 IP」,比显示 IPv6 更具误导性,故不采用。
 const DOMESTIC_IP_APIS = [
-  // ipip.net — 域名 IPv4-only → 强制 IPv4;纯文本,省级(正则取第 2 段 = 省)
-  { url: 'https://myip.ipip.net', level: 'province', text: true,
-    parse: t => {
-      const ip  = (t.match(/当前 IP[：:]\s*([\d.]+)/) || [])[1];
-      const loc = (t.match(/来自于[：:]\s*\S+\s+(\S+)/) || [])[1];
-      return ip ? { ip, city: loc || '', country: '中国', countryCode: 'CN' } : null;
-    } },
-  // mir6 — 省级
+  // DNSPod IPv4 专用端点 — 纯文本,只回 IP 无城市
+  { url: 'https://ipv4.ddnspod.com', v4only: true, text: true,
+    parse: t => ({ ip: String(t).trim() }) },
+  // zxinc IPv6 数据库项目的 v4 端点 — 同为纯文本
+  { url: 'https://v4.ip.zxinc.org/getip', v4only: true, text: true,
+    parse: t => ({ ip: String(t).trim() }) },
+  // mir6 — 省级;实测域名双栈(AAAA=2404:2280:...)且会直接返回 IPv6,故不标 v4only
   { url: 'https://api.mir6.com/api/ip?type=json', level: 'province',
     parse: d => d?.data?.ip
       ? { ip: d.data.ip,
-          city: String(d.data.city || d.data.province || '').replace(/[省市]$/, ''),
-          country: '中国', countryCode: 'CN' }
+          city: String(d.data.city || d.data.province || '').replace(/[省市]$/, '') }
       : null },
-  // 今日头条 widget — 城市级(域名双栈,IP 可能是 IPv6 → 合并时只采它的 city)
+  // 今日头条 widget — 城市级;域名双栈,同样不标 v4only,只采它的 city
   { url: 'https://www.toutiao.com/stream/widget/local_weather/data/', level: 'city',
     parse: d => d?.data?.ip
-      ? { ip: d.data.ip, city: d.data.city || '', country: '中国', countryCode: 'CN' }
+      ? { ip: d.data.ip, city: d.data.city || '' }
       : null },
 ];
+// 已移除 myip.ipip.net:该域名确为 IPv4-only(无 AAAA),本可当强制 v4 源,
+// 但实测响应头无 Access-Control-Allow-Origin,浏览器跨域必被拦 —— 用不了。
 
 // 国外 IP 检测 — 浏览器直连境外 IP 服务。
 // 你的分流代理按规则路由这些请求:走代理的线路 → 服务看到你的代理出口 IP。
@@ -142,7 +154,10 @@ function buildIpDisplay(domestic, foreign) {
   locEl.innerHTML = '';
 
   const de = makeIpEntry('国内IP:', domestic);
-  de.title = '你访问国内站点所用的 IP(浏览器实测国内 IP 服务)';
+  de.title = '你访问国内站点所用的 IP(浏览器实测国内 IP 服务)'
+    + (domestic?.ip?.includes(':')
+        ? '\n⚠ 所有 IPv4 专用源均未响应,当前显示的是 IPv6 出口地址'
+        : '');
   locEl.appendChild(de);
 
   const fe = makeIpEntry('国外IP:', foreign);
@@ -169,18 +184,23 @@ export async function initLocation() {
     return null;
   }
 
-  // 国内:3 源并行,合并 —— IP 取 IPv4 优先,城市取「城市级」源优先
+  // 国内:多源并行,合并 —— IP 取「强制 IPv4」源,城市取「城市级」源
   async function detectDomestic() {
     const settled = await Promise.allSettled(DOMESTIC_IP_APIS.map(async api => {
       const res = await fetchT(api.url, 4500, { cache: 'no-store' });
       if (!res.ok) throw 0;
       const info = api.parse(api.text ? await res.text() : await res.json());
       if (!info?.ip) throw 0;
-      return { ...info, _level: api.level };
+      return { ...info, _level: api.level, _v4only: !!api.v4only };
     }));
+    // allSettled 保序,filter/find 亦保序 → find 命中的就是声明顺序上的最优源
     const got = settled.filter(s => s.status === 'fulfilled').map(s => s.value);
     if (!got.length) return null;
-    const ip   = (got.find(g => !g.ip.includes(':')) || got[0]).ip;            // IPv4 优先
+
+    // IPv4 三级择优:强制 v4 源 → 双栈源恰好给了 v4 → 全是 v6 时兜底(有总比没有强)
+    const ip = got.find(g => g._v4only && IPV4_RE.test(g.ip))?.ip
+            || got.find(g => IPV4_RE.test(g.ip))?.ip
+            || got[0].ip;
     const city = (got.find(g => g._level === 'city' && g.city)
                   || got.find(g => g.city) || got[0]).city || '';              // 城市级优先
     return { ip, city, country: '中国', countryCode: 'CN' };
