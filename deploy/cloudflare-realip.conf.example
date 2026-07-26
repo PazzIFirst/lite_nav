@@ -1,0 +1,51 @@
+# ===== Cloudflare 橙云代理:还原访客真实 IP =====
+#
+# 走 CF 代理后,源站看到的 $remote_addr 是 CF 边缘节点 IP,访客真实 IP 在
+# CF-Connecting-IP 头里。下面用 ngx_http_realip_module 把它还原到 $remote_addr。
+#
+# ⚠ 为什么必须限定 set_real_ip_from,不能直接 proxy_set_header X-Forwarded-For $http_cf_connecting_ip:
+#   后者等于无条件信任一个客户端可伪造的头。源站 IP 一旦泄露(历史 DNS 记录、
+#   邮件头、证书透明日志都可能泄),攻击者绕过 CF 直连源站并伪造 CF-Connecting-IP,
+#   就能污染 /api/ip、并把 express-rate-limit 的限流键刷成任意值绕过限流。
+#   set_real_ip_from 限定「只有来自 CF 网段的请求,该头才作数」,非 CF 来源的伪造头一律忽略。
+#
+# 放置位置(1Panel/OpenResty):与站点 conf 同级的 include 目录,然后在 server 块里
+#   include /path/to/cloudflare-realip.conf;
+# 或直接把内容粘进 server 块。
+#
+# 配套:后端仍需 TRUST_PROXY=1(见 backend/docker-compose.yml),
+#      因为 realip 还原后 OpenResty 仍是以反代身份把请求转给 nav-backend。
+#
+# 网段来源:https://www.cloudflare.com/ips-v4 与 /ips-v6
+# 抓取时间:2026-07-27。CF 偶尔会调整网段,建议每年核对一次:
+#   curl -s https://www.cloudflare.com/ips-v4 | sed 's/^/set_real_ip_from /; s/$/;/'
+#   curl -s https://www.cloudflare.com/ips-v6 | sed 's/^/set_real_ip_from /; s/$/;/'
+
+# --- IPv4 ---
+set_real_ip_from 173.245.48.0/20;
+set_real_ip_from 103.21.244.0/22;
+set_real_ip_from 103.22.200.0/22;
+set_real_ip_from 103.31.4.0/22;
+set_real_ip_from 141.101.64.0/18;
+set_real_ip_from 108.162.192.0/18;
+set_real_ip_from 190.93.240.0/20;
+set_real_ip_from 188.114.96.0/20;
+set_real_ip_from 197.234.240.0/22;
+set_real_ip_from 198.41.128.0/17;
+set_real_ip_from 162.158.0.0/15;
+set_real_ip_from 104.16.0.0/13;
+set_real_ip_from 104.24.0.0/14;
+set_real_ip_from 172.64.0.0/13;
+set_real_ip_from 131.0.72.0/22;
+
+# --- IPv6 ---
+set_real_ip_from 2400:cb00::/32;
+set_real_ip_from 2606:4700::/32;
+set_real_ip_from 2803:f800::/32;
+set_real_ip_from 2405:b500::/32;
+set_real_ip_from 2405:8100::/32;
+set_real_ip_from 2a06:98c0::/29;
+set_real_ip_from 2c0f:f248::/32;
+
+# 只认 CF 的真实 IP 头;上面网段之外的来源发这个头一律忽略
+real_ip_header CF-Connecting-IP;

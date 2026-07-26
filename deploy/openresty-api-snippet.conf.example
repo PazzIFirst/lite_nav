@@ -1,4 +1,8 @@
     # ===== nav-backend API 反代 =====
+    #
+    # 若站点走 Cloudflare 橙云代理,先 include cloudflare-realip.conf.example,
+    # 让 $remote_addr 还原成访客真实 IP;否则下面的 X-Real-IP / X-Forwarded-For
+    # 传给后端的会是 CF 边缘节点 IP —— /api/ip 显示错误位置,限流退化成共用一个桶。
     location /api/ {
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;

@@ -129,6 +129,47 @@ location /api/ {
 sudo nginx -s reload
 ```
 
+### 套 Cloudflare 橙云代理(可选,推荐)
+
+免费拿到 CDN 加速、DDoS 防护、免费 SSL、隐藏源站 IP,且**前后端仍同源** —— `/api/*` 零配置,前端一行不用改。
+
+> **不建议用 Cloudflare Pages 托管前端。** Pages 是纯静态托管,没有反代,`/api/*` 得额外写 Pages Functions 转发回你的服务器 —— 多一跳延迟、多一份代理代码要维护,还要受 Functions 请求配额约束(前端行情 30 秒轮询一次,**单个常开标签页约 3200+ 次/天**)。既然已经有服务器,橙云代理是更简单也更快的选择。
+>
+> 至于把后端本身搬上 Workers:`express` / `ioredis` / `node-cron` / `node:fs` / `iconv-lite`(新浪腾讯行情是 GB18030 编码)五处都依赖 Node 运行时,等于重写整个后端,不在本项目支持范围内。
+
+```bash
+# 1. 域名 NS 指向 Cloudflare(在 CF 添加站点后按提示改注册商的 NS)
+
+# 2. CF DNS 里加 A 记录指向你的服务器公网 IP,代理状态选「已代理」(橙色云朵)
+
+# 3. SSL/TLS 加密模式选「完全(严格)」
+#    源站需有有效证书 —— 1Panel 申请的 Let's Encrypt 即可
+#    切勿选「灵活」:CF 到源站会走明文 HTTP,且源站 443 已有证书时会造成重定向循环
+
+# 4. 关键:让源站还原访客真实 IP
+sudo cp deploy/cloudflare-realip.conf.example /path/to/openresty/conf/cloudflare-realip.conf
+#    在站点 server 块里 include 它,然后 reload
+```
+
+**必须做的两步,漏了会出问题:**
+
+| 步骤 | 漏了的后果 |
+|---|---|
+| include `cloudflare-realip.conf` | 源站只看到 CF 边缘节点 IP → `/api/ip` 显示错误位置;**限流退化成全体访客共用一个桶** |
+| 后端 `TRUST_PROXY=1` | 同上 —— OpenResty 仍以反代身份转发给 nav-backend |
+
+`cloudflare-realip.conf.example` 用 `set_real_ip_from` 限定只有来自 CF 网段的 `CF-Connecting-IP` 头才作数。**不要图省事直接写 `proxy_set_header X-Forwarded-For $http_cf_connecting_ip`** —— 那等于无条件信任一个客户端可伪造的头,源站 IP 一旦泄露(历史 DNS 记录、邮件头、证书透明日志都可能泄),攻击者可绕过 CF 直连源站伪造该头,污染 `/api/ip` 并把限流键刷成任意值绕过限流。
+
+验证是否生效:
+
+```bash
+# 从外网访问一次,再看后端日志里的 IP 是不是你的真实出口 IP
+curl -s https://your-domain/api/ip | python3 -m json.tool
+# visitor_ip 应为你的公网 IP,而不是 104.x / 172.64.x 等 CF 网段地址
+```
+
+CF 网段偶尔会变,建议每年核对一次(命令见该文件头部注释)。
+
 ### 本地试用
 
 前端用 ES Modules,**不能** `file://` 双击打开(浏览器 CORS 限制)。要本地试用,起一个简单 HTTP server:
@@ -330,6 +371,7 @@ lite-nav/
 |           +-- ip.js               # /api/ip 备用代理
 +-- deploy/
 |   +-- openresty-api-snippet.conf.example
+|   +-- cloudflare-realip.conf.example   # 套 CF 橙云时还原访客真实 IP
 |   +-- deploy-after-1panel-site.sh
 +-- docs/
 |   +-- screenshot.png
