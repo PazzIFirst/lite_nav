@@ -3,7 +3,7 @@ import rateLimit from 'express-rate-limit';
 import redis, { readThreeState, pingRedis } from './redis.js';
 import { startScheduler, stopScheduler } from './scheduler.js';
 import { FINANCE_BUILTIN_FALLBACK } from './sources/finance.js';
-import { HOT_IDS, HOT_BUILTIN_FALLBACK, refreshHotList } from './sources/hot.js';
+import { HOT_IDS, HOT_META, HOT_BUILTIN_FALLBACK, refreshHotList, markHotUsed } from './sources/hot.js';
 import { WEATHER_BUILTIN_FALLBACK, coordsKey, refreshWeatherForCity, refreshWeatherForCoords } from './sources/weather.js';
 import { holidayFallback, SUPPORTED_COUNTRIES, refreshHolidayForCountry } from './sources/holiday.js';
 import { readBufferLimited } from './fetcher.js';
@@ -124,10 +124,31 @@ app.get('/api/finance', a(async (req, res) => {
 }));
 
 // ===== 热榜 =====
+// 目录必须注册在 /api/hot/:id 之前,否则会被 :id 吃掉(匹配到 id='catalog' → 404)
+app.get('/api/hot/catalog', (req, res) => {
+  res.json({ data: HOT_META });
+});
+
+// in-flight 去重:并发请求同榜单时复用一次拉取
+const hotInflight = new Map();
+
 app.get('/api/hot/:id', a(async (req, res) => {
   const { id } = req.params;
   if (!HOT_IDS.includes(id)) return res.status(404).json({ error: 'unknown_hot_id' });
-  const r = await readThreeState('hot:' + id, HOT_BUILTIN_FALLBACK);
+  markHotUsed(id);                       // 让 cron 后续把这个榜纳入定时刷新
+  let r = await readThreeState('hot:' + id, null);
+  // 冷门榜不在 cron 预热集里,缓存缺失时当场拉一次
+  if (!r) {
+    let inflight = hotInflight.get(id);
+    if (!inflight) {
+      inflight = refreshHotList(id).finally(() => hotInflight.delete(id));
+      hotInflight.set(id, inflight);
+    }
+    // issue#8:优先用 refresh 返回的 fresh payload,Redis 写失败时仍可用
+    const fresh = await inflight;
+    r = fresh ? { ...fresh, freshness: 'fresh' }
+             : (await readThreeState('hot:' + id, HOT_BUILTIN_FALLBACK));
+  }
   res.json(r);
 }));
 

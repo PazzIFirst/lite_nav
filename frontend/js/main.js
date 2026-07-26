@@ -5,7 +5,7 @@ import { initSearchModule } from './search.js';
 import { initHolidaysModule } from './holidays.js';
 import { initLocation, initWeatherModal } from './ip-weather.js';
 import { renderFinance, loadFinance } from './finance.js';
-import { initHotLists, loadHotList, HOT_SOURCES } from './hot.js';
+import { initHotLists, refreshAllHotPanels, initHotSettings } from './hot.js';
 import { renderNavGroups, initNavModule } from './nav.js';
 
 // 明暗主题切换(主题已由 <head> 内联脚本应用,这里只挂事件)
@@ -24,6 +24,7 @@ initClocksModule();
 initHolidaysModule();
 initWeatherModal();
 initNavModule();
+initHotSettings();
 
 renderClockCards();
 updateClocks();
@@ -45,7 +46,7 @@ let financeTimer = null, hotTimer = null;
 let lastFinanceAt = 0, lastHotAt = 0;
 
 function tickFinance() { loadFinance(); lastFinanceAt = Date.now(); }
-function tickHot()     { HOT_SOURCES.forEach(s => loadHotList(s)); lastHotAt = Date.now(); }
+function tickHot()     { refreshAllHotPanels(); lastHotAt = Date.now(); }
 
 function startPolling() {
   if (!financeTimer) {

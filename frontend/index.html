@@ -83,6 +83,14 @@
   </svg>
 </button>
 
+<!-- 热榜设置 -->
+<button class="theme-toggle settings-toggle" id="hotSettingsBtn" aria-label="热榜设置" title="热榜设置">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="3"/>
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+  </svg>
+</button>
+
 <!-- 静态 SEO 内容:对爬虫可见,视觉上隐藏 -->
 <header class="seo-only" aria-hidden="true">
   <h1>lite-nav — 轻量级个人导航主页</h1>
@@ -146,6 +154,19 @@
 </div>
 
 <!-- 国家选择弹窗 -->
+<div class="modal-overlay" id="hotModal">
+  <div class="modal-box" style="width:400px;">
+    <div class="modal-title">热榜设置</div>
+    <div class="modal-hint" style="margin-bottom:10px;">为四个槽位分别选择榜单;选「不显示」则该位置留空</div>
+    <div id="hotSlots"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="hotReset">恢复默认</button>
+      <button class="btn btn-ghost" id="hotCancel">取消</button>
+      <button class="btn btn-primary" id="hotSave">保存</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="countryModal">
   <div class="modal-box" style="width:380px;">
     <div class="modal-title">选择倒计时显示的国家(最多 5 个)</div>

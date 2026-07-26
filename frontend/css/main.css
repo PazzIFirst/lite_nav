@@ -1030,12 +1030,29 @@ body {
 :root[data-theme="dark"] .theme-toggle .icon-sun  { display: block; }
 :root[data-theme="dark"] .theme-toggle .icon-moon { display: none; }
 
+/* 热榜设置:复用 .theme-toggle 外观,左移一个按钮位 */
+.settings-toggle { right: calc(var(--sp-3) + 44px); }
+.settings-toggle svg { width: 17px; height: 17px; }
+
+/* 弹窗里的下拉框:.modal-input 是给 input 用的,select 需要额外收敛原生外观 */
+select.modal-input {
+  appearance: none; -webkit-appearance: none;
+  padding-right: 28px;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239aa0a6' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 14px;
+}
+
 /* ===== Responsive ===== */
 
 /* Tablet: hide sidebars */
 @media (max-width: 1260px) {
   .sidebar { display: none; }
   .page-layout { justify-content: center; }
+  /* 侧栏都藏了,热榜设置按钮点了没有可见效果 → 一并隐藏,避免死控件 */
+  .settings-toggle { display: none; }
 }
 
 /* Tablet narrow — finance auto-wraps via fixed 256px items, no override needed */
