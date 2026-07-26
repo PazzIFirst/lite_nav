@@ -1,5 +1,40 @@
 # Changelog
 
+## v1.5.0 — 2026-07-27
+
+热榜从 4 个写死面板改为 22 选 4;修复国内 IP 显示 IPv6;新增 CI。
+
+### Added
+
+- **热榜 22 选 4**:页面右上角齿轮进「热榜设置」,四个槽位(左上/左下/右上/右下)各配一个下拉框,可留空。选择存 localStorage `hotSlots`
+- **新增 18 个榜单**:抖音、今日头条、腾讯新闻、网易新闻、新浪新闻、百度贴吧、V2EX、稀土掘金、少数派、IT之家、虎嗅、51CTO、豆瓣热门电影、微信读书飙升、HelloGitHub、Solidot、爱范儿、Hacker News。全部对接站方官方接口或官方 RSS,响应结构逐个实测确认
+- **`/api/hot/catalog`**:榜单目录由后端下发,前端下拉框据此生成 —— 加榜只改后端一处,不会前后端脱节
+- **CI**(`.github/workflows/ci.yml`):lockfile 校验 + 静态检查 + 起 Redis 跑后端冒烟测试
+  - `scripts/static-checks.mjs` — 语法、前端 ES Module import 解析、**DOM id 契约**(前端全靠 id 缝合 JS 与 HTML,改名漏改不报错只静默失效)
+  - `scripts/smoke-test.mjs` — health / catalog / today / 错误路径断言,以及**前端 `DEFAULT_SLOTS`、`FALLBACK_CATALOG` 必须全部存在于后端目录**的一致性检查
+  - 两个脚本零依赖,本地可直接跑
+
+### Fixed
+
+- **国内 IP 显示成 IPv6**:`myip.ipip.net` 响应无 `Access-Control-Allow-Origin`,浏览器跨域必被拦 —— 这个被注释为「强制 IPv4」的主力源实际从未成功过;仅存的 `toutiao` 是双栈源,在 IPv6 优先的客户端上返回 `240e:` 开头的地址。改为只认「域名仅有 A 记录」的源(`ipv4.ddnspod.com`、`v4.ip.zxinc.org`),并用 `IPV4_RE` 复核返回值;IP 与城市分两路取,双栈源只采 `city`
+  - 排除了境外托管的 v4 源(如 `v4.myip.la`,A 记录在 Vultr):会被分流代理接管,测出代理出口 IPv4,是**错的**「国内 IP」,比显示 IPv6 更具误导性
+  - 全部 v4 源失败时退回显示 IPv6,并在 tooltip 中告警
+- **腾讯新闻首条是榜单说明行**:`idlist[].newslist[]` 第 0 条为无链接的「腾讯新闻用户最关注的热点…」,会被当成热搜第 1 名。按有无 url 过滤
+- **热榜面板图标直连各站点**:原先直接请求 `zhihu.com/favicon.ico` 等,暴露访问行为。改走已有的 `/api/favicon` 后端代理(F-014 的本意)
+
+### Changed
+
+- **热榜刷新策略**:榜单增至 22 个,全量轮询是浪费。cron 改为只刷「默认四榜 + 近 1 小时被访问过的」,冷门榜由 `/api/hot/:id` 缓存缺失时按需拉取(带 in-flight 去重),沿用 holiday 路由同一套路
+- 热榜面板 DOM id 改用槽位号(`hot-slot0-list`)而非榜单 id,同一个榜放进两个槽位不会撞 id
+- 窄屏(<1260px)侧栏本就隐藏,热榜设置按钮一并隐藏,避免死控件
+- `backend/package.json` 版本号从 1.4.0 对齐到 1.5.0(此前与 CHANGELOG 存在漂移)
+
+### 选源门槛
+
+本次确立并写入 README:只接站方官方接口、成熟第三方聚合(BA9/VVHAN)、官方 RSS。个人站点的「自用 / 仅供测试」型接口不纳入 —— 稳定性不可控,且多半带 QPS 限制与鉴权变更。需要可 fork 后在 `HOT_CATALOG` 自行添加。
+
+据此**未接入** 36氪与虎扑(依赖的驼城 API 自述「自用、仅供测试」,限 QPS 5 秒 1 次)。
+
 ## v1.4.7 — 2026-05-23
 
 第三轮 code review 3 个 issue 修复(GitHub issue #8 #9 #10)。
