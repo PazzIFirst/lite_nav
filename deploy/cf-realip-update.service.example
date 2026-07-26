@@ -1,0 +1,18 @@
+# 配合 cf-realip-update.timer 使用,不要单独 enable
+#
+# 脚本自身带三层保护:拉取失败/响应残缺 → 不动现有配置;
+# 写入后 nginx -t 不通过 → 自动回滚。所以这里失败不重试是安全的,
+# 下周定时器会再试一次,期间旧白名单继续生效。
+
+[Unit]
+Description=Refresh Cloudflare IP ranges for nginx real_ip
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/cf-realip-update
+# 只需要写 nginx 配置目录和 reload nginx,不给多余权限
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes

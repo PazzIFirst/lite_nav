@@ -171,7 +171,19 @@ curl -s https://your-domain/api/ip | python3 -m json.tool
 # visitor_ip 应为你的公网 IP,而不是 104.x / 172.64.x 等 CF 网段地址
 ```
 
-CF 网段偶尔会变,建议每年核对一次(命令见该文件头部注释)。
+**CF 网段变动怎么办**:CF 官方提供机器可读的网段公示 —— `cloudflare.com/ips-v4`、`ips-v6`(纯文本),以及 `api.cloudflare.com/client/v4/ips`(JSON,带 `etag` 可用于检测变更)。仓库提供了自动刷新脚本:
+
+```bash
+sudo cp deploy/cf-realip-update.sh /usr/local/sbin/cf-realip-update && sudo chmod +x $_
+sudo cp deploy/cf-realip-update.timer.example   /etc/systemd/system/cf-realip-update.timer
+sudo cp deploy/cf-realip-update.service.example /etc/systemd/system/cf-realip-update.service
+sudo systemctl daemon-reload && sudo systemctl enable --now cf-realip-update.timer
+DRY_RUN=1 sudo /usr/local/sbin/cf-realip-update    # 预演,不改任何文件
+```
+
+脚本带三层保护:拉取失败 → 不动现有配置;响应残缺(网段数低于合理下限)→ 拒绝覆盖;写入后 `nginx -t` 不通过 → 自动回滚。**宁可用旧列表,也不能用残缺列表覆盖** —— 后者会把大量 CF 节点踢出白名单。
+
+白名单不全时的失效方向是**朝安全侧倒的**:未知来源的 `CF-Connecting-IP` 不被采信,后果是这部分访客共用一个限流桶(可能偶发 429),而不是让谁能伪造 IP。定时器设为每天一次,把空窗期压在 24h 内。
 
 #### 顺手切断「源站 IP → 域名」的关联(可选)
 
@@ -389,6 +401,9 @@ lite-nav/
 |   +-- openresty-api-snippet.conf.example
 |   +-- cloudflare-realip.conf.example   # 套 CF 橙云时还原访客真实 IP
 |   +-- nginx-default-deny.conf.example  # 切断「源站 IP → 域名」的自动关联
+|   +-- cf-realip-update.sh              # 自动刷新 CF 网段白名单(带回滚保护)
+|   +-- cf-realip-update.timer.example   # 配套 systemd timer(每天)
+|   +-- cf-realip-update.service.example
 |   +-- deploy-after-1panel-site.sh
 +-- docs/
 |   +-- screenshot.png

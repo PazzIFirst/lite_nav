@@ -1,0 +1,27 @@
+# 每天刷新一次 Cloudflare 网段白名单
+#
+# 为什么是每天而不是每周:CF 新增网段后,在下次刷新前存在空窗期,期间经新网段
+# 来的访客其 CF-Connecting-IP 不被采信 → 共用一个限流桶 → 可能偶发 429。
+# 每天一次把空窗期压到 24h 内。官方端点很轻(22 行文本),一天一次毫无压力。
+#
+# 安装:
+#   cp deploy/cf-realip-update.timer.example   /etc/systemd/system/cf-realip-update.timer
+#   cp deploy/cf-realip-update.service.example /etc/systemd/system/cf-realip-update.service
+#   systemctl daemon-reload
+#   systemctl enable --now cf-realip-update.timer
+#
+# 查看:  systemctl list-timers cf-realip-update
+# 日志:  journalctl -u cf-realip-update
+
+[Unit]
+Description=Refresh Cloudflare IP ranges for nginx real_ip
+
+[Timer]
+OnCalendar=*-*-* 04:17:00
+# 机器关机错过了就在开机后补跑,避免长期不更新
+Persistent=true
+# 打散执行时刻,避免全网同一秒去打 cloudflare.com
+RandomizedDelaySec=30m
+
+[Install]
+WantedBy=timers.target
