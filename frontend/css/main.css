@@ -1030,9 +1030,16 @@ body {
 :root[data-theme="dark"] .theme-toggle .icon-sun  { display: block; }
 :root[data-theme="dark"] .theme-toggle .icon-moon { display: none; }
 
-/* 热榜设置:复用 .theme-toggle 外观,左移一个按钮位 */
+/* 右上角按钮组,从右往左:主题切换 → 热榜设置 → GitHub。均复用 .theme-toggle 外观 */
 .settings-toggle { right: calc(var(--sp-3) + 44px); }
 .settings-toggle svg { width: 17px; height: 17px; }
+
+/* <a> 复用 .theme-toggle 时要补掉链接默认样式 */
+.github-link {
+  right: calc(var(--sp-3) + 88px);
+  text-decoration: none;
+}
+.github-link svg { width: 17px; height: 17px; }
 
 /* 弹窗里的下拉框:.modal-input 是给 input 用的,select 需要额外收敛原生外观 */
 select.modal-input {
@@ -1053,6 +1060,8 @@ select.modal-input {
   .page-layout { justify-content: center; }
   /* 侧栏都藏了,热榜设置按钮点了没有可见效果 → 一并隐藏,避免死控件 */
   .settings-toggle { display: none; }
+  /* 设置按钮没了,GitHub 补上它的位置,不留空档 */
+  .github-link { right: calc(var(--sp-3) + 44px); }
 }
 
 /* Tablet narrow — finance auto-wraps via fixed 256px items, no override needed */

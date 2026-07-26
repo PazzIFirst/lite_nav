@@ -3,6 +3,9 @@
 > 轻量级个人/团队导航主页:农历、多国节假日、实时行情、热榜聚合
 > 多源容灾,永不返回空。自部署 / 内网 / 本地皆可。
 
+**在线演示:[litenav.info](https://litenav.info)**
+
+[![Live](https://img.shields.io/badge/Live-litenav.info-4c8bf5)](https://litenav.info)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Version](https://img.shields.io/github/v/release/PazzIFirst/lite_nav.svg)](https://github.com/PazzIFirst/lite_nav/releases)
 [![Docker Image](https://github.com/PazzIFirst/lite_nav/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/PazzIFirst/lite_nav/actions/workflows/docker-publish.yml)
