@@ -1,5 +1,6 @@
 // IP 检测(国内 + 国外)+ 天气联动 + 天气城市弹窗
 import { fetchT, apiGet, srcTooltip } from './api.js';
+import { renderWeatherFx, renderWeatherIcon, resolveBgKey } from './weather-fx.js';
 
 // 国内 IP 检测 — 浏览器直连国内 IP 服务。多源并行,IP 与城市分两路取:
 //
@@ -56,15 +57,73 @@ const FOREIGN_IP_APIS = [
 ];
 
 let ipCity = '';
-let weatherEl;
+let wxCard, wxTempEl, wxCityEl, wxNameEl, wxCityBtn;
+
+// 当前选中的城市槽位('auto' | 'wxCity1' | 'wxCity2'),记进 localStorage
+const WX_ACTIVE_KEY = 'wxActiveCity';
+let wxList = [];   // 本轮成功拿到天气的城市,顺序即槽位顺序
+let wxIdx  = 0;
+
+function grabWeatherEls() {
+  wxCard    = wxCard    || document.getElementById('weatherCard');
+  wxTempEl  = wxTempEl  || document.getElementById('wxTemp');
+  wxCityEl  = wxCityEl  || document.getElementById('wxCity');
+  wxNameEl  = wxNameEl  || document.getElementById('wxName');
+  wxCityBtn = wxCityBtn || document.getElementById('wxCityBtn');
+}
 
 async function fetchWeatherViaBackend(query) {
   try { return await apiGet('/api/weather?' + query); }
   catch { return null; }
 }
 
-// F-021:三城天气并行(原本是串行,慢)
+// 后端新版返回 temp/condition 结构化字段,但 Redis 里还躺着老格式的缓存
+// (hot 30 分钟、lastgood 30 天),那些只有拼好的 text。拆回来兜底。
+function splitLegacyText(text) {
+  // 温度可能带小数(中国天气网回 "阴 36.6°"),别漏了 \.\d+
+  const m = /^(.*?)\s*(-?\d+(?:\.\d+)?)\s*°\s*$/.exec(String(text || '').trim());
+  if (m) return { condition: m[1].trim(), temp: Math.round(Number(m[2])) };
+  return { condition: String(text || '').trim(), temp: null };
+}
+
+function paintWeatherCard(temp, condition, city, tooltip) {
+  if (!wxCard) return;
+  const multi = wxList.length > 1;
+  wxTempEl.textContent = (temp == null || Number.isNaN(temp)) ? '--°' : temp + '°';
+  wxCityEl.textContent = city || '--';
+  wxNameEl.textContent = condition || '--';
+  // 背景族 16 个,按强度分档(rain-1…rain-5 等),查不到就落回默认玻璃底
+  wxCard.dataset.bg = resolveBgKey(condition) || 'unknown';
+  wxCard.classList.toggle('has-more', multi);   // 控制城市名旁的小箭头显隐
+  wxCard.title = (tooltip ? tooltip + '\n\n' : '')
+    + (multi ? '点城市名切换城市 · ' : '') + '点卡片设置天气城市';
+  // 动效按「完整天气名」查预设(71 种各一套),不是按 8 个大组 ——
+  // 大组粒度下小雨和特大暴雨长得一模一样,这正是之前「雨没区别」的原因
+  renderWeatherFx(document.getElementById('wxFx'), condition);
+  renderWeatherIcon(document.getElementById('wxIcon'), condition);
+}
+
+// 画当前选中的那个城市;tooltip 里把全部城市列出来,选中项打 ▸
+function paintActive() {
+  if (!wxList.length) { paintWeatherCard(null, '', '', ''); return; }
+  if (wxIdx >= wxList.length) wxIdx = 0;
+  const it = wxList[wxIdx];
+  const tip = wxList.map((x, i) =>
+    `${i === wxIdx ? '▸' : ' '} [${x.city}] ${x.condition} ${x.temp == null ? '--' : x.temp}°\n   ${x.tooltip.replace(/\n/g, '\n   ')}`
+  ).join('\n\n');
+  paintWeatherCard(it.temp, it.condition, it.city, tip);
+}
+
+function cycleCity() {
+  if (wxList.length < 2) return;
+  wxIdx = (wxIdx + 1) % wxList.length;
+  try { localStorage.setItem(WX_ACTIVE_KEY, wxList[wxIdx].key); } catch (_) {}
+  paintActive();
+}
+
+// F-021:多城天气并行。卡片只展示第一个成功的城市,其余进 tooltip。
 async function refreshWeather() {
+  grabWeatherEls();
   const targets = [];
   if (ipCity) targets.push({ key: 'auto', city: ipCity });
   for (const k of ['wxCity1', 'wxCity2']) {
@@ -73,8 +132,8 @@ async function refreshWeather() {
   }
 
   if (!targets.length) {
-    weatherEl.textContent = '天气 --';
-    weatherEl.title = '点击设置天气城市';
+    wxList = [];
+    paintWeatherCard(null, '', '', '');
     return;
   }
 
@@ -82,29 +141,31 @@ async function refreshWeather() {
     targets.map(t => fetchWeatherViaBackend('city=' + encodeURIComponent(t.city)))
   );
 
-  const parts = [], tooltipParts = [];
+  wxList = [];
   results.forEach((res, i) => {
-    if (res.status !== 'fulfilled' || !res.value?.data?.text) return;
-    const r = res.value;
-    const city = r.data.city || targets[i].city;
-    parts.push(`${r.data.text} ${city}`);
-    tooltipParts.push(`[${city}] ${srcTooltip(r)}`);
+    const d = res.status === 'fulfilled' ? res.value?.data : null;
+    if (!d || (!d.text && d.temp == null)) return;
+    const legacy = splitLegacyText(d.text);
+    wxList.push({
+      key:       targets[i].key,
+      temp:      d.temp != null ? d.temp : legacy.temp,
+      condition: d.condition || legacy.condition,
+      city:      d.city || targets[i].city,
+      tooltip:   srcTooltip(res.value),
+    });
   });
 
-  if (parts.length) {
-    weatherEl.textContent = parts.join('   ');
-    weatherEl.title = tooltipParts.join('\n\n') + '\n\n点击设置天气城市';
-  } else {
-    weatherEl.textContent = '天气 --';
-    weatherEl.title = '点击设置天气城市';
-  }
+  // 恢复上次选的城市。它可能已经被删了(或这次没拉到),那就退回第一个
+  const saved = localStorage.getItem(WX_ACTIVE_KEY);
+  const at = wxList.findIndex(x => x.key === saved);
+  wxIdx = at >= 0 ? at : 0;
+  paintActive();
 }
 
 function renderWeather() {
-  if (!weatherEl.textContent || weatherEl.textContent === '--') {
-    weatherEl.textContent = '天气加载中…';
-  }
-  refreshWeather().catch(() => { weatherEl.textContent = '天气 --'; });
+  grabWeatherEls();
+  if (wxNameEl && wxNameEl.textContent === '--') wxNameEl.textContent = '加载中…';
+  refreshWeather().catch(() => paintWeatherCard(null, '', '', ''));
 }
 
 function makeIpEntry(label, info, fallbackText) {
@@ -167,7 +228,7 @@ function buildIpDisplay(domestic, foreign) {
 }
 
 export async function initLocation() {
-  weatherEl = document.getElementById('weather-info');
+  grabWeatherEls();
   const locEl = document.getElementById('ip-loc');
   locEl.textContent = '定位中…';
 
@@ -228,20 +289,39 @@ export async function initLocation() {
 }
 
 export function initWeatherModal() {
-  weatherEl = weatherEl || document.getElementById('weather-info');
+  grabWeatherEls();
   const wxModal = document.getElementById('weatherModal');
-  weatherEl.addEventListener('click', () => {
+  const openModal = () => {
     document.getElementById('city1').value = localStorage.getItem('wxCity1') || '';
     document.getElementById('city2').value = localStorage.getItem('wxCity2') || '';
     wxModal.classList.add('open');
+  };
+  wxCard.addEventListener('click', openModal);
+  // 卡片是 role="button",键盘也得能开
+  wxCard.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openModal(); }
   });
+  // 城市名区域:多城市时切换,单城市时不拦截 —— 让点击冒泡上去开设置,不做死控件
+  wxCityBtn.addEventListener('click', e => {
+    if (wxList.length < 2) return;
+    e.stopPropagation();
+    cycleCity();
+  });
+
   document.getElementById('wxCancel').addEventListener('click', () => wxModal.classList.remove('open'));
   wxModal.addEventListener('click', e => { if (e.target === wxModal) wxModal.classList.remove('open'); });
   document.getElementById('wxSave').addEventListener('click', () => {
-    localStorage.setItem('wxCity1', document.getElementById('city1').value.trim());
-    localStorage.setItem('wxCity2', document.getElementById('city2').value.trim());
+    const prev1 = localStorage.getItem('wxCity1') || '';
+    const prev2 = localStorage.getItem('wxCity2') || '';
+    const next1 = document.getElementById('city1').value.trim();
+    const next2 = document.getElementById('city2').value.trim();
+    localStorage.setItem('wxCity1', next1);
+    localStorage.setItem('wxCity2', next2);
+    // 刚填/刚改了哪个槽位,就跳到哪个 —— 否则填完还停在「自动」,像是没生效
+    if      (next1 && next1 !== prev1) localStorage.setItem(WX_ACTIVE_KEY, 'wxCity1');
+    else if (next2 && next2 !== prev2) localStorage.setItem(WX_ACTIVE_KEY, 'wxCity2');
     wxModal.classList.remove('open');
-    weatherEl.textContent = '更新中…';
+    wxNameEl.textContent = '更新中…';
     renderWeather();
   });
 }

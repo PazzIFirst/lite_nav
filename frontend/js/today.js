@@ -1,4 +1,4 @@
-// 公历/北京时间 + 农历 + 老黄历(后端 /api/today 算)
+// 公历/北京时间 + 距周末/月初 + 农历 + 老黄历(后端 /api/today 算)
 import { apiGet, srcTooltip } from './api.js';
 
 const bjTimeFmt = new Intl.DateTimeFormat('zh-CN', { timeZone:'Asia/Shanghai', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false });
@@ -14,43 +14,60 @@ export function renderSolar() {
   document.getElementById('solar-date').textContent = d + ' ' + w;
 }
 
-function makeSep() {
-  const s = document.createElement('span');
-  s.className = 'almanac-sep';
-  s.textContent = '·';
-  return s;
+// 距周末 / 距下月 —— 纯本地日期计算,不依赖任何 API
+export function renderWeekend() {
+  const weekendEl = document.getElementById('weekend-row');
+  if (!weekendEl) return;
+  const bjStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai' }).format(new Date());
+  const [ty, tm, td] = bjStr.split('-').map(Number);
+  const today = new Date(ty, tm - 1, td);
+
+  const dow = today.getDay();
+  const daysToWeekend = (dow === 0 || dow === 6) ? 0 : (6 - dow);
+  let weekendHtml;
+  if (daysToWeekend === 0)      weekendHtml = '🎉 今天是周末';
+  else if (daysToWeekend === 1) weekendHtml = '距周末 <b>明天</b>';
+  else                          weekendHtml = `距周末 <b>${daysToWeekend}天</b>`;
+
+  const nextMonth = tm === 12 ? new Date(ty + 1, 0, 1) : new Date(ty, tm, 1);
+  const daysToNextMonth = Math.round((nextMonth - today) / 86400000);
+  const nextMonthName = nextMonth.toLocaleDateString('zh-CN', { month: 'long' });
+  let monthHtml;
+  if (daysToNextMonth === 0)      monthHtml = `📅 今天${nextMonthName}1日`;
+  else if (daysToNextMonth === 1) monthHtml = `距${nextMonthName} <b>明天</b>`;
+  else                            monthHtml = `距${nextMonthName} <b>${daysToNextMonth}天</b>`;
+
+  weekendEl.innerHTML = weekendHtml + ' <span class="countdown-sep">·</span> ' + monthHtml;
 }
 
-function renderAlmanac(a, container) {
-  if (!a || !container) return;
+// 宜 / 忌 各占一行,黄道(神煞)徽章跟在农历那一行末尾
+function renderAlmanac(a, container, shenEl) {
+  if (!container || !shenEl) return;
   container.innerHTML = '';
+  shenEl.innerHTML = '';
+  if (!a) return;
 
-  function badgedSpan(badgeText, badgeClass, body) {
-    const wrap = document.createElement('span');
-    const badge = document.createElement('span');
-    badge.className = badgeClass;
-    badge.textContent = badgeText;
-    wrap.appendChild(badge);
-    wrap.appendChild(document.createTextNode(body));
-    return wrap;
+  function line(labelText, labelClass, body) {
+    const row = document.createElement('div');
+    row.className = 'almanac-line';
+    const label = document.createElement('span');
+    label.className = labelClass;
+    label.textContent = labelText;
+    const text = document.createElement('span');
+    text.className = 'almanac-text';
+    text.textContent = body;
+    row.append(label, text);
+    return row;
   }
 
-  if (a.yi?.length) {
-    container.appendChild(badgedSpan('宜', 'almanac-yi-label', a.yi.slice(0, 5).join(' ')));
-    container.appendChild(makeSep());
-  }
-  if (a.ji?.length) {
-    container.appendChild(badgedSpan('忌', 'almanac-ji-label', a.ji.slice(0, 5).join(' ')));
-    container.appendChild(makeSep());
-  }
+  if (a.yi?.length) container.appendChild(line('宜', 'almanac-yi-label', a.yi.slice(0, 5).join(' ')));
+  if (a.ji?.length) container.appendChild(line('忌', 'almanac-ji-label', a.ji.slice(0, 5).join(' ')));
+
   if (a.shen_type) {
-    const shenSpan = document.createElement('span');
     const badge = document.createElement('span');
     badge.className = 'almanac-shen ' + (a.shen_type === '黄道' ? 'huang' : 'hei');
-    badge.textContent = a.shen_type + '日';
-    shenSpan.appendChild(badge);
-    if (a.shen_name) shenSpan.appendChild(document.createTextNode(' ' + a.shen_name));
-    container.appendChild(shenSpan);
+    badge.textContent = a.shen_type + (a.shen_name ? ' ' + a.shen_name : '日');
+    shenEl.appendChild(badge);
   }
 
   const tipLines = [];
@@ -61,12 +78,15 @@ function renderAlmanac(a, container) {
   if (a.nayin)        tipLines.push('纳音: ' + a.nayin);
   if (a.pengzu_gan)   tipLines.push('彭祖百忌(干): ' + a.pengzu_gan);
   if (a.pengzu_zhi)   tipLines.push('彭祖百忌(支): ' + a.pengzu_zhi);
-  container.title = tipLines.join('\n');
+  const tip = tipLines.join('\n');
+  container.title = tip;
+  shenEl.title = tip;
 }
 
 export function renderLunar() {
   const el = document.getElementById('lunar-date');
   const almanacEl = document.getElementById('almanac-row');
+  const shenEl = document.getElementById('almanac-shen');
   apiGet('/api/today').then(r => {
     const d = r?.data;
     if (!d) { el.textContent = '农历 --'; return; }
@@ -76,6 +96,6 @@ export function renderLunar() {
     if (d.next_term)         tipLines.push('下个节气: ' + d.next_term + ' (' + d.next_term_date + ')');
     if (d.festivals?.length) tipLines.push('节日: ' + d.festivals.join('、'));
     el.title = tipLines.filter(Boolean).join('\n');
-    renderAlmanac(d.almanac, almanacEl);
+    renderAlmanac(d.almanac, almanacEl, shenEl);
   }).catch(() => { el.textContent = '农历 --'; });
 }

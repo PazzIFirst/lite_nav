@@ -5,30 +5,30 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#0f172a">
 
-  <title>lite-nav — 轻量级个人导航主页 · 农历 · 多国节假日 · 实时行情 · 热榜</title>
-  <meta name="description" content="自部署的轻量级导航主页:农历、节气、老黄历(宜忌)、20 国法定节假日、A 股/港股/美股/黄金/汇率实时行情、22 个热榜任选(知乎/微博/百度/B 站/抖音/头条/V2EX/掘金等)、10 大搜索引擎、自定义导航分组、6 城市时钟。多源容灾,永不返回空。开源 MIT。">
-  <meta name="keywords" content="导航,导航主页,个人主页,自部署,农历,节气,老黄历,节假日,股市,A股,美股,港股,汇率,黄金,黄道,热榜,搜索引擎,开源,lite-nav">
+  <title>lite-nav — 轻量级个人导航主页 · 农历 · 老黄历 · 实时行情 · 热榜</title>
+  <meta name="description" content="自部署的轻量级导航主页:农历、节气、老黄历(宜忌/黄道)、A 股/港股/美股/黄金/汇率实时行情、22 个热榜任选(知乎/微博/百度/B 站/抖音/头条/V2EX/掘金等)、10 大搜索引擎、自定义导航分组。多源容灾,永不返回空。开源 MIT。">
+  <meta name="keywords" content="导航,导航主页,个人主页,自部署,农历,节气,老黄历,宜忌,股市,A股,美股,港股,汇率,黄金,黄道,热榜,搜索引擎,开源,lite-nav">
   <meta name="author" content="PazzIFirst">
   <link rel="canonical" href="https://litenav.info/">
 
   <!-- Open Graph -->
   <meta property="og:type" content="website">
   <meta property="og:title" content="lite-nav — 轻量级个人导航主页">
-  <meta property="og:description" content="农历、宜忌、20 国节假日、实时行情、热榜聚合。多源容灾,永不返回空。开源、自部署、零构建。">
+  <meta property="og:description" content="农历、节气、老黄历宜忌、实时行情、热榜聚合。多源容灾,永不返回空。开源、自部署、零构建。">
   <meta property="og:url" content="https://litenav.info/">
   <!-- 预览图放自己域名,不用 raw.githubusercontent.com:后者在国内常访问不了,
        分享到微信/微博时预览图会加载失败 —— 而本站受众正是国内用户 -->
   <meta property="og:image" content="https://litenav.info/og-image.png">
   <meta property="og:image:width" content="2793">
   <meta property="og:image:height" content="1896">
-  <meta property="og:image:alt" content="lite-nav 界面预览:农历、节假日倒计时、实时行情、热榜面板">
+  <meta property="og:image:alt" content="lite-nav 界面预览:农历、老黄历、实时行情、热榜面板">
   <meta property="og:locale" content="zh_CN">
   <meta property="og:site_name" content="lite-nav">
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="lite-nav — 轻量级个人导航主页">
-  <meta name="twitter:description" content="农历 · 多国节假日 · 实时行情 · 热榜 · 多源容灾">
+  <meta name="twitter:description" content="农历 · 老黄历 · 实时行情 · 热榜 · 多源容灾">
   <meta name="twitter:image" content="https://litenav.info/og-image.png">
   <meta name="twitter:image:alt" content="lite-nav 界面预览">
 
@@ -39,7 +39,7 @@
     "@type": "WebApplication",
     "name": "lite-nav",
     "alternateName": "轻量级个人导航主页",
-    "description": "自部署的轻量级导航主页:农历、老黄历、20 国法定节假日、A 股/美股/汇率实时行情、22 个热榜任选(知乎/微博/百度/B 站/抖音/头条/V2EX/掘金等)。多源容灾,永不返回空。",
+    "description": "自部署的轻量级导航主页:农历、节气、老黄历(宜忌/黄道)、A 股/美股/汇率实时行情、22 个热榜任选(知乎/微博/百度/B 站/抖音/头条/V2EX/掘金等)。多源容灾,永不返回空。",
     "url": "https://litenav.info/",
     "applicationCategory": "UtilityApplication",
     "operatingSystem": "Web Browser",
@@ -48,13 +48,12 @@
     "screenshot": "https://litenav.info/og-image.png",
     "isAccessibleForFree": true,
     "featureList": [
-      "农历、节气、老黄历(宜忌/神位/彭祖百忌)",
-      "20 国法定节假日与倒计时",
+      "农历、节气、老黄历(宜忌/黄道/神位/彭祖百忌)",
+      "距周末与距月初倒计时",
       "A 股/港股/美股/汇率/黄金实时行情",
       "22 个热榜任选,四槽位自由配置",
       "10 大搜索引擎与搜索联想",
       "IP 定位与多城市天气",
-      "6 城市世界时钟",
       "可编辑网站导航分组"
     ],
     "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
@@ -79,11 +78,10 @@
        零构建项目没有打包器帮忙合并,这是拿回并行度的唯一手段。 -->
   <link rel="modulepreload" href="js/main.js">
   <link rel="modulepreload" href="js/api.js">
-  <link rel="modulepreload" href="js/clocks.js">
   <link rel="modulepreload" href="js/today.js">
   <link rel="modulepreload" href="js/search.js">
-  <link rel="modulepreload" href="js/holidays.js">
   <link rel="modulepreload" href="js/ip-weather.js">
+  <link rel="modulepreload" href="js/weather-fx.js">
   <link rel="modulepreload" href="js/finance.js">
   <link rel="modulepreload" href="js/hot.js">
   <link rel="modulepreload" href="js/nav.js">
@@ -137,29 +135,9 @@
        既是无障碍缺陷,也正是搜索引擎指南反对的做法。 -->
 <header class="seo-only">
   <h1>lite-nav — 轻量级个人导航主页</h1>
-  <p>包含农历、节气、宜忌、20 国法定节假日(中美英德日法韩等)、实时金融行情(A 股、港股、美股、汇率、黄金)、22 个热榜任选(知乎/微博/百度/B 站/抖音/头条/V2EX/掘金等)、10 大搜索引擎(百度/Google/Bing/知乎/Yandex/Bilibili/YouTube/GitHub/X/DuckDuckGo/npm)、自定义导航分组、6 城市时钟。多源容灾,永不返回空。</p>
+  <p>包含农历、节气、老黄历宜忌与黄道、实时金融行情(A 股、港股、美股、汇率、黄金)、22 个热榜任选(知乎/微博/百度/B 站/抖音/头条/V2EX/掘金等)、10 大搜索引擎(百度/Google/Bing/知乎/Yandex/Bilibili/YouTube/GitHub/X/DuckDuckGo/npm)、自定义导航分组。多源容灾,永不返回空。</p>
   <p>开源 MIT,自部署,零构建。源码:<a href="https://github.com/PazzIFirst/lite_nav">github.com/PazzIFirst/lite_nav</a></p>
 </header>
-
-<!-- 城市时钟编辑弹窗 -->
-<div class="modal-overlay" id="clockModal">
-  <div class="modal-box">
-    <div class="modal-title">编辑城市时钟</div>
-    <div class="modal-field">
-      <div class="modal-label">城市名称</div>
-      <input class="modal-input" id="clockCityName" placeholder="如:纽约、London、巴黎" />
-    </div>
-    <div class="modal-field">
-      <div class="modal-label">时区(输入城市名可自动匹配)</div>
-      <input class="modal-input" id="clockTzInput" placeholder="如:America/New_York" />
-      <div class="modal-hint" id="clockHint"></div>
-    </div>
-    <div class="modal-actions">
-      <button class="btn btn-ghost" id="clockCancel">取消</button>
-      <button class="btn btn-primary" id="clockSave">保存</button>
-    </div>
-  </div>
-</div>
 
 <!-- 天气城市弹窗 -->
 <div class="modal-overlay" id="weatherModal">
@@ -210,19 +188,6 @@
   </div>
 </div>
 
-<div class="modal-overlay" id="countryModal">
-  <div class="modal-box" style="width:380px;">
-    <div class="modal-title">选择倒计时显示的国家(最多 5 个)</div>
-    <div class="modal-hint" style="margin-bottom:10px;">从下拉菜单选择;留空表示该槽位不显示</div>
-    <div id="countrySlots" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;"></div>
-    <div class="modal-actions">
-      <button class="btn btn-ghost" id="countryReset">恢复默认</button>
-      <button class="btn btn-ghost" id="countryCancel">取消</button>
-      <button class="btn btn-primary" id="countrySave">保存</button>
-    </div>
-  </div>
-</div>
-
 <!-- 分组名编辑弹窗 -->
 <div class="modal-overlay" id="groupModal">
   <div class="modal-box">
@@ -248,28 +213,54 @@
   <!-- 中间主体 -->
   <div class="main-wrapper">
 
-    <!-- 6 城市时钟 -->
-    <h2 class="seo-only">世界城市时钟</h2>
-    <div class="city-clocks" id="cityClocks"></div>
-
-    <!-- 模块A:日期 + 农历 + 周末/月初 + 北京时间 + IP + 天气 + 老黄历 + 倒计时 -->
-    <h2 class="seo-only">今日日期、农历与老黄历</h2>
+    <!-- 模块A:三卡片(日期+北京时间 / 农历+老黄历 / 当前天气)+ 下方 IP 条 -->
+    <h2 class="seo-only">今日日期、农历与天气</h2>
     <div class="module-a">
-      <div class="date-row">
-        <span class="solar-date" id="solar-date">--</span>
-        <span class="date-divider">｜</span>
-        <span class="lunar-date" id="lunar-date">农历 --</span>
+      <div class="card-row">
+
+        <!-- 卡片1:日期 + 北京时间 -->
+        <div class="info-card card-date">
+          <div class="solar-date" id="solar-date">--</div>
+          <span id="bj-time">北京 --:--:--</span>
+          <div class="weekend-row" id="weekend-row"></div>
+        </div>
+
+        <!-- 卡片2:农历 + 老黄历 -->
+        <div class="info-card card-lunar">
+          <div class="lunar-head">
+            <span class="lunar-date" id="lunar-date">农历 --</span>
+            <span id="almanac-shen"></span>
+          </div>
+          <div class="almanac-row" id="almanac-row"></div>
+        </div>
+
+        <!-- 卡片3:当前天气。data-cond 决定卡片背景,由 ip-weather.js 写入 -->
+        <div class="info-card weather-card" id="weatherCard" data-cond="unknown"
+             role="button" tabindex="0" title="点击设置天气城市">
+          <!-- 动效层:粒子由 ip-weather.js 按天气组装。纯装饰,对读屏隐藏 -->
+          <div class="wx-fx" id="wxFx" aria-hidden="true"></div>
+          <div class="wx-temp" id="wxTemp">--°</div>
+          <!-- 天气图标位:等自绘图标就绪后往这里塞 <svg> / <img> -->
+          <div class="wx-icon" id="wxIcon"></div>
+          <!-- 配了多个城市时,点这一块切换;只有一个时点击穿透到卡片开设置 -->
+          <div class="wx-city" id="wxCityBtn">
+            <svg class="wx-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/>
+              <circle cx="12" cy="10" r="3"/>
+            </svg>
+            <span id="wxCity">--</span>
+            <svg class="wx-more" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M6 9l6 6 6-6"/>
+            </svg>
+          </div>
+          <div class="wx-name" id="wxName">--</div>
+        </div>
+
       </div>
-      <div class="weekend-row" id="weekend-row"></div>
+
       <div class="info-row">
-        <span id="bj-time">北京 --:--:--</span>
-        <span class="info-sep">·</span>
         <span id="ip-loc">定位中…</span>
-        <span class="info-sep">·</span>
-        <span id="weather-info" title="点击设置天气城市">--</span>
       </div>
-      <div class="almanac-row" id="almanac-row"></div>
-      <div class="countdown-row" id="countdown-row"></div>
     </div>
 
     <!-- 金融模块 -->

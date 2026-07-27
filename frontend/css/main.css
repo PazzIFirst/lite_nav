@@ -168,8 +168,7 @@ body {
 /* ===== Generic card surface ===== */
 .card,
 .finance-bar,
-.hot-panel,
-.clock-card {
+.hot-panel {
   background: var(--bg-elev-2);
   border: 1px solid var(--border-subtle);
   border-radius: var(--r-lg);
@@ -182,48 +181,30 @@ body {
               background-color var(--dur-base) var(--ease-snap);
 }
 
-/* ===== City clocks ===== */
-.city-clocks {
-  display: grid; grid-template-columns: repeat(6, 1fr);
-  gap: var(--sp-2); width: 100%;
-}
-.clock-card {
-  padding: var(--sp-2) var(--sp-2);
-  text-align: center; cursor: pointer; min-width: 0;
-}
-.clock-card:hover {
-  border-color: var(--accent);
-  box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
-}
-.clock-city {
-  font-size: var(--fs-xs); color: var(--text-tertiary);
-  margin-bottom: 3px; font-weight: 500;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  letter-spacing: 0.01em;
-}
-.clock-time {
-  font-size: 18px; font-weight: 500;
-  color: var(--text-primary);
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum";
-  letter-spacing: -0.02em;
-  white-space: nowrap;
-}
-.clock-date {
-  font-size: var(--fs-2xs); color: var(--text-muted);
-  margin-top: 2px; white-space: nowrap;
-  overflow: hidden; text-overflow: ellipsis;
-}
-
-/* ===== Module A (date / lunar / weekend / weather / almanac / countdown) =====
+/* ===== Module A (date / lunar+almanac / weekend / weather) =====
    Now a soft glass card with internal sectioning via hairline dividers,
    info chunks as chips/pills instead of plain inline text. */
 .module-a {
   display: flex; flex-direction: column;
   align-items: center; gap: var(--sp-3);
   width: 100%;
-  padding: var(--sp-5) var(--sp-5) var(--sp-4);
+}
+
+/* 三卡片一行:日期卡按内容定宽,天气卡定宽,农历卡吃掉中间剩余 */
+.card-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) 176px;
+  gap: var(--sp-3);
+  width: 100%;
+  align-items: stretch;
+}
+
+.info-card {
+  display: flex; flex-direction: column;
+  justify-content: center; align-items: flex-start;
+  gap: var(--sp-2);
+  min-width: 0;
+  padding: var(--sp-4);
   background: var(--bg-elev-2);
   border: 1px solid var(--border-subtle);
   border-radius: var(--r-xl);
@@ -235,11 +216,9 @@ body {
               background-color var(--dur-base) var(--ease-snap);
 }
 
-/* Date headline */
-.date-row {
+.lunar-head {
   display: flex; align-items: center;
-  gap: var(--sp-3);
-  flex-wrap: wrap; justify-content: center;
+  flex-wrap: wrap; gap: var(--sp-2);
 }
 .solar-date {
   font-size: var(--fs-2xl);
@@ -247,18 +226,12 @@ body {
   color: var(--text-primary);
   letter-spacing: -0.02em;
   line-height: 1.2;
-}
-.date-divider {
-  display: inline-block;
-  width: 1px; height: 22px;
-  background: var(--border-strong);
-  font-size: 0; color: transparent;
-  vertical-align: middle;
+  white-space: nowrap;
 }
 .lunar-date {
-  font-size: 15px;
-  color: var(--text-secondary);
-  font-weight: 400;
+  font-size: var(--fs-md);
+  color: var(--text-primary);
+  font-weight: 600;
   letter-spacing: 0.01em;
 }
 
@@ -268,6 +241,7 @@ body {
   color: var(--text-tertiary);
   display: inline-flex; align-items: center;
   gap: var(--sp-1);
+  white-space: nowrap;
 }
 .weekend-row b {
   color: var(--amber);
@@ -284,14 +258,503 @@ body {
   vertical-align: middle;
 }
 
-/* Live info row: 北京时间 + IP chips + weather pill */
+/* ===== 卡片3:当前天气 =====
+   2×2 网格 —— 左上温度 / 左下定位+城市 / 右上图标 / 右下天气名 */
+.weather-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  align-content: space-between;
+  gap: var(--sp-3) var(--sp-2);
+  cursor: pointer;
+  position: relative;      /* 动效层的定位基准 */
+  overflow: hidden;        /* 粒子飘出卡片要裁掉 */
+  min-height: 108px;       /* 给动效一个可预期的高度,粒子行程按这个定 */
+}
+/* 文字压在动效之上 */
+.weather-card > *:not(.wx-fx) { position: relative; z-index: 1; }
+.wx-temp {
+  grid-column: 1; grid-row: 1;
+  align-self: start;
+  font-size: var(--fs-3xl);
+  font-weight: 700; line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--wx-ink, var(--text-primary));
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+/* 图标位:自绘 SVG 就绪前这里是空的,但先把位子占住,免得图标进来时版面跳 */
+.wx-icon {
+  grid-column: 2; grid-row: 1;
+  justify-self: end; align-self: start;
+  width: 44px; height: 44px;
+  display: flex; align-items: center; justify-content: center;
+}
+.wx-icon > * { max-width: 100%; max-height: 100%; }
+.wx-icon svg { width: 100%; height: 100%; display: block; }
+/* 图标用 fill,颜色留在 CSS 里,深浅主题和不同背景族都能各自覆盖 */
+.wx-ic-sun { fill: var(--wx-sun, #ffc83d); }
+/* 克莱因蓝底上把黄再提亮一点,不然深蓝会把它压闷 */
+.weather-card[data-bg="clear"] { --wx-sun: #ffd54f; }
+.wx-city {
+  grid-column: 1; grid-row: 2;
+  align-self: end;
+  display: inline-flex; align-items: center; gap: 4px;
+  min-width: 0;
+  font-size: var(--fs-sm);
+  color: var(--wx-ink-2, var(--text-secondary));
+}
+.wx-city > span {
+  min-width: 0; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.wx-pin { width: 13px; height: 13px; flex-shrink: 0; opacity: 0.7; }
+/* 切换箭头:只在配了 2 个以上城市时露出 */
+.wx-more {
+  width: 12px; height: 12px; flex-shrink: 0;
+  opacity: 0.55;
+  display: none;
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.weather-card.has-more .wx-more { display: block; }
+.weather-card.has-more .wx-city {
+  cursor: pointer;
+  border-radius: var(--r-full);
+  margin: -2px -6px; padding: 2px 6px;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+.weather-card.has-more .wx-city:hover { background: var(--wx-hover, var(--bg-hover)); }
+.weather-card[data-bg="clear"] { --wx-hover: rgba(255, 255, 255, 0.16); }
+.weather-card.has-more .wx-city:hover .wx-more { transform: translateY(1px); opacity: 0.9; }
+.wx-name {
+  grid-column: 2; grid-row: 2;
+  justify-self: end; align-self: end;
+  max-width: 92px;                    /* 「雷阵雨伴大冰雹」这种长名换行,不挤城市 */
+  text-align: right;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--wx-ink, var(--text-primary));
+  line-height: 1.35;
+}
+.weather-card:hover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-md);
+}
+.weather-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ===== 卡片背景:16 个族,覆盖 71 种天气 =====
+   映射表在 js/weather-fx.js 的 BG。降水按强度分档,底色由浅入深,
+   和动效的强度阶梯同向 —— 雨越大,粒子越密,底色也越沉。
+   对比度全部实算(WCAG 相对亮度),最差一档对 --text-primary 仍有
+   10.9:1(浅色)/ 7.5:1(深色),远高于 AA 的 4.5:1。 */
+/* 晴:#2B65B7 —— 用户从自己拍的晴天照片里取的色,原样铺平不做渐变。
+   它比上一版 #244C92 亮了近一倍(L 0.076 → 0.132),已经贴到浅色文字的
+   下限:纯色时城市名 4.56:1 刚好过 AA,渐变只要有个更亮的端点就掉到 3.8:1。
+   所以这一档只能纯色,且把城市名提亮到 #e8f0fa 换出 5.01:1 的余量。 */
+.weather-card[data-bg="clear"] {
+  background: linear-gradient(145deg, #2b65b7 0%, #2b65b7 100%);
+  --wx-ink:   #ffffff;
+  --wx-ink-2: #e8f0fa;
+  --wx-sun:   #ffe07a;    /* 底变亮了,黄要跟着提亮,否则糊在蓝里 */
+}
+.weather-card[data-bg="cloudy"]   { background: linear-gradient(145deg, #f5f8fc 0%, #cbd8e8 100%); }
+.weather-card[data-bg="overcast"] { background: linear-gradient(145deg, #f2f4f6 0%, #c4cbd6 100%); }
+.weather-card[data-bg="fog"]      { background: linear-gradient(145deg, #f6fafb 0%, #d7e4ea 100%); }
+.weather-card[data-bg="haze"]     { background: linear-gradient(145deg, #f7f5f0 0%, #dcd2c4 100%); }
+.weather-card[data-bg="dust-1"]   { background: linear-gradient(145deg, #f8f1e1 0%, #e8d4b5 100%); }
+.weather-card[data-bg="dust-2"]   { background: linear-gradient(145deg, #f7e4d0 0%, #e8c3a1 100%); }
+.weather-card[data-bg="rain-1"]   { background: linear-gradient(145deg, #f6fafe 0%, #dceaf8 100%); }
+.weather-card[data-bg="rain-2"]   { background: linear-gradient(145deg, #f2f8fd 0%, #d3e4f7 100%); }
+.weather-card[data-bg="rain-3"]   { background: linear-gradient(145deg, #ecf5fd 0%, #cadff7 100%); }
+.weather-card[data-bg="rain-4"]   { background: linear-gradient(145deg, #e7f2fd 0%, #c2d8f7 100%); }
+.weather-card[data-bg="rain-5"]   { background: linear-gradient(145deg, #dbecfc 0%, #b5caf9 100%); }
+.weather-card[data-bg="freeze"]   { background: linear-gradient(145deg, #dde5f3 0%, #b6c5de 100%); }
+.weather-card[data-bg="snow-1"]   { background: linear-gradient(145deg, #e3edf6 0%, #c2d3e6 100%); }
+.weather-card[data-bg="snow-2"]   { background: linear-gradient(145deg, #d5e3f0 0%, #a8c0d8 100%); }
+.weather-card[data-bg="thunder"]  { background: linear-gradient(145deg, #f4f2fd 0%, #dbcdf3 100%); }
+/* data-bg="unknown" 不写规则,落回 .info-card 的默认玻璃底 */
+
+/* 深色主题:同色相压暗降饱和,不是浅色反转 */
+:root[data-theme="dark"] .weather-card[data-bg="clear"] {
+  background: linear-gradient(145deg, #183865 0%, #102646 100%);
+  --wx-ink:   #ffffff;
+  --wx-ink-2: #dbe6f5;
+}
+:root[data-theme="dark"] .weather-card[data-bg="cloudy"]   { background: linear-gradient(145deg, #17202d 0%, #283b52 100%); }
+:root[data-theme="dark"] .weather-card[data-bg="overcast"] { background: linear-gradient(145deg, #1b1e25 0%, #2d323c 100%); }
+:root[data-theme="dark"] .weather-card[data-bg="fog"]      { background: linear-gradient(145deg, #182125 0%, #2c383f 100%); }
+:root[data-theme="dark"] .weather-card[data-bg="haze"]     { background: linear-gradient(145deg, #201d19 0%, #352f27 100%); }
+:root[data-theme="dark"] .weather-card[data-bg="dust-1"]   { background: linear-gradient(145deg, #262016 0%, #453825 100%); }
+:root[data-theme="dark"] .weather-card[data-bg="dust-2"]   { background: linear-gradient(145deg, #2d2114 0%, #5e4228 100%); }
+:root[data-theme="dark"] .weather-card[data-bg="rain-1"]   { background: linear-gradient(145deg, #14202a 0%, #1d3448 100%); }
+:root[data-theme="dark"] .weather-card[data-bg="rain-2"]   { background: linear-gradient(145deg, #13212c 0%, #1f3a56 100%); }
+:root[data-theme="dark"] .weather-card[data-bg="rain-3"]   { background: linear-gradient(145deg, #122230 0%, #214167 100%); }
+:root[data-theme="dark"] .weather-card[data-bg="rain-4"]   { background: linear-gradient(145deg, #122232 0%, #224578 100%); }
+:root[data-theme="dark"] .weather-card[data-bg="rain-5"]   { background: linear-gradient(145deg, #112337 0%, #254a9f 100%); }
+:root[data-theme="dark"] .weather-card[data-bg="freeze"]   { background: linear-gradient(145deg, #181f31 0%, #2a3667 100%); }
+:root[data-theme="dark"] .weather-card[data-bg="snow-1"]   { background: linear-gradient(145deg, #192229 0%, #283645 100%); }
+:root[data-theme="dark"] .weather-card[data-bg="snow-2"]   { background: linear-gradient(145deg, #192532 0%, #304b6e 100%); }
+:root[data-theme="dark"] .weather-card[data-bg="thunder"]  { background: linear-gradient(145deg, #261b42 0%, #52308e 100%); }
+
+/* ===== 天气卡动效层 =====
+   参数表在 js/weather-fx.js,71 种天气各一套。这里只定义粒子长什么样。
+
+   三条铁律:
+   1. @keyframes 里只允许出现 transform / opacity。宽高、位置、blur 全在
+      创建时由 JS 写成内联静态值,不参与动画 —— 否则每帧重排。
+   2. opacity 一律走 var(--o)。写死数值的话会盖掉 JS 设的内联 opacity
+      (动画优先级高于内联样式),这坑很隐蔽。
+   3. 粒子用负 animation-delay 错开相位,不然十几个雨滴齐刷刷一起落。 */
+.wx-fx {
+  position: absolute; inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: inherit;
+  contain: layout paint style;      /* 把粒子的重绘圈在卡片内 */
+}
+.weather-card {
+  --fx-ink:    rgba(30, 58, 138, 0.40);   /* 雨丝 */
+  --fx-mist:   rgba(30, 58, 138, 0.72);   /* 毛毛雨:颗粒太小,alpha 必须比雨丝高得多 */
+  --fx-glaze:  rgba(125, 211, 252, 0.85); /* 冻雨冰晶:偏青才读作「冰」,墨蓝会像脏点 */
+  --fx-flake:  rgba(255, 255, 255, 0.98); /* 雪粒核心 */
+  --fx-flake-edge: rgba(41, 78, 133, 0.70); /* 雪粒外圈:白核在浅底上必须有深边才看得见 */
+  --fx-pellet: rgba(241, 249, 255, 0.95); /* 冰粒/米雪:比雪粒硬,不带柔影 */
+  --fx-gust:   rgba(255, 255, 255, 0.85); /* 横向气流条 */
+  --fx-accum:  rgba(255, 255, 255, 0.75); /* 底部积雪 */
+  --fx-cloud:  rgba(255, 255, 255, 0.62); /* 云团 */
+  --fx-band:   rgba(120, 113, 108, 0.20); /* 默认横带 */
+  --fx-fog:    rgba(248, 250, 252, 0.72); /* 雾:乳白 */
+  --fx-haze:   rgba(161, 138, 86, 0.26);  /* 霾:黄灰 —— 这是霾/雾唯一可靠的区分维度 */
+  --fx-dust:   rgba(178, 116, 58, 0.34);  /* 沙尘:黄褐 */
+  --fx-frost:  rgba(186, 230, 253, 0.58); /* 冻雾/雾凇:冷调 */
+  --fx-sun:    rgba(255, 247, 237, 0.60); /* 太阳:暖白,不是黄色 */
+}
+:root[data-theme="dark"] .weather-card {
+  --fx-ink:    rgba(191, 219, 254, 0.45);
+  --fx-mist:   rgba(191, 219, 254, 0.80);
+  --fx-glaze:  rgba(224, 242, 254, 0.90);
+  --fx-flake:  rgba(226, 242, 255, 0.88);
+  --fx-flake-edge: rgba(120, 165, 220, 0.32); /* 深底上白雪本来就够亮,边只需极淡 */
+  --fx-pellet: rgba(219, 236, 255, 0.92);
+  --fx-gust:   rgba(203, 225, 255, 0.55);
+  --fx-accum:  rgba(203, 225, 255, 0.30);
+  --fx-cloud:  rgba(148, 163, 184, 0.30);
+  --fx-band:   rgba(214, 211, 209, 0.13);
+  --fx-fog:    rgba(203, 213, 225, 0.30);
+  --fx-haze:   rgba(180, 160, 110, 0.16);
+  --fx-dust:   rgba(190, 140, 90, 0.22);
+  --fx-frost:  rgba(203, 235, 255, 0.44);
+  --fx-sun:    rgba(255, 244, 230, 0.26);
+}
+
+/* 通用:所有粒子都是无限循环 */
+.fx-drop, .fx-splash, .fx-mist, .fx-glaze, .fx-flake, .fx-pellet,
+.fx-gust, .fx-accum, .fx-cloud, .fx-band, .fx-grain, .fx-glow {
+  position: absolute;
+  animation-iteration-count: infinite;
+  animation-timing-function: linear;
+}
+
+/* ── 雨丝 ── 沿自身倾斜轴下落,所以 rotate 要在 translateY 前面 */
+.fx-drop {
+  top: -30px;
+  border-radius: 1px;
+  transform-origin: top center;
+  background: linear-gradient(to bottom, transparent, var(--fx-ink));
+  animation-name: fxFall;
+}
+@keyframes fxFall {
+  0%   { transform: rotate(var(--tilt, 0deg)) translateY(0);                 opacity: 0; }
+  12%  { opacity: var(--o, 0.5); }
+  88%  { opacity: var(--o, 0.5); }
+  100% { transform: rotate(var(--tilt, 0deg)) translateY(var(--fall, 150px)); opacity: 0; }
+}
+
+/* ── 溅点 ── 卡片底部扩散的圆环,暴雨级才有 */
+.fx-splash {
+  bottom: 3px;
+  border-radius: 50%;
+  border: 1px solid var(--fx-ink);
+  animation-name: fxSplash;
+  animation-timing-function: ease-out;
+}
+@keyframes fxSplash {
+  0%   { transform: scale(0.15); opacity: 0; }
+  28%  { opacity: var(--o, 0.3); }
+  100% { transform: scale(1.7);  opacity: 0; }
+}
+
+/* ── 毛毛雨 ── 极细颗粒,横飘明显,不成线 */
+.fx-mist {
+  top: -6px;
+  border-radius: 50%;
+  background: var(--fx-mist);
+  animation-name: fxDrift;
+}
+
+/* ── 冻雨冰晶 ── 慢落,中途结冰般驻留发亮 */
+.fx-glaze {
+  top: -6px;
+  border-radius: 50%;
+  background: var(--fx-glaze);
+  box-shadow: 0 0 3px var(--fx-glaze);
+  animation-name: fxGlaze;
+  animation-timing-function: ease-in;
+}
+@keyframes fxGlaze {
+  0%   { transform: translateY(0) scale(0.6);                                    opacity: 0; }
+  22%  { opacity: var(--o, 0.5); }
+  72%  { transform: translateY(calc(var(--fall, 150px) * 0.78)) scale(1);        opacity: var(--o, 0.5); }
+  100% { transform: translateY(var(--fall, 150px)) scale(0.75);                  opacity: 0; }
+}
+
+/* ── 雪粒 ──
+   实心圆 + 投影会像气泡,改成径向渐变:中心实、边缘化开,才有松软感。
+   但纯白核落在浅色雪天底上只有 1.02:1,等于隐形 —— 所以外圈必须收一段
+   深色 --fx-flake-edge。对比度来自雪粒自身(核↔边 ≈ 4.3:1),
+   不依赖把背景压暗,否则会跟「深色文字要 4.5:1」死掐。 */
+.fx-flake {
+  border-radius: 50%;
+  background: radial-gradient(circle at 42% 38%,
+    #fff 0%,
+    var(--fx-flake) 38%,
+    var(--fx-flake-edge) 82%,
+    transparent 100%);
+  animation-name: fxDrift;
+}
+/* 雪不是沿直线斜落的,会左右摇摆着飘 —— 中间几个关键帧把路径拧成 S 形。
+   y 按比例推进,所以 linear 计时下垂直速度依然是匀速。 */
+@keyframes fxDrift {
+  0%   { transform: translate(0, 0);                                                          opacity: 0; }
+  15%  { opacity: var(--o, 0.9); }
+  28%  { transform: translate(calc(var(--dx, 10px) *  0.62), calc(var(--fall, 150px) * 0.28)); }
+  52%  { transform: translate(calc(var(--dx, 10px) * -0.18), calc(var(--fall, 150px) * 0.52)); }
+  78%  { transform: translate(calc(var(--dx, 10px) *  0.88), calc(var(--fall, 150px) * 0.78)); }
+  85%  { opacity: var(--o, 0.9); }
+  100% { transform: translate(var(--dx, 10px), var(--fall, 150px));                            opacity: 0; }
+}
+
+/* ── 硬颗粒 ── 米雪软而哑,冰粒/冰雹硬而亮(is-hard 加冷白高光) */
+.fx-pellet {
+  border-radius: 50%;
+  /* 同样的白点隐形问题,靠一圈深边压出轮廓 */
+  background: radial-gradient(circle at 40% 36%,
+    #fff 0%, var(--fx-pellet) 46%, var(--fx-flake-edge) 88%, transparent 100%);
+  animation-name: fxPellet;
+}
+.fx-pellet.is-hard { box-shadow: 0 0 2px rgba(255, 255, 255, 0.9); }
+@keyframes fxPellet {
+  0%   { transform: translateY(0);                 opacity: 0; }
+  10%  { opacity: var(--o, 0.9); }
+  90%  { opacity: var(--o, 0.9); }
+  100% { transform: translateY(var(--fall, 150px)); opacity: 0; }
+}
+
+/* ── 横向气流条 ── 吹雪 / 沙尘 / 大风 */
+.fx-gust {
+  left: -140px;
+  height: 1.5px;
+  border-radius: 999px;
+  background: linear-gradient(to right, transparent, var(--c, var(--fx-gust)), transparent);
+  animation-name: fxGust;
+}
+@keyframes fxGust {
+  0%   { transform: translateX(0);     opacity: 0; }
+  16%  { opacity: var(--o, 0.4); }
+  84%  { opacity: var(--o, 0.4); }
+  100% { transform: translateX(360px); opacity: 0; }
+}
+
+/* ── 底部积雪 ── 高度不能动(重排),用 scaleY 起伏 */
+.fx-accum {
+  left: 0; right: 0; bottom: 0;
+  border-radius: 50% 50% 0 0 / 14px 14px 0 0;
+  background: var(--fx-accum);
+  box-shadow: inset 0 1px 0 rgba(41, 78, 133, 0.28);
+  filter: blur(3px);
+  transform-origin: bottom center;
+  animation-name: fxAccum;
+  animation-timing-function: ease-in-out;
+}
+@keyframes fxAccum {
+  0%, 100% { transform: scaleY(0.72); opacity: calc(var(--o, 0.4) * 0.75); }
+  50%      { transform: scaleY(1);    opacity: var(--o, 0.4); }
+}
+
+/* ── 云团 ── */
+.fx-cloud {
+  left: 0;
+  border-radius: 999px;
+  background: var(--c, var(--fx-cloud));
+  filter: blur(var(--blur, 10px));
+  opacity: var(--o, 0.6);
+  animation-name: fxSlide;
+}
+@keyframes fxSlide {
+  0%   { transform: translateX(-120px); }
+  100% { transform: translateX(260px);  }
+}
+
+/* ── 宽横带 ── 雾 / 霾 / 尘的底层 */
+.fx-band {
+  left: -20%;
+  width: 140%;
+  border-radius: 999px;
+  background: var(--c, var(--fx-band));
+  filter: blur(var(--blur, 7px));
+  animation-name: fxHaze;
+  animation-timing-function: ease-in-out;
+}
+@keyframes fxHaze {
+  0%, 100% { transform: translateX(-9%); opacity: calc(var(--o, 0.5) * 0.55); }
+  50%      { transform: translateX(9%);  opacity: var(--o, 0.5); }
+}
+
+/* ── 悬浮颗粒 ── 沙粒 / 霾粒 / 冰晶。is-static 只闪不飘:
+   雾凇的冰晶是附着在物体上的,飘起来就错了 */
+.fx-grain {
+  border-radius: 50%;
+  background: var(--c, var(--fx-band));
+  animation-name: fxGrain;
+  animation-timing-function: ease-in-out;
+}
+.fx-grain.is-static { animation-name: fxTwinkle; }
+@keyframes fxGrain {
+  0%, 100% { transform: translate(0, 0);                                                     opacity: calc(var(--o, 0.4) * 0.5); }
+  25%      { transform: translate(var(--gx, 8px), calc(var(--gy, 6px) * -1));                 opacity: var(--o, 0.4); }
+  50%      { transform: translate(calc(var(--gx, 8px) * -0.6), var(--gy, 6px));               opacity: calc(var(--o, 0.4) * 0.7); }
+  75%      { transform: translate(calc(var(--gx, 8px) * 0.4), calc(var(--gy, 6px) * 0.5));    opacity: var(--o, 0.4); }
+}
+@keyframes fxTwinkle {
+  0%, 100% { opacity: calc(var(--o, 0.8) * 0.3); }
+  50%      { opacity: var(--o, 0.8); }
+}
+
+/* ── 光团(太阳)── 暖白不是黄色。晴天用双层反相呼吸,通透感靠这个 */
+.fx-glow {
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--c, var(--fx-sun)) 0%, transparent 68%);
+  animation-name: fxGlow;
+  animation-timing-function: var(--ease-out);
+}
+@keyframes fxGlow {
+  0%, 100% { transform: scale(var(--s0, 1));   opacity: 0.85; }
+  50%      { transform: scale(var(--s1, 1.1)); opacity: 1;    }
+}
+
+/* ── 闪电 ──
+   一条弧状折线(fx-bolt,SVG,JS 每次现生成)+ 一层整卡辉光(fx-flash)。
+   两者共用同一组 keyframes,所以永远同相;强度靠各自的 --fi 缩放:
+   辉光压到 0.45,把戏份让给弧,否则整卡爆白会盖掉闪电本身。
+   节奏是「啪-啪…(长静默)」,两闪间隔 120~160ms。百分比按各自 period
+   反算过,改 period 必须同步改这里,否则 11s 的卡会变成慢连闪。 */
+.fx-flash {
+  position: absolute; inset: 0;
+  background: rgba(255, 255, 255, 0.92);
+  opacity: 0;
+  --fi: 0.45;
+  animation-iteration-count: infinite;
+  animation-timing-function: linear;
+}
+:root[data-theme="dark"] .fx-flash { background: rgba(226, 232, 240, 0.6); }
+
+/* 弧状闪电。halo 粗、深色垫底勾形状,core 细、近白压顶给「烫」的感觉 ——
+   浅色卡背景上纯白线根本看不见,必须靠 halo 撑出轮廓。 */
+.fx-bolt {
+  position: absolute;
+  top: -4%; height: 78%;
+  width: 30%;
+  opacity: 0;
+  --fi: 1;
+  animation-iteration-count: infinite;
+  animation-timing-function: linear;
+}
+.fx-bolt svg { width: 100%; height: 100%; overflow: visible; }
+.fx-bolt .bolt-halo {
+  fill: none; stroke: var(--fx-bolt-halo);
+  stroke-width: 5.5; stroke-linecap: round; stroke-linejoin: round;
+}
+.fx-bolt .bolt-core {
+  fill: none; stroke: var(--fx-bolt-core);
+  stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round;
+}
+.weather-card {
+  --fx-bolt-halo: rgba(76, 29, 149, 0.55);
+  --fx-bolt-core: #ffffff;
+}
+:root[data-theme="dark"] .weather-card {
+  --fx-bolt-halo: rgba(167, 139, 250, 0.55);
+  --fx-bolt-core: #f8fafc;
+}
+
+.fx-flash--near  { animation-name: fxFlashNear;  }   /* 11s · 远 · 只辉光不出弧 */
+.fx-flash--snow  { animation-name: fxFlashSnow;  }   /*  9s · 雷雪 */
+.fx-flash--storm { animation-name: fxFlashStorm; }   /*  7s */
+.fx-flash--hail  { animation-name: fxFlashHail;  }   /*  6s */
+.fx-flash--hail2 { animation-name: fxFlashHail2; }   /*  5s · 三连闪 */
+
+@keyframes fxFlashNear {
+  0%, 0.5%, 2.2%, 2.4%, 3.6%, 100% { opacity: 0; }
+  1.4% { opacity: calc(0.34 * var(--fi, 1)); }
+  2.8% { opacity: calc(0.20 * var(--fi, 1)); }
+}
+@keyframes fxFlashSnow {
+  0%, 0.7%, 2.6%, 2.9%, 4.3%, 100% { opacity: 0; }
+  1.7% { opacity: calc(0.72 * var(--fi, 1)); }
+  3.4% { opacity: calc(0.44 * var(--fi, 1)); }
+}
+@keyframes fxFlashStorm {
+  0%, 1.9%, 2.6%, 4.0%, 4.9%, 100% { opacity: 0; }
+  2.2% { opacity: calc(1.00 * var(--fi, 1)); }
+  4.4% { opacity: calc(0.60 * var(--fi, 1)); }
+}
+@keyframes fxFlashHail {
+  0%, 1.7%, 2.4%, 3.6%, 4.5%, 100% { opacity: 0; }
+  2.0% { opacity: calc(1.00 * var(--fi, 1)); }
+  4.0% { opacity: calc(0.64 * var(--fi, 1)); }
+}
+@keyframes fxFlashHail2 {
+  0%, 2.0%, 2.9%, 4.4%, 5.3%, 7.2%, 8.1%, 100% { opacity: 0; }
+  2.4% { opacity: calc(1.00 * var(--fi, 1)); }
+  4.8% { opacity: calc(0.76 * var(--fi, 1)); }
+  7.6% { opacity: calc(0.48 * var(--fi, 1)); }
+}
+
+/* ── 包络层 ── 表现「零星 / 间歇性 / 阵性」的断续感。
+   只动 opacity,一层只多 1 个元素。用 animation-delay 分簇的做法不行:
+   各粒子 dur 不同,几十秒后相位就漂散了。 */
+.fx-env {
+  position: absolute; inset: 0;
+  animation-duration: var(--ep, 6s);
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+.fx-env--spot   { animation-name: fxEnvSpot;   }   /* 零星/附近有:短促一阵,大段静默 */
+.fx-env--inter  { animation-name: fxEnvInter;  }   /* 间歇性:多数时间在下,周期性收一下 */
+.fx-env--shower { animation-name: fxEnvShower; }   /* 阵雨:陡起缓落,对流雨的节奏 */
+.fx-env--burst  { animation-name: fxEnvBurst;  }   /* 阵性固态降水 */
+@keyframes fxEnvSpot   { 0%, 100% { opacity: var(--emin, 0); }  5%, 26% { opacity: var(--emax, 1); }  38% { opacity: var(--emin, 0); } }
+@keyframes fxEnvInter  { 0%, 100% { opacity: var(--emin, 0); }  8%, 52% { opacity: var(--emax, 1); }  66% { opacity: var(--emin, 0); } }
+@keyframes fxEnvShower { 0%, 100% { opacity: var(--emin, 0); }  4%, 34% { opacity: var(--emax, 1); }  78% { opacity: var(--emin, 0); } }
+@keyframes fxEnvBurst  { 0%, 100% { opacity: var(--emin, 0); } 12%, 58% { opacity: var(--emax, 1); }  76% { opacity: var(--emin, 0); } }
+
+/* 关掉动效的用户:整层不渲染。
+   不能只靠末尾那条全局 reduce-motion —— 它把 duration 压到 0.01ms,
+   粒子会定格在动画终点(一堆静止的雨丝挂在卡片下沿),比不做还难看。 */
+@media (prefers-reduced-motion: reduce) {
+  .wx-fx { display: none; }
+}
+
+/* IP 条:三卡片下方的一行,自身不是卡片,靠 chip 自己的边框成形 */
 .info-row {
   display: flex; align-items: center; flex-wrap: wrap;
   justify-content: center;
   gap: var(--sp-2);
   width: 100%;
-  padding-top: var(--sp-3);
-  border-top: 1px solid var(--border-subtle);
 }
 /* Replace dot separators with small visual gap dots */
 .info-sep {
@@ -371,43 +834,32 @@ body {
   margin-left: 3px;
 }
 
-/* Weather: branded accent pill */
-#weather-info {
-  display: inline-flex; align-items: center;
-  gap: 5px;
-  padding: 4px var(--sp-3);
-  background: var(--accent-bg);
-  color: var(--accent);
-  border-radius: var(--r-full);
-  font-size: var(--fs-sm);
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color var(--dur-fast) var(--ease-out),
-              transform var(--dur-fast) var(--ease-out);
-}
-#weather-info:hover {
-  background: var(--accent-bg-strong);
-  transform: translateY(-1px);
-}
-
-/* Almanac section: clearly grouped, full-width with hairline above */
+/* Almanac: 宜 / 忌 各一行,挂在农历栏下面(不再是整卡通栏) */
 .almanac-row {
-  display: flex; flex-wrap: wrap;
-  justify-content: center; align-items: center;
-  gap: var(--sp-1) var(--sp-2);
+  display: flex; flex-direction: column;
+  gap: 5px;
   font-size: var(--fs-sm);
   color: var(--text-secondary);
-  padding-top: var(--sp-3);
-  border-top: 1px solid var(--border-subtle);
-  width: 100%;
+  min-width: 0;
   cursor: help;
+}
+.almanac-line {
+  display: flex; align-items: baseline;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+.almanac-text {
+  min-width: 0;
+  overflow-wrap: anywhere;      /* 宜忌条目多时换行,不撑破卡片 */
+  letter-spacing: 0.02em;
 }
 .almanac-yi-label, .almanac-ji-label {
   font-size: var(--fs-2xs);
-  padding: 3px 9px;
+  padding: 2px 8px;
   border-radius: var(--r-full);
-  font-weight: 700; margin-right: 5px;
+  font-weight: 700;
   letter-spacing: 0.04em;
+  flex-shrink: 0;
 }
 .almanac-yi-label { color: var(--emerald); background: var(--emerald-bg); }
 .almanac-ji-label { color: var(--rose);    background: var(--rose-bg); }
@@ -417,109 +869,10 @@ body {
   border-radius: var(--r-full);
   font-weight: 600;
   letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 .almanac-shen.huang { color: var(--amber);          background: var(--amber-bg); }
 .almanac-shen.hei   { color: var(--text-tertiary);  background: var(--bg-hover); }
-.almanac-sep {
-  display: inline-block;
-  width: 1px; height: 12px;
-  background: var(--border-subtle);
-  color: transparent; font-size: 0;
-  margin: 0 4px;
-  vertical-align: middle;
-}
-
-/* Country countdown chips — STRICTLY single line; horizontal scroll fallback */
-.countdown-row {
-  display: flex; flex-wrap: nowrap;        /* never wrap */
-  justify-content: safe center;            /* 放得下→居中;放不下→退回左对齐可滚动,不裁切 */
-  gap: 6px;
-  padding-top: var(--sp-3);
-  padding-bottom: 2px;                      /* room for scrollbar */
-  border-top: 1px solid var(--border-subtle);
-  width: 100%;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-strong) transparent;
-  /* Soft fade at edges to hint scroll */
-  mask-image: linear-gradient(to right, transparent 0, black 10px, black calc(100% - 10px), transparent 100%);
-  -webkit-mask-image: linear-gradient(to right, transparent 0, black 10px, black calc(100% - 10px), transparent 100%);
-}
-.countdown-row::-webkit-scrollbar { height: 4px; }
-.countdown-row::-webkit-scrollbar-track { background: transparent; }
-.countdown-row::-webkit-scrollbar-thumb {
-  background: var(--border-strong);
-  border-radius: 2px;
-}
-.countdown-row::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
-
-/* dot separators between items: not needed with chip layout */
-.countdown-row > .countdown-sep { display: none; }
-
-.countdown-item {
-  display: inline-flex; align-items: center;
-  gap: 4px;
-  padding: 3px 10px 3px 7px;
-  background: var(--bg-elev-3);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--r-full);
-  font-size: var(--fs-xs);                  /* 11px — compact */
-  color: var(--text-secondary);
-  white-space: nowrap;
-  flex-shrink: 0;                            /* never squish */
-  transition: border-color var(--dur-fast) var(--ease-out),
-              background-color var(--dur-fast) var(--ease-out),
-              transform var(--dur-fast) var(--ease-out);
-}
-.countdown-item:hover {
-  border-color: var(--accent);
-  background: var(--accent-bg);
-  transform: translateY(-1px);
-}
-.countdown-item b {
-  color: var(--amber);
-  font-weight: 700;
-  margin: 0 1px;
-}
-.countdown-item img {
-  width: 14px !important;
-  height: 10px !important;
-}
-
-/* Picker pseudo-chip ("⚙ 国家"): dashed accent, overrides inline color */
-#countryPickerBtn {
-  background: transparent !important;
-  border-style: dashed;
-  border-color: var(--accent);
-  color: var(--accent) !important;
-  font-weight: 600;
-}
-#countryPickerBtn:hover {
-  background: var(--accent-bg) !important;
-}
-
-/* Holiday name (clickable): override inline underline color to respect theme */
-.holiday-name {
-  text-decoration-color: var(--border-strong) !important;
-  text-underline-offset: 3px !important;
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-/* Online/local source: tiny colored dot (text hidden, kept for screen readers via title) */
-.holiday-src {
-  display: inline-block;
-  width: 6px; height: 6px;
-  padding: 0; margin-left: 3px;
-  border-radius: 50%;
-  vertical-align: middle;
-  font-size: 0;                /* hide "在线"/"本地" text */
-  line-height: 0;
-  flex-shrink: 0;
-}
-.holiday-src-online { background: var(--emerald); }
-.holiday-src-local  { background: var(--text-muted); opacity: 0.6; }
 
 /* ===== Finance ===== */
 .finance-bar {
@@ -1069,12 +1422,15 @@ select.modal-input {
   body { padding: var(--sp-2) 0 var(--sp-6); }
   .page-layout { padding: 0 var(--sp-3); gap: var(--sp-3); }
   .main-wrapper { gap: var(--sp-3); }
-  .city-clocks { grid-template-columns: repeat(3, 1fr); }
-  .module-a { padding: var(--sp-4) var(--sp-3); gap: var(--sp-2); }
-  .date-row { gap: var(--sp-2); }
+  .module-a { gap: var(--sp-2); }
   .solar-date { font-size: var(--fs-xl); }
-  .lunar-date { font-size: var(--fs-md); }
-  .date-divider { display: none; }
+  .lunar-date { font-size: var(--fs-base); }
+  /* 三卡片并排挤不下 → 日期与天气各占半行,农历整行 */
+  .card-row {
+    grid-template-columns: minmax(0, 1fr) 168px;
+    gap: var(--sp-2);
+  }
+  .card-lunar { grid-column: 1 / -1; }
   .search-input { font-size: var(--fs-md); padding: 11px var(--sp-3); }
   .modal-box { width: calc(100vw - var(--sp-6)); max-width: 380px; }
   .theme-toggle { top: var(--sp-2); right: var(--sp-2); }
@@ -1082,7 +1438,10 @@ select.modal-input {
 
 /* Phone: stack everything */
 @media (max-width: 480px) {
-  .city-clocks { grid-template-columns: repeat(2, 1fr); }
+  /* 手机上三卡片全部单列 */
+  .card-row { grid-template-columns: minmax(0, 1fr); }
+  .card-lunar { grid-column: auto; }
+  .weather-card { min-height: 104px; }
   .finance-item { flex: 1 1 100%; }
   .engine-tabs { gap: 2px; }
   .engine-btn { padding: 5px var(--sp-2); font-size: var(--fs-xs); }
@@ -1095,15 +1454,11 @@ select.modal-input {
   .page-layout  { max-width: 1800px; padding: 0 var(--sp-6); gap: var(--sp-6); }
   .sidebar      { flex: 0 0 360px; }
   .main-wrapper { max-width: 1040px; gap: var(--sp-4); }
-  .city-clocks  { gap: var(--sp-3); }
-  .clock-city   { font-size: var(--fs-sm); }
-  .clock-time   { font-size: var(--fs-xl); }
-  .clock-date   { font-size: var(--fs-xs); }
   .solar-date   { font-size: var(--fs-2xl); }
   .lunar-date   { font-size: 19px; }
   .info-row     { font-size: 15px; }
   .ip-entry, .ip-entry-label, .ip-entry-addr { font-size: 13px; }
-  .countdown-row { font-size: 13px; }
+  .almanac-row  { font-size: var(--fs-base); }
   .finance-item { flex: 1 0 326px; grid-template-columns: 84px 28px 74px 64px 44px; }
   .fin-label    { font-size: var(--fs-sm); }
   .fin-value    { font-size: 15px; }

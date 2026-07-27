@@ -1,8 +1,6 @@
 // 入口:串联各模块的初始化 + 启动周期性轮询(行情/热榜)
-import { renderClockCards, updateClocks, initClocksModule } from './clocks.js';
-import { renderSolar, renderLunar, updateBJTime } from './today.js';
+import { renderSolar, renderLunar, renderWeekend, updateBJTime } from './today.js';
 import { initSearchModule } from './search.js';
-import { initHolidaysModule } from './holidays.js';
 import { initLocation, initWeatherModal } from './ip-weather.js';
 import { renderFinance, loadFinance } from './finance.js';
 import { initHotLists, refreshAllHotPanels, initHotSettings } from './hot.js';
@@ -20,17 +18,14 @@ if (themeToggle) {
 }
 
 initSearchModule();
-initClocksModule();
-initHolidaysModule();
 initWeatherModal();
 initNavModule();
 initHotSettings();
 
-renderClockCards();
-updateClocks();
-setInterval(() => { updateBJTime(); updateClocks(); }, 1000);
+setInterval(updateBJTime, 1000);
 updateBJTime();
 renderSolar();
+renderWeekend();
 renderLunar();
 
 renderNavGroups();
