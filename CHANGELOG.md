@@ -1,5 +1,30 @@
 # Changelog
 
+## v1.5.1 — 2026-07-27
+
+上线 litenav.info,补齐 Cloudflare 部署方案;修复镜像构建超时。
+
+### Fixed
+
+- **多架构镜像构建超时**:v1.5.0 的两次构建都在 **30分18秒**被 `timeout-minutes` 取消,Docker Hub 的 `:latest` 一直停在 v1.4.7。根因是在单个 amd64 runner 上用 `platforms: linux/amd64,linux/arm64` 构建,arm64 那半靠 QEMU 模拟,模拟环境里跑 `npm ci` 半小时都完不成
+  - 这是**早就埋下的定时炸弹**:v1.4.6/v1.4.7 只用 44s~1m22s 是因为命中了 GHA 构建缓存;v1.5.0 改版本号动了 `package-lock.json`,缓存失效后真实耗时才暴露出来。只要以后再动一次依赖,同样会炸
+  - 改为「原生 runner 分别构建 + 合并 manifest」两段式:`ubuntu-latest`(amd64)与 `ubuntu-24.04-arm`(arm64)并行,各自 push-by-digest 不打 tag,再由 merge job 用 `imagetools` 合成 manifest list 并挂 tag。公开仓库可免费用 arm runner
+  - 实测 amd64 39s / arm64 31s / merge 23s,总计约 1 分钟。多架构支持不变
+- **SEO 文案与实际不符**:`meta description`、JSON-LD、seo-only 段落仍写着「知乎/微博/百度/B 站热榜」,v1.5.0 已改为 22 个可选
+
+### Added
+
+- **Cloudflare 橙云代理部署方案**(README 新增一节 + `deploy/` 三个文件),与现有 1Panel / 普通 Nginx 并列:
+  - `cloudflare-realip.conf.example` — 用 `set_real_ip_from` 限定**只有来自 CF 网段的 `CF-Connecting-IP` 才作数**。不能图省事写 `proxy_set_header X-Forwarded-For $http_cf_connecting_ip`:那等于无条件信任一个客户端可伪造的头,攻击者绕过 CF 直连源站即可污染 `/api/ip`,并把 `express-rate-limit` 的限流键刷成任意值**完全绕过限流**
+  - `cf-realip-update.sh` + systemd timer(每天)— 自动刷新 CF 网段白名单。数据源是 CF 官方机器可读端点。三层保护:拉取失败 → 不动现有配置;响应残缺(网段数低于下限)→ 拒绝覆盖(**宁可用旧列表也不能用残缺列表**,后者会把大量 CF 节点踢出白名单);写入后 `nginx -t` 不通过 → 自动回滚
+  - `nginx-default-deny.conf.example` — 切断「源站 IP → 域名」的自动关联。源站在 TLS 握手时发出的证书 SAN 里带着域名,Shodan/Censys 扫描全网并据此建索引。**不能在 HTTP 层按 Host 拦**:证书在握手阶段就发出去了,而 Host 头要到下一步才可见
+- 右上角加 GitHub 源码入口(按钮组从右往左:主题切换 → 热榜设置 → GitHub)
+- README 标注在线站点 [litenav.info](https://litenav.info)
+
+### Changed
+
+- 站点域名切至 `litenav.info`(canonical / og:url / JSON-LD / robots.txt / sitemap.xml)
+
 ## v1.5.0 — 2026-07-27
 
 热榜从 4 个写死面板改为 22 选 4;修复国内 IP 显示 IPv6;新增 CI。
