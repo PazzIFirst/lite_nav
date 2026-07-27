@@ -16,7 +16,12 @@
   <meta property="og:title" content="lite-nav — 轻量级个人导航主页">
   <meta property="og:description" content="农历、宜忌、20 国节假日、实时行情、热榜聚合。多源容灾,永不返回空。开源、自部署、零构建。">
   <meta property="og:url" content="https://litenav.info/">
-  <meta property="og:image" content="https://raw.githubusercontent.com/PazzIFirst/lite_nav/main/docs/screenshot.png">
+  <!-- 预览图放自己域名,不用 raw.githubusercontent.com:后者在国内常访问不了,
+       分享到微信/微博时预览图会加载失败 —— 而本站受众正是国内用户 -->
+  <meta property="og:image" content="https://litenav.info/og-image.png">
+  <meta property="og:image:width" content="2793">
+  <meta property="og:image:height" content="1896">
+  <meta property="og:image:alt" content="lite-nav 界面预览:农历、节假日倒计时、实时行情、热榜面板">
   <meta property="og:locale" content="zh_CN">
   <meta property="og:site_name" content="lite-nav">
 
@@ -24,7 +29,8 @@
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="lite-nav — 轻量级个人导航主页">
   <meta name="twitter:description" content="农历 · 多国节假日 · 实时行情 · 热榜 · 多源容灾">
-  <meta name="twitter:image" content="https://raw.githubusercontent.com/PazzIFirst/lite_nav/main/docs/screenshot.png">
+  <meta name="twitter:image" content="https://litenav.info/og-image.png">
+  <meta name="twitter:image:alt" content="lite-nav 界面预览">
 
   <!-- 结构化数据 / JSON-LD -->
   <script type="application/ld+json">
@@ -38,7 +44,19 @@
     "applicationCategory": "UtilityApplication",
     "operatingSystem": "Web Browser",
     "browserRequirements": "Requires modern browser with ES Modules support",
-    "softwareVersion": "1.4.7",
+    "softwareVersion": "1.5.1",
+    "screenshot": "https://litenav.info/og-image.png",
+    "isAccessibleForFree": true,
+    "featureList": [
+      "农历、节气、老黄历(宜忌/神位/彭祖百忌)",
+      "20 国法定节假日与倒计时",
+      "A 股/港股/美股/汇率/黄金实时行情",
+      "22 个热榜任选,四槽位自由配置",
+      "10 大搜索引擎与搜索联想",
+      "IP 定位与多城市天气",
+      "6 城市世界时钟",
+      "可编辑网站导航分组"
+    ],
     "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
     "license": "https://opensource.org/licenses/MIT",
     "sourceOrganization": {
@@ -54,6 +72,21 @@
 
   <link rel="preconnect" href="https://flagcdn.com" crossorigin>
   <link rel="stylesheet" href="css/main.css">
+
+  <!-- modulepreload:消除 ES Module 的加载瀑布。
+       没有它时浏览器要「下 main.js → 解析 → 发现 8 个 import → 下它们 →
+       它们又 import api.js → 再下」,三轮串行往返。声明后所有模块并行开抓。
+       零构建项目没有打包器帮忙合并,这是拿回并行度的唯一手段。 -->
+  <link rel="modulepreload" href="js/main.js">
+  <link rel="modulepreload" href="js/api.js">
+  <link rel="modulepreload" href="js/clocks.js">
+  <link rel="modulepreload" href="js/today.js">
+  <link rel="modulepreload" href="js/search.js">
+  <link rel="modulepreload" href="js/holidays.js">
+  <link rel="modulepreload" href="js/ip-weather.js">
+  <link rel="modulepreload" href="js/finance.js">
+  <link rel="modulepreload" href="js/hot.js">
+  <link rel="modulepreload" href="js/nav.js">
 
   <!-- Anti-FOUC: apply saved theme (or system preference) before first paint -->
   <script>
@@ -98,8 +131,11 @@
   </svg>
 </button>
 
-<!-- 静态 SEO 内容:对爬虫可见,视觉上隐藏 -->
-<header class="seo-only" aria-hidden="true">
+<!-- 静态内容:视觉上隐藏,但对屏幕阅读器和爬虫都可读。
+     .seo-only 用的是标准 clip-rect 视觉隐藏(非 display:none),所以内容仍被采信。
+     ⚠ 不要加 aria-hidden:那会让屏幕阅读器也读不到,变成「只给爬虫看的文字」,
+       既是无障碍缺陷,也正是搜索引擎指南反对的做法。 -->
+<header class="seo-only">
   <h1>lite-nav — 轻量级个人导航主页</h1>
   <p>包含农历、节气、宜忌、20 国法定节假日(中美英德日法韩等)、实时金融行情(A 股、港股、美股、汇率、黄金)、22 个热榜任选(知乎/微博/百度/B 站/抖音/头条/V2EX/掘金等)、10 大搜索引擎(百度/Google/Bing/知乎/Yandex/Bilibili/YouTube/GitHub/X/DuckDuckGo/npm)、自定义导航分组、6 城市时钟。多源容灾,永不返回空。</p>
   <p>开源 MIT,自部署,零构建。源码:<a href="https://github.com/PazzIFirst/lite_nav">github.com/PazzIFirst/lite_nav</a></p>
@@ -206,15 +242,18 @@
 <main class="page-layout">
 
   <!-- 左侧热榜 -->
+  <h2 class="seo-only">热榜聚合</h2>
   <div class="sidebar" id="leftSidebar"></div>
 
   <!-- 中间主体 -->
   <div class="main-wrapper">
 
     <!-- 6 城市时钟 -->
+    <h2 class="seo-only">世界城市时钟</h2>
     <div class="city-clocks" id="cityClocks"></div>
 
     <!-- 模块A:日期 + 农历 + 周末/月初 + 北京时间 + IP + 天气 + 老黄历 + 倒计时 -->
+    <h2 class="seo-only">今日日期、农历与老黄历</h2>
     <div class="module-a">
       <div class="date-row">
         <span class="solar-date" id="solar-date">--</span>
@@ -234,6 +273,7 @@
     </div>
 
     <!-- 金融模块 -->
+    <h2 class="seo-only">实时金融行情</h2>
     <div class="finance-bar" id="financeBar">
       <div class="finance-grid" id="financeGrid">
         <div class="hot-panel-loading">行情加载中…</div>
@@ -242,6 +282,7 @@
     </div>
 
     <!-- 搜索 -->
+    <h2 class="seo-only">多引擎搜索</h2>
     <div class="search-section">
       <div class="engine-tabs" id="engineTabs"></div>
       <form class="search-box" id="searchForm">
@@ -255,6 +296,7 @@
     </div>
 
     <!-- 网站导航分组 -->
+    <h2 class="seo-only">网站导航分组</h2>
     <div class="nav-groups" id="navGroups"></div>
 
   </div><!-- /main-wrapper -->
