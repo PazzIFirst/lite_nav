@@ -292,8 +292,55 @@ body {
 }
 .wx-icon > * { max-width: 100%; max-height: 100%; }
 .wx-icon svg { width: 100%; height: 100%; display: block; }
-/* 图标用 fill,颜色留在 CSS 里,深浅主题和不同背景族都能各自覆盖 */
-.wx-ic-sun { fill: var(--wx-sun, #ffc83d); }
+
+/* ===== 图标调色板 =====
+   50 套图标共用这一组 class。默认值是给浅色卡底调的(15 个背景族里
+   除了「晴」全是浅底);「晴」那张是深蓝配白字,单独覆盖 --wx-sun。 */
+.weather-card {
+  --wx-sun:        #f0a11c;   /* 太阳 */
+  --wx-cloud:      #93aec8;   /* 云(近景) */
+  --wx-cloud-far:  #c2d4e6;   /* 云(远景)—— 两朵同色叠一起边界会糊死,靠淡一档拉开 */
+  --wx-cloud-dark: #5d7794;   /* 阴天/暴雨级的暗云 */
+  --wx-cloud-dark-far: #8ea4bd;
+  --wx-ic-shadow:  rgba(15, 23, 42, 0.30);
+  --wx-rain:       #2f7ec2;   /* 雨丝、毛毛雨颗粒 */
+  --wx-snow:       #6ba3cc;   /* 雪花 —— 浅底上不能用白,会隐形 */
+  --wx-ice:        #23a6c4;   /* 冻雨/雾凇的冰晶,偏青才读作「冰」 */
+  --wx-bolt:       #f2a007;   /* 闪电 */
+  --wx-hail:       #4f83ad;   /* 冰粒、冰雹 */
+  --wx-icfog:      #94a8bb;   /* 雾条、气流条 */
+  --wx-icdust:     #b07a3c;   /* 沙尘,黄褐 */
+}
+:root[data-theme="dark"] .weather-card {
+  --wx-sun:        #ffc94d;
+  --wx-cloud:      #7f96ae;
+  --wx-cloud-far:  #a9bdd2;
+  --wx-cloud-dark: #57708c;
+  --wx-cloud-dark-far: #7c93ac;
+  --wx-ic-shadow:  rgba(0, 0, 0, 0.45);
+  --wx-rain:       #5aa8e8;
+  --wx-snow:       #9fcbe8;
+  --wx-ice:        #4fd0e8;
+  --wx-bolt:       #ffc23d;
+  --wx-hail:       #7fb0d6;
+  --wx-icfog:      #8fa3b6;
+  --wx-icdust:     #c99a5e;
+}
+.ic-sun        { fill: var(--wx-sun); }
+.ic-cloud          { fill: var(--wx-cloud); }
+.ic-cloud-far      { fill: var(--wx-cloud-far); }
+.ic-cloud-dark     { fill: var(--wx-cloud-dark); }
+.ic-cloud-dark-far { fill: var(--wx-cloud-dark-far); }
+/* 前景元素投影:叠在后面那层之上时给一道浅影,层次立刻出来。
+   只给真正有堆叠的那几张用(多云/阴/晴间少云),别的图标保持干净。 */
+.wx-ic .is-front { filter: drop-shadow(0 1.2px 1.4px var(--wx-ic-shadow)); }
+.ic-rain       { fill: var(--wx-rain); }
+.ic-snow       { fill: var(--wx-snow); }
+.ic-ice        { fill: var(--wx-ice); }
+.ic-bolt       { fill: var(--wx-bolt); }
+.ic-hail       { fill: var(--wx-hail); }
+.ic-fog        { fill: var(--wx-icfog); }
+.ic-dust       { fill: var(--wx-icdust); }
 /* 克莱因蓝底上把黄再提亮一点,不然深蓝会把它压闷 */
 .weather-card[data-bg="clear"] { --wx-sun: #ffd54f; }
 .wx-city {
@@ -358,7 +405,7 @@ body {
   background: linear-gradient(145deg, #2b65b7 0%, #2b65b7 100%);
   --wx-ink:   #ffffff;
   --wx-ink-2: #e8f0fa;
-  --wx-sun:   #ffe07a;    /* 底变亮了,黄要跟着提亮,否则糊在蓝里 */
+  --wx-sun:   #ffe07a;    /* 深蓝底上要更亮的黄,否则糊进蓝里 */
 }
 .weather-card[data-bg="cloudy"]   { background: linear-gradient(145deg, #f5f8fc 0%, #cbd8e8 100%); }
 .weather-card[data-bg="overcast"] { background: linear-gradient(145deg, #f2f4f6 0%, #c4cbd6 100%); }

@@ -530,36 +530,6 @@ const P = {
   ],
 };
 
-// ===== 天气图标 =====
-// 挂在卡片右上角 44×44 的槽位。目前只有「晴」,其余天气槽位留空 ——
-// 空着不会让版面跳,位置在 CSS 里已经占死。
-// 图标用 fill="currentColor",颜色交给 CSS(.wx-ic-sun),
-// 这样深浅主题、不同背景族都能各自覆盖,不用改 SVG。
-const SUN_RAYS = [0, 45, 90, 135, 180, 225, 270, 315]
-  .map((a) => `<rect x="22.2" y="2.4" width="3.6" height="8.2" rx="1.8" transform="rotate(${a} 24 24)"/>`)
-  .join('');
-
-const WX_ICONS = {
-  '晴': `<svg viewBox="0 0 48 48" class="wx-ic wx-ic-sun" aria-hidden="true">`
-    + `<circle cx="24" cy="24" r="10"/>${SUN_RAYS}</svg>`,
-};
-
-/**
- * 把天气图标画进槽位。查不到就留空。
- * @param {HTMLElement} host  图标槽(.wx-icon)
- * @param {string} conditionName  完整天气名
- */
-export function renderWeatherIcon(host, conditionName) {
-  if (!host) return;
-  const key = resolveFxKey(conditionName);
-  const svg = (key && WX_ICONS[key]) || '';
-  if (host.dataset.ic === (key || '')) return;
-  host.dataset.ic = key || '';
-  host.innerHTML = svg;          // 仅本模块内的字面量,无外部输入
-}
-
-export const FX_ICON_KEYS = Object.keys(WX_ICONS);
-
 export const FX_PRESETS = P;
 export const FX_CONDITIONS = Object.keys(P);
 
@@ -599,6 +569,44 @@ function fallbackKey(name) {
   if (/云/.test(s)) return '多云';
   return null;
 }
+
+// ===== 显示名 =====
+// 卡片右下角只有约 92px(12px 字号 ≈ 7 个汉字),而内部标识里混着三种口径:
+// 中国天气网的国内术语、WMO 码表的中译、WWO 的英文口径中译。
+// 「附近有 / 零星 / 间歇性」是 WWO 的 nearby/patchy/intermittent 直译,
+// 中文预报根本不这么说 —— 这类一律并掉。
+//
+// 这是纯显示层:内部标识仍驱动 71 种动效和 50 套图标,合并显示名
+// 不损失视觉区分度;完整名称保留在卡片 tooltip 里。
+const DISPLAY = {
+  '晴间少云': '晴间多云',            // 「少云」是观测云量术语,预报用语是「晴间多云」
+  // 毛毛雨:观测规范里不设强度分级,WMO 的三档是码表产物,没有中文对应
+  '零星小毛毛雨': '毛毛雨', '小毛毛雨': '毛毛雨', '浓毛毛雨': '毛毛雨',
+  '附近有零星冻毛毛雨': '冻毛毛雨', '轻冻毛毛雨': '冻毛毛雨', '强冻毛毛雨': '冻毛毛雨',
+  '附近有零星降雨': '小雨', '零星小雨': '小雨',
+  '间歇性中雨': '中雨', '间歇性大雨': '大雨',
+  '大暴雨到特大暴雨': '特大暴雨',    // 唯一一处显示量级偏严一档,8 字实在放不下
+  '小阵雨': '阵雨',
+  '轻冻雨': '冻雨',
+  '附近有零星雨夹雪': '雨夹雪', '小阵性雨夹雪': '小雨夹雪',
+  '中到大阵性雨夹雪': '中到大雨夹雪',
+  '附近有零星降雪': '小雪', '零星小雪': '小雪',
+  '零星中雪': '中雪', '零星大雪': '大雪',
+  '小阵雪': '阵雪',
+  '小阵性冰粒': '冰粒', '中到大阵性冰粒': '冰粒',   // 国内规范中冰粒不分强度
+  '附近有雷雨': '雷阵雨',
+  '雷阵雨伴小冰雹': '雷雨伴冰雹', '雷阵雨伴大冰雹': '雷雨伴大冰雹',
+  '雷雪': '雷暴雪',                  // thundersnow 的业务文献中文名
+};
+
+/** 天气名 → 卡片上显示的短名。查不到就原样返回 */
+export function displayName(conditionName) {
+  const k = resolveFxKey(conditionName);
+  if (!k) return String(conditionName || '');
+  return DISPLAY[k] || k;
+}
+
+export const FX_DISPLAY = DISPLAY;
 
 export function resolveFxKey(conditionName) {
   const s = String(conditionName || '').trim();

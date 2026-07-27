@@ -1,6 +1,7 @@
 // IP 检测(国内 + 国外)+ 天气联动 + 天气城市弹窗
 import { fetchT, apiGet, srcTooltip } from './api.js';
-import { renderWeatherFx, renderWeatherIcon, resolveBgKey } from './weather-fx.js';
+import { renderWeatherFx, resolveBgKey, displayName } from './weather-fx.js';
+import { renderWeatherIcon } from './weather-icons.js';
 
 // 国内 IP 检测 — 浏览器直连国内 IP 服务。多源并行,IP 与城市分两路取:
 //
@@ -91,7 +92,9 @@ function paintWeatherCard(temp, condition, city, tooltip) {
   const multi = wxList.length > 1;
   wxTempEl.textContent = (temp == null || Number.isNaN(temp)) ? '--°' : temp + '°';
   wxCityEl.textContent = city || '--';
-  wxNameEl.textContent = condition || '--';
+  // 卡片上用短名(约 92px 放不下「附近有零星冻毛毛雨」这种),
+  // 完整名称仍在 tooltip 里,信息不丢
+  wxNameEl.textContent = condition ? displayName(condition) : '--';
   // 背景族 16 个,按强度分档(rain-1…rain-5 等),查不到就落回默认玻璃底
   wxCard.dataset.bg = resolveBgKey(condition) || 'unknown';
   wxCard.classList.toggle('has-more', multi);   // 控制城市名旁的小箭头显隐
