@@ -18,13 +18,29 @@ on:
 #   DOCKERHUB_TOKEN    — Docker Hub access token (需 Read & Write 权限)
 # Fork 后不想推镜像?在 GitHub repo Actions → Disable workflow 即可
 
+# 为什么是「两个原生 runner 分别构建 + 合并 manifest」而不是单机 QEMU 多平台构建:
+#   此前用 platforms: linux/amd64,linux/arm64 在单个 amd64 runner 上跑,arm64 那半
+#   要靠 QEMU 模拟。lockfile 一变、GHA 缓存失效,模拟环境里的 npm ci 超过 30 分钟
+#   仍未跑完,直接被 timeout-minutes 取消 —— v1.5.0 的两次构建就是这么废掉的。
+#   公开仓库可以免费用 ubuntu-24.04-arm 原生 arm64 runner,两边都是原生速度。
+
+env:
+  IMAGE_NAME: lite-nav-backend
+
 jobs:
   build:
-    runs-on: ubuntu-latest
-    # 构建卡住 30 分钟即失败 — 防止偶发 runner/QEMU 卡死耗满 6h 上限
-    timeout-minutes: 30
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
     permissions:
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm      # 原生 arm64,公开仓库免费
 
     steps:
       - name: Checkout
@@ -39,14 +55,12 @@ jobs:
           fi
           if [ -z "${{ secrets.DOCKERHUB_TOKEN }}" ]; then
             echo "::error::DOCKERHUB_TOKEN secret is empty or not set."
-            echo "Configure it at: Settings → Secrets and variables → Actions → Repository secrets"
             echo "The token must have Read & Write permissions (Public Repo Read-only is insufficient)."
             exit 1
           fi
-          echo "Both secrets are present, proceeding."
 
-      - name: Set up QEMU (for arm64 cross-build)
-        uses: docker/setup-qemu-action@v3
+      - name: Prepare platform slug
+        run: echo "PLATFORM_PAIR=${{ matrix.platform }}" | tr '/' '-' >> $GITHUB_ENV
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -57,25 +71,80 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Extract metadata
+      - name: Extract metadata (labels only)
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ secrets.DOCKERHUB_USERNAME }}/lite-nav-backend
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}
+
+      # 按 digest 推送,不打 tag —— tag 统一由下面的 merge job 挂到 manifest 上
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          platforms: ${{ matrix.platform }}
+          labels: ${{ steps.meta.outputs.labels }}
+          outputs: type=image,name=${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=${{ env.PLATFORM_PAIR }}
+          cache-to: type=gha,mode=max,scope=${{ env.PLATFORM_PAIR }}
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ env.PLATFORM_PAIR }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: build
+    permissions:
+      contents: read
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata (tags)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=sha,prefix=sha-,format=short
 
-      - name: Build and push
-        uses: docker/build-push-action@v5
-        with:
-          context: ./backend
-          file: ./backend/Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      # 把两个架构的 digest 合并成一个 manifest list,并挂上所有 tag
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        run: |
+          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf '${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}@sha256:%s ' *)
+
+      - name: Inspect published image
+        run: |
+          docker buildx imagetools inspect ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
