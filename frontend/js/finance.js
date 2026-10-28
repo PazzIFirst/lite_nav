@@ -1,12 +1,12 @@
 // 行情:三张可配置的卡片(货币 / 股指 / A股 / 港股 / 美股)
 //
-// 非交易时段画最近 N 个交易日的日 K;交易时段改画当天分时线,
-// 由 main.js 的 30s 轮询驱动,线随时间向右生长。
+// 只看一个交易日:盘中画当天的分时线(30s 轮询续画),收盘画最近那个交易日的分时。
+// 不画历史日 K —— 一张卡大约 200px 宽,60 根蜡烛在这个尺寸下只能看个大概趋势,
+// 分时反而能把「今天怎么走的」说清楚。。
 import { apiGet, srcTooltip } from './api.js';
 
 const SLOTS_KEY = 'nav.fin.slots';
 const COLOR_KEY = 'nav.fin.color';
-const DAYS = 60;
 
 const COLORS = {
   'red-up':   { up: '#e5484d', down: '#30a46c' },   // 默认:红涨绿跌
@@ -97,33 +97,6 @@ function setupCanvas(canvas) {
   return { ctx, w, h };
 }
 const px = (v) => Math.round(v) + 0.5;
-
-function drawCandles(canvas, bars, up, down) {
-  const { ctx, w, h } = setupCanvas(canvas);
-  if (!bars || !bars.length) return;
-  const padY = 3;
-  const hi = Math.max(...bars.map(b => b.h));
-  const lo = Math.min(...bars.map(b => b.l));
-  const span = hi - lo || 1;
-  const y = v => h - padY - ((v - lo) / span) * (h - padY * 2);
-  const slot = w / bars.length;
-  const bodyW = Math.max(1.4, Math.min(6, slot * 0.62));
-
-  bars.forEach((b, i) => {
-    const cx = i * slot + slot / 2;
-    const col = b.c >= b.o ? up : down;
-    ctx.strokeStyle = col;
-    ctx.fillStyle = col;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(px(cx), y(b.h));
-    ctx.lineTo(px(cx), y(b.l));
-    ctx.stroke();
-    const top = y(Math.max(b.o, b.c));
-    const bot = y(Math.min(b.o, b.c));
-    ctx.fillRect(cx - bodyW / 2, top, bodyW, Math.max(1, bot - top));
-  });
-}
 
 function drawTrend(canvas, points, prevClose, up, down) {
   const { ctx, w, h } = setupCanvas(canvas);
@@ -223,18 +196,10 @@ function paintCard(i, opt) {
     return;
   }
 
-  let last, prev;
-  if (opt.trend) {
-    const pts = opt.trend.points || [];
-    last = pts.length ? pts[pts.length - 1].p : null;
-    prev = opt.prevClose ?? opt.trend.prevClose ?? (pts.length ? pts[0].p : null);
-    drawTrend(canvas, pts, prev, up, down);
-  } else {
-    const bars = opt.bars || [];
-    last = bars.length ? bars[bars.length - 1].c : null;
-    prev = bars.length > 1 ? bars[bars.length - 2].c : null;
-    drawCandles(canvas, bars, up, down);
-  }
+  const pts = (opt.trend && opt.trend.points) || [];
+  const last = pts.length ? pts[pts.length - 1].p : null;
+  const prev = opt.prevClose ?? (opt.trend && opt.trend.prevClose) ?? (pts.length ? pts[0].p : null);
+  drawTrend(canvas, pts, prev, up, down);
 
   priceEl.textContent = fmtNum(last);
   const pct = (prev && last != null) ? ((last - prev) / prev) * 100 : null;
@@ -243,7 +208,9 @@ function paintCard(i, opt) {
   chgEl.className = 'fin-chg' + cls;
   priceEl.className = 'fin-price' + cls;
 
-  stateEl.textContent = opt.live ? '盘中' : '收盘';
+  const d = (opt.trend && opt.trend.date) || '';
+  const day = /^\d{8}$/.test(d) ? `${d.slice(4, 6)}-${d.slice(6, 8)}` : '';
+  stateEl.textContent = opt.live ? '盘中' : ('收盘' + (day ? ' · ' + day : ''));
   stateEl.className = 'fin-state' + (opt.live ? ' is-live' : '');
   srcEl.textContent = opt.srcLabel || '';
   el.title = opt.srcLabel ? srcTooltip({ source_label: opt.srcLabel }) : '';
@@ -254,28 +221,18 @@ async function loadSlot(i) {
   if (!slot || !cards[i] || busy[i]) return;
   busy[i] = true;
   try {
-    const k = await apiGet(`/api/kline?secid=${encodeURIComponent(slot.secid)}&days=${DAYS}`);
-    const d = k.data;
+    const t = await apiGet(`/api/intraday?secid=${encodeURIComponent(slot.secid)}`);
+    const d = t.data;
     if (d.name && d.name !== slot.name) {
       slot.name = d.name;
       saveSlots();
     }
+    liveState[i] = !!d.live;
     lastLoad[i] = Date.now();
-    if (!d.live) {
-      liveState[i] = false;
-      paintCard(i, { name: slot.name, bars: d.bars, live: false, srcLabel: k.source_label });
-      return;
-    }
-    liveState[i] = true;
-    try {
-      const t = await apiGet(`/api/intraday?secid=${encodeURIComponent(slot.secid)}`);
-      paintCard(i, {
-        name: slot.name, trend: t.data, prevClose: t.data.prevClose,
-        live: true, srcLabel: t.source_label,
-      });
-    } catch (_) {
-      paintCard(i, { name: slot.name, bars: d.bars, live: true, srcLabel: k.source_label });
-    }
+    paintCard(i, {
+      name: slot.name, trend: d, prevClose: d.prevClose,
+      live: !!d.live, srcLabel: t.source_label,
+    });
   } catch (e) {
     paintCard(i, { error: true });
   } finally {

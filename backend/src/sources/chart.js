@@ -77,15 +77,36 @@ function localParts(timeZone) {
 
 const inRange = (m, a, b) => m >= a && m < b;
 
+// 指数按它真正所在的市场判时段:标普在纽约、恒生在港、日经在东京,不能一律用上海时间
+const IDX_SESSION = {
+  HSI:   { tz: 'Asia/Hong_Kong',   ranges: [[9 * 60 + 30, 12 * 60], [13 * 60, 16 * 60]] },
+  NDX:   { tz: 'America/New_York', ranges: [[9 * 60 + 30, 16 * 60]] },
+  SPX:   { tz: 'America/New_York', ranges: [[9 * 60 + 30, 16 * 60]] },
+  DJIA:  { tz: 'America/New_York', ranges: [[9 * 60 + 30, 16 * 60]] },
+  N225:  { tz: 'Asia/Tokyo',       ranges: [[9 * 60, 11 * 60 + 30], [12 * 60 + 30, 15 * 60]] },
+  GDAXI: { tz: 'Europe/Berlin',    ranges: [[9 * 60, 17 * 60 + 30]] },
+  FTSE:  { tz: 'Europe/London',    ranges: [[8 * 60, 16 * 60 + 30]] },
+};
+
 export function isMarketOpen(secid) {
   const kind = marketOf(secid);
+  const code = String(secid).split('.')[1] || '';
+  if (kind === 'fx') {
+    const { dow } = localParts('UTC');
+    return dow !== 0 && dow !== 6;
+  }
+  if (kind === 'index') {
+    const spec = IDX_SESSION[code];
+    if (!spec) return false;
+    const { dow, mins } = localParts(spec.tz);
+    if (dow === 0 || dow === 6) return false;
+    return spec.ranges.some(([a, b]) => inRange(mins, a, b));
+  }
   const { dow, mins } = localParts(kind === 'us' ? 'America/New_York' : 'Asia/Shanghai');
-  if (kind === 'fx') return dow !== 0 && dow !== 6;
   if (dow === 0 || dow === 6) return false;
-  if (kind === 'us')     return inRange(mins, 9 * 60 + 30, 16 * 60);
-  if (kind === 'hk')     return inRange(mins, 9 * 60 + 30, 12 * 60) || inRange(mins, 13 * 60, 16 * 60);
-  if (kind === 'index')  return inRange(mins, 9 * 60 + 30, 16 * 60) || inRange(mins, 21 * 60 + 30, 24 * 60);
-  if (kind === 'cn')     return inRange(mins, 9 * 60 + 30, 11 * 60 + 30) || inRange(mins, 13 * 60, 15 * 60);
+  if (kind === 'us') return inRange(mins, 9 * 60 + 30, 16 * 60);
+  if (kind === 'hk') return inRange(mins, 9 * 60 + 30, 12 * 60) || inRange(mins, 13 * 60, 16 * 60);
+  if (kind === 'cn') return inRange(mins, 9 * 60 + 30, 11 * 60 + 30) || inRange(mins, 13 * 60, 15 * 60);
   return false;
 }
 
@@ -260,10 +281,13 @@ async function yahooTrends(secid) {
     .map((ts, i) => ({ t: fmt.format(new Date(ts * 1000)), p: num(q.close?.[i]) }))
     .filter(x => x.p != null && x.p > 0);
   if (!points.length) return null;
+  const lastTs = res.timestamp[res.timestamp.length - 1];
+  const dayFmt = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' });
   return {
     name: res.meta?.shortName, decimal: null,
     prevClose: num(res.meta?.chartPreviousClose ?? res.meta?.previousClose),
-    date: '', points,
+    date: dayFmt.format(new Date(lastTs * 1000)).replace(/-/g, ''),
+    points,
   };
 }
 
