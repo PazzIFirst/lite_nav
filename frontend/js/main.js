@@ -1,5 +1,5 @@
 // 入口:串联各模块的初始化 + 启动周期性轮询(行情/热榜)
-import { renderSolar, renderLunar, renderWeekend, updateBJTime } from './today.js';
+import { refreshCalendar, updateBJTime } from './today.js';
 import { initSearchModule } from './search.js';
 import { initLocation, initWeatherModal } from './ip-weather.js';
 import { renderFinance, loadFinance } from './finance.js';
@@ -22,11 +22,9 @@ initWeatherModal();
 initRss();
 initHotSettings();
 
-setInterval(updateBJTime, 1000);
-updateBJTime();
-renderSolar();
-renderWeekend();
-renderLunar();
+function tickClock() { updateBJTime(); refreshCalendar(); }
+setInterval(tickClock, 1000);
+tickClock();
 
 loadRss();
 renderFinance();
@@ -66,7 +64,7 @@ function stopPolling() {
 }
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) stopPolling();
-  else                 startPolling();
+  else { tickClock(); startPolling(); }
 });
 
 tickFinance();

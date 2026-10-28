@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
 const moduleUrl = process.argv[2] ? pathToFileURL(resolve(process.argv[2])).href : new URL('../backend/src/sources/rss-parser.js', import.meta.url).href;
@@ -47,3 +48,22 @@ const enclosure = parseFeed('<rss><item><title>配图</title><enclosure type="im
 assert.equal(enclosure[0].image,'https://example.com/cover.jpg');
 assert.equal(parseFeed('<feed><entry><title>只有标题</title></entry></feed>')[0].content,'');
 console.log('✓ RSS/Atom 内容解析:CDATA、实体、作者、摘要/正文、图片、相对地址、协议与体积限制');
+
+
+// 固定分隔符不能和原文中的旧占位符混淆；非法 NUL 立即失败。
+const marker = '<rss><item><title>占位符</title><description><![CDATA[__RSS_CDATA_0__ </item> &amp;]]></description></item></rss>';
+assert.equal(parseFeed(marker)[0].content, '__RSS_CDATA_0__ </item> &amp;');
+assert.throws(() => parseFeed('<rss>' + String.fromCharCode(0) + '</rss>'), /invalid_xml_character/);
+
+// 在隔离子进程中施加硬期限，防止未来重引入算法退化时挂住整个测试进程。
+const stressScript = `
+  import { parseFeed, feedTitle } from ${JSON.stringify(moduleUrl)};
+  const xml = '<rss><channel><title>__RSS_CDATA_' + '_'.repeat(1900000) + '</title><item><title>Readable</title><description><![CDATA[literal </item>]]></description></item></channel></rss>';
+  const start = performance.now();
+  const items = parseFeed(xml, 'https://example.com/feed');
+  const title = feedTitle(xml);
+  console.log(JSON.stringify({elapsedMs: Math.round(performance.now() - start), items: items.length, content: items[0]?.content, titleLength: title.length}));
+`;
+const stress = JSON.parse(execFileSync(process.execPath, ['--input-type=module', '--eval', stressScript], {encoding:'utf8',timeout:3000}));
+assert.equal(stress.items,1);assert.equal(stress.content,'literal </item>');assert.equal(stress.titleLength,80);
+console.log(`✓ RSS parser CPU regression: 1.9 MB collision prefix parsed in ${stress.elapsedMs} ms; hard 3s process deadline`);

@@ -7,7 +7,9 @@ const MAX_BODY_BYTES = Number(process.env.FETCH_MAX_BODY_BYTES || 2 * 1024 * 102
 async function readBodyLimited(res, maxBytes) {
   const reader = res.body && res.body.getReader && res.body.getReader();
   if (!reader) { // 无流接口,fallback 到 arrayBuffer(预检 content-length 已过)
-    return Buffer.from(await res.arrayBuffer());
+    const buffer = Buffer.from(await res.arrayBuffer());
+    if (buffer.length > maxBytes) throw new Error(`response too large: ${buffer.length} bytes (max ${maxBytes})`);
+    return buffer;
   }
   const chunks = [];
   let total = 0;
@@ -16,7 +18,7 @@ async function readBodyLimited(res, maxBytes) {
     if (done) break;
     total += value.length;
     if (total > maxBytes) {
-      try { await reader.cancel('body too large'); } catch {}
+      reader.cancel('body too large').catch(() => {});
       throw new Error(`response too large: ${total}+ bytes (max ${maxBytes})`);
     }
     chunks.push(value);
@@ -56,8 +58,9 @@ export async function fetchT(url, opts = {}) {
   const ms = opts.timeout || 6000;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), ms);
+  let res;
   try {
-    const res = await fetch(url, {
+    res = await fetch(url, {
       method: opts.method || 'GET',
       body: opts.body,
       signal: controller.signal,
@@ -74,7 +77,23 @@ export async function fetchT(url, opts = {}) {
     if (Number.isFinite(cl) && cl > MAX_BODY_BYTES) {
       throw new Error(`response too large: ${cl} bytes`);
     }
-    return res;
+    // 本项目消费的是完整 JSON/文本/图片；在同一个期限内有界读完正文，
+    // 返回独立的 Response，避免拿到 headers 后调用方的读取失去超时。
+    const buffer = await readBodyLimited(res, MAX_BODY_BYTES);
+    const headers = new Headers(res.headers);
+    headers.delete('content-encoding');
+    headers.set('content-length', String(buffer.length));
+    const response = new Response([204, 205, 304].includes(res.status) ? null : buffer, {
+      status: res.status, statusText: res.statusText, headers,
+    });
+    Object.defineProperties(response, {
+      url: { value: res.url }, redirected: { value: res.redirected }, type: { value: res.type },
+    });
+    return response;
+  } catch (error) {
+    controller.abort();
+    if (res?.body && !res.body.locked) res.body.cancel().catch(() => {});
+    throw error;
   } finally {
     clearTimeout(timer);
   }

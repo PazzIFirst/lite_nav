@@ -87,6 +87,7 @@ cd lite_nav
 # 2. 配置后端
 cp backend/docker-compose.yml.example backend/docker-compose.yml
 # 编辑 backend/docker-compose.yml,改 REDIS_HOST / REDIS_PASSWORD
+# 模板已设 TRUST_PROXY=1：仅信任前面的一个 Nginx/OpenResty，保留 127.0.0.1 端口绑定
 # 注意:1Panel 的 Redis 容器名通常是 1Panel-redis-XXXX,网络是 1panel-network
 
 # 3. 起后端(默认 pull 预构建镜像,无需本地 build)
@@ -109,6 +110,8 @@ sudo bash deploy-after-1panel-site.sh nav.example.com
 支持架构:`linux/amd64` + `linux/arm64`(树莓派、Apple Silicon 等也能跑)
 更新到最新版:`docker compose pull && docker compose up -d`
 
+模板的 `TRUST_PROXY=1` 与 `127.0.0.1:3000:3000` 配套使用：前面只有一层本机 Nginx/OpenResty 反代时，后端才能用真实访客 IP 定位和限流。不要设为 `true`；若直接对外暴露后端，应取消代理信任。多层代理须根据实际网络配置精确信任范围。
+
 ### 部署步骤(普通 Nginx / Caddy)
 
 不用 1Panel,改用普通 Nginx:
@@ -124,6 +127,8 @@ location /api/ {
     proxy_pass http://127.0.0.1:3000;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
 }
 
 # 6. reload
@@ -327,6 +332,7 @@ python3 -m http.server 8080
 
 | 变量 | 默认 | 说明 |
 |---|---|---|
+| `TRUST_PROXY` | 空（Compose 模板为 `1`） | 本机反代场景仅信任最近一跳；必须同时保持后端端口仅绑定本机，直连部署不设 |
 | `CORS_ORIGIN` | 空 | 逗号分隔的允许 origin。同域反代不需要;跨域才填 |
 | `RATE_LIMIT_PER_MIN` | 120 | `/api/*` 全局限流 |
 | `REFRESH_LIMIT_PER_MIN` | 5 | `/api/hot/x/refresh` 单独限流 |
@@ -487,7 +493,7 @@ A: 后端已尽量挑可访问性好的源(东方财富、Nager.Date 都全球�
 
 **Q: 怎么改默认订阅源?**
 
-A: 改 `frontend/js/rss.js` 里的 `DEFAULT_FEEDS`;预设清单在同文件的 `PRESETS`。已有用户的浏览器仍读 localStorage,清掉 `nav.rss.feeds` 才会看到新默认。
+A: 改 `frontend/js/rss-presets.js` 里的 `DEFAULT_FEEDS`;预设清单在同文件的 `PRESETS`。已有用户的浏览器仍读 localStorage,清掉 `nav.rss.feeds` 才会看到新默认。
 
 **Q: 怎么不让某个数据源被用?**
 
@@ -504,6 +510,40 @@ A: 算法层用 `lunar-javascript` 推算春节/端午/中秋等农历节日的�
 **Q: 我的城市不在 446 里怎么办?**
 
 A: 自动 fallthrough 到 Open-Meteo,功能不丢失,只是国内小县/区天气精度略低。也欢迎 PR 补 cityCode。
+
+---
+
+## 本地回归检查
+
+先在 `backend/` 执行 `npm ci`，然后回到仓库根目录：
+
+```bash
+node scripts/static-checks.mjs
+node scripts/rss-content-checks.mjs
+node scripts/rss-flow-checks.mjs
+node scripts/rss-security-checks.mjs
+node --experimental-vm-modules scripts/review-core-checks.mjs
+node --experimental-vm-modules scripts/review-data-checks.mjs
+```
+
+浏览器回归使用锁定的 Playwright 开发依赖，所有业务接口均为测试数据，不依赖运行中的后端：
+
+```bash
+(cd backend && npx playwright install chromium)
+PLAYWRIGHT_MODULE="$(pwd)/backend/node_modules/playwright/index.mjs" node scripts/frontend-state-checks.mjs
+```
+
+如使用现有 Chromium，可额外设置 `PLAYWRIGHT_CHROMIUM_EXECUTABLE`。运行中的后端可用 `BASE=http://127.0.0.1:3000 node scripts/smoke-test.mjs` 检查。上述回归已接入 CI，浏览器检查不生成截图或二进制仓库文件。
+
+## 已有 Redis 缓存迁移
+
+旧版本把 RSS/图表 lastgood 当作永久键。升级后新写入具有 TTL；已有实例应在使用同一组 Redis 环境变量的情况下执行一次：
+
+```bash
+node scripts/cache-ttl-migrate.mjs
+```
+
+脚本只给原本没有过期时间的 `lastgood:weather:*`、`lastgood:rss:*`、`lastgood:chart:*` 补上 TTL（默认 30 天，可由 `DYNAMIC_LASTGOOD_TTL_SEC` 指定），不删除内容、不修改已有 TTL，也不处理其他命名空间。可以重复执行。
 
 ---
 

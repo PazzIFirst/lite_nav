@@ -1,13 +1,50 @@
 // 通用 API 调用 + 数据源悬停提示工具
 
-// F-002:fetchT 透传 method/body/headers
+// 请求期限包含响应正文；RSS 聚合最大 160 篇，给 JSON 留出有界空间。
+const MAX_RESPONSE_BYTES = 64 * 1024 * 1024;
 export async function fetchT(url, ms = 5000, options = {}) {
-  const c = new AbortController();
-  const t = setTimeout(() => c.abort(), ms);
+  const { signal, ...fetchOptions } = options;
+  const controller = new AbortController();
+  const onAbort = () => controller.abort();
+  if (signal?.aborted) onAbort();
+  else signal?.addEventListener('abort', onAbort, { once: true });
+  const timer = setTimeout(onAbort, ms);
+  let res;
   try {
-    return await fetch(url, { ...options, signal: c.signal });
+    res = await fetch(url, { ...fetchOptions, signal: controller.signal });
+    if (!res.body) return res;
+    const declaredSize = Number(res.headers.get('content-length'));
+    if (Number.isFinite(declaredSize) && declaredSize > MAX_RESPONSE_BYTES) throw new Error('response too large');
+    const reader = res.body.getReader(), chunks = [];
+    let size = 0;
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_RESPONSE_BYTES) {
+        reader.cancel('response too large').catch(() => {});
+        throw new Error('response too large');
+      }
+      chunks.push(value);
+    }
+    const body = new Uint8Array(size);
+    let offset = 0;
+    for (const chunk of chunks) { body.set(chunk, offset); offset += chunk.byteLength; }
+    const headers = new Headers(res.headers);
+    headers.delete('content-encoding');
+    headers.set('content-length', String(size));
+    const response = new Response(body, { status: res.status, statusText: res.statusText, headers });
+    Object.defineProperties(response, {
+      url: { value: res.url }, redirected: { value: res.redirected }, type: { value: res.type },
+    });
+    return response;
+  } catch (error) {
+    controller.abort();
+    if (res?.body && !res.body.locked) res.body.cancel().catch(() => {});
+    throw error;
   } finally {
-    clearTimeout(t);
+    clearTimeout(timer);
+    signal?.removeEventListener('abort', onAbort);
   }
 }
 

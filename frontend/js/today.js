@@ -1,6 +1,24 @@
 // 公历/北京时间 + 距周末/月初 + 农历 + 老黄历(后端 /api/today 算)
 import { apiGet, srcTooltip } from './api.js';
 
+const bjDayFmt = new Intl.DateTimeFormat('en-CA', { timeZone:'Asia/Shanghai', year:'numeric', month:'2-digit', day:'2-digit' });
+let renderedDay = '', lunarRequestSeq = 0;
+
+export function beijingDayKey(date = new Date()) {
+  const parts = Object.fromEntries(bjDayFmt.formatToParts(date).map(part => [part.type, part.value]));
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+// 每秒只比较日期；仅跨北京时间日期时更新日历及请求农历。
+export function refreshCalendar() {
+  const day = beijingDayKey();
+  if (day === renderedDay) return;
+  renderedDay = day;
+  renderSolar();
+  renderWeekend();
+  renderLunar();
+}
+
 const bjTimeFmt = new Intl.DateTimeFormat('zh-CN', { timeZone:'Asia/Shanghai', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false });
 
 export function updateBJTime() {
@@ -18,7 +36,7 @@ export function renderSolar() {
 export function renderWeekend() {
   const weekendEl = document.getElementById('weekend-row');
   if (!weekendEl) return;
-  const bjStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai' }).format(new Date());
+  const bjStr = beijingDayKey();
   const [ty, tm, td] = bjStr.split('-').map(Number);
   const today = new Date(ty, tm - 1, td);
 
@@ -76,7 +94,12 @@ function renderAlmanac(a, container) {
 export function renderLunar() {
   const el = document.getElementById('lunar-date');
   const almanacEl = document.getElementById('almanac-row');
+  const seq = ++lunarRequestSeq, day = beijingDayKey();
+  const isCurrent = () => seq === lunarRequestSeq && day === beijingDayKey();
+  el.textContent = '农历加载中…'; el.title = '';
+  if (almanacEl) { almanacEl.replaceChildren(); almanacEl.title = ''; }
   apiGet('/api/today').then(r => {
+    if (!isCurrent()) return;
     const d = r?.data;
     if (!d) { el.textContent = '农历 --'; return; }
     // 干支和生肖连读成「丙午马年」,不拆成「丙午 · 属马」——后者不是日常说法
@@ -89,5 +112,5 @@ export function renderLunar() {
     if (d.festivals?.length) tipLines.push('节日: ' + d.festivals.join('、'));
     el.title = tipLines.filter(Boolean).join('\n');
     renderAlmanac(d.almanac, almanacEl);
-  }).catch(() => { el.textContent = '农历 --'; });
+  }).catch(() => { if (isCurrent()) el.textContent = '农历 --'; });
 }

@@ -41,13 +41,15 @@ function httpUrl(raw, base = '') {
 function prepare(xml) {
   const chunks = [];
   // 避免 CDATA 中出现 </item>/<entry> 等文本时误切断文章。
-  let prefix = '__RSS_CDATA_';
-  while (String(xml).includes(prefix)) prefix += '_';
-  const masked = String(xml).replace(/<!\[CDATA\[[\s\S]*?\]\]>/g, chunk => {
+  const source = String(xml);
+  // NUL 在 XML 中非法：先单次拒绝，再使用固定分隔符，不随输入反复寻找前缀。
+  if (source.includes('\0')) throw new Error('invalid_xml_character');
+  const prefix = '\0RSS_CDATA_';
+  const masked = source.replace(/<!\[CDATA\[[\s\S]*?\]\]>/g, chunk => {
     const index = chunks.push(chunk) - 1;
-    return prefix + index + '__';
+    return prefix + index + '\0';
   }).replace(/<!--[\s\S]*?-->/g, '');
-  const restore = value => value.replace(new RegExp(prefix + '(\\d+)__', 'g'), (_, i) => chunks[Number(i)] || '');
+  const restore = value => value.replace(new RegExp(prefix + '(\\d+)\0', 'g'), (_, i) => chunks[Number(i)] || '');
   const field = (block, name) => {
     const tag = name.includes(':') ? name : '(?:[\\w.-]+:)?' + name;
     const match = block.match(new RegExp('<' + tag + '\\b([^>]*)>([\\s\\S]*?)</' + tag + '\\s*>', 'i'));

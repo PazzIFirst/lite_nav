@@ -23,11 +23,13 @@ const LASTGOOD_PREFIX = 'lastgood:';
 
 // 动态 key(用户输入产生的)的 lastgood TTL,默认 30 天
 // 静态 key(服务端固定的,如 finance:indices)的 lastgood 永久
-const DYNAMIC_LASTGOOD_TTL_SEC = Number(process.env.DYNAMIC_LASTGOOD_TTL_SEC || 30 * 24 * 3600);
+const configuredDynamicTtl = Number(process.env.DYNAMIC_LASTGOOD_TTL_SEC);
+export const DYNAMIC_LASTGOOD_TTL_SEC = Number.isFinite(configuredDynamicTtl) && configuredDynamicTtl > 0
+  ? Math.max(1, Math.floor(configuredDynamicTtl)) : 30 * 24 * 3600;
 
 // 判断 key 是否动态(含用户输入)
-function isDynamicKey(key) {
-  return key.startsWith('weather:');
+export function isDynamicKey(key) {
+  return /^(weather|rss|chart):/.test(key);
 }
 
 // 三态读取:fresh(在 cache 内)/stale(在 lastgood 内)/fallback(兜底)

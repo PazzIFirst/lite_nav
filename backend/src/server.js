@@ -27,7 +27,8 @@ const TRUST_PROXY = process.env.TRUST_PROXY;
 if (TRUST_PROXY) {
   app.set('trust proxy', /^\d+$/.test(TRUST_PROXY) ? Number(TRUST_PROXY) : TRUST_PROXY);
 }
-app.use(express.json({ limit: '64kb' }));
+// 本站只接收普通 JSON；拒绝压缩请求，避免进入不需要的解压路径。
+app.use(express.json({ limit: '64kb', inflate: false }));
 
 // ===== CORS:从 env 读白名单,不再 * =====
 // CORS_ORIGIN=https://nav.example.com,https://other.example.com
@@ -220,6 +221,20 @@ app.get('/api/holidays/countries', (req, res) => {
 // in-flight 去重:并发请求同 country 时复用一次拉取
 const holidayInflight = new Map();
 
+function refreshHolidayDedup(country) {
+  let inflight = holidayInflight.get(country);
+  if (!inflight) {
+    inflight = Promise.resolve().then(() => refreshHolidayForCountry(country))
+      .catch(error => {
+        console.warn('[holiday] refresh failed:', country, error.message);
+        return null;
+      })
+      .finally(() => holidayInflight.delete(country));
+    holidayInflight.set(country, inflight);
+  }
+  return inflight;
+}
+
 app.get('/api/holidays', a(async (req, res) => {
   const country = validateCountryCode(req.query.country || 'CN');
   if (!SUPPORTED_COUNTRIES.some(c => c.code === country)) {
@@ -229,18 +244,15 @@ app.get('/api/holidays', a(async (req, res) => {
     });
   }
   const key = 'holiday:' + country;
-  let r = await readThreeState(key, null);
+  let r = await readThreeState(key, null).catch(() => null);
   if (!r) {
-    let inflight = holidayInflight.get(country);
-    if (!inflight) {
-      inflight = refreshHolidayForCountry(country)
-        .finally(() => holidayInflight.delete(country));
-      holidayInflight.set(country, inflight);
-    }
-    // issue#8:用 refresh 返回的 fresh payload,Redis 写失败时仍可用
-    const fresh = await inflight;
+    // 冷启动需要等待一次刷新；Redis 写失败时仍直接返回抓取结果。
+    const fresh = await refreshHolidayDedup(country);
     r = fresh ? { ...fresh, freshness: 'fresh' }
-             : (await readThreeState(key, null) || holidayFallback(country));
+             : (await readThreeState(key, null).catch(() => null) || holidayFallback(country));
+  } else if (r.freshness !== 'fresh') {
+    // 非预热国家也会过期：先返回 lastgood，后台去重更新，失败保留旧数据。
+    void refreshHolidayDedup(country);
   }
   res.json(r);
 }));
@@ -367,6 +379,11 @@ app.get('/api/suggest', a(async (req, res) => {
 app.use((err, req, res, next) => {
   if (err instanceof ValidationError) {
     return res.status(400).json({ error: err.message, field: err.field });
+  }
+  // JSON 解析器拒绝的请求应返回明确的 4xx，不当成服务器故障或输出正文。
+  const bodyErrors = new Set(['encoding.unsupported', 'charset.unsupported', 'entity.too.large', 'entity.parse.failed', 'request.aborted', 'request.size.invalid']);
+  if (bodyErrors.has(err.type) && err.status >= 400 && err.status < 500) {
+    return res.status(err.status).json({ error: err.type });
   }
   console.error('[server]', err.stack || err.message);
   res.status(500).json({ error: 'internal_error' });

@@ -1,6 +1,7 @@
 # 复制为 docker-compose.yml,根据自己的环境改 REDIS_HOST 和 REDIS_PASSWORD
 # 如果你也用 1Panel,Redis 容器名通常是 1Panel-redis-XXXX,网络是 1panel-network
 # 如果是独立 Docker 部署,可以自己起一个 redis 容器在同一 network
+# TRUST_PROXY=1 依赖下方端口仅绑定 127.0.0.1；后端若改为直连公网，须取消该设置。
 
 services:
   nav-backend:
@@ -13,6 +14,7 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
+      - TRUST_PROXY=1              # 本模板仅经本机反代访问，信任最近 1 跳；不要改为 true
       - REDIS_HOST=redis            # 改成你的 Redis 容器名 / 主机
       - REDIS_PORT=6379
       - REDIS_PASSWORD=changeme     # 改成你的 Redis 密码,无密码留空

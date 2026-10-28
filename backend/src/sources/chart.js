@@ -29,8 +29,15 @@ export function isValidSecid(s) {
   return typeof s === 'string' && SECID_RE.test(s);
 }
 
+// 只分离市场前缀，BRK.B 等证券代码内部的点必须保留。
+function splitSecid(secid) {
+  const value = String(secid);
+  const separator = value.indexOf('.');
+  return [value.slice(0, separator), value.slice(separator + 1)];
+}
+
 export function marketOf(secid) {
-  const n = Number(String(secid).split('.')[0]);
+  const n = Number(splitSecid(secid)[0]);
   if (n === 0 || n === 1) return 'cn';
   if (n === 116) return 'hk';
   if (n === 105 || n === 106 || n === 107) return 'us';
@@ -42,7 +49,7 @@ export function marketOf(secid) {
 const HK_INDEX = new Set(['HSI', 'HSCE', 'HSTECH']);
 
 function txCode(secid) {
-  const [mk, code] = String(secid).split('.');
+  const [mk, code] = splitSecid(secid);
   const n = Number(mk);
   if (n === 100 && HK_INDEX.has(code)) return 'hk' + code;
   if (n === 1) return 'sh' + code;
@@ -67,7 +74,7 @@ const YH_INDEX = {
 };
 
 function yahooCode(secid) {
-  const [mk, code] = String(secid).split('.');
+  const [mk, code] = splitSecid(secid);
   const n = Number(mk);
   if (n === 133) return code + '=X';
   if (n === 100) return YH_INDEX[code] || null;
@@ -118,7 +125,7 @@ const IDX_SESSION = {
 
 export function isMarketOpen(secid) {
   const kind = marketOf(secid);
-  const code = String(secid).split('.')[1] || '';
+  const code = splitSecid(secid)[1] || '';
   if (kind === 'fx') {
     const { dow } = localParts('UTC');
     return dow !== 0 && dow !== 6;
@@ -181,7 +188,7 @@ async function txKline(secid, days) {
 
 // 新浪外汇:「var _=("2014-11-07,开,收,高,低,|…");」,只要最后 N 条
 async function sinaFxKline(secid, days) {
-  const [mk, code] = String(secid).split('.');
+  const [mk, code] = splitSecid(secid);
   if (Number(mk) !== 133) return null;
   const r = await fetchT(`${SINA_FX}?symbol=${encodeURIComponent(code)}`, {
     timeout: 8000, ua: UA, headers: { Referer: 'https://finance.sina.com.cn' },
@@ -231,12 +238,23 @@ function chainFor(secid) {
   return [TX, EM, YH];
 }
 
+// 缓存的 live 是抓取时状态，响应时必须按当前交易时段重算。
+function withCurrentSession(payload, live) {
+  return { ...payload, data: { ...payload.data, live } };
+}
+
+function chartCacheReusable(cached, live, maxAgeSeconds) {
+  const age = Date.now() - Number(cached?.fetched_at);
+  // 开/闭市转换时立刻补抓；其余盘后缓存也有上限，不能永久复用 lastgood。
+  return cached?.data && cached.freshness === 'fresh' && cached.data.live === live
+    && Number.isFinite(age) && age >= 0 && age < maxAgeSeconds * 1000;
+}
+
 export async function getKline(secid, days = 60) {
   const live = isMarketOpen(secid);
   const key = `chart:k:${secid}:${days}`;
   const cached = await readThreeState(key, null).catch(() => null);
-  if (cached?.freshness === 'fresh') return cached;
-  if (!live && cached?.data) return cached;         // 收盘后不再重复抓
+  if (chartCacheReusable(cached, live, live ? 60 : 600)) return withCurrentSession(cached, live);
 
   for (const [id, label, fn] of chainFor(secid)) {
     try {
@@ -250,7 +268,7 @@ export async function getKline(secid, days = 60) {
       return payload;
     } catch (e) { /* 下一个源 */ }
   }
-  if (cached?.data) return cached;
+  if (cached?.data) return withCurrentSession(cached, live);
   throw new Error('all_sources_failed');
 }
 
@@ -323,7 +341,7 @@ export async function getIntraday(secid) {
   const live = isMarketOpen(secid);
   const key = `chart:t:${secid}`;
   const cached = await readThreeState(key, null).catch(() => null);
-  if (cached?.freshness === 'fresh') return cached;
+  if (chartCacheReusable(cached, live, live ? 30 : 300)) return withCurrentSession(cached, live);
 
   const kind = marketOf(secid);
   const chain = (kind === 'us' || kind === 'index') ? [YH_TRENDS, EM_T, TX_T] : [EM_T, TX_T, YH_TRENDS];
@@ -340,7 +358,7 @@ export async function getIntraday(secid) {
       return payload;
     } catch (e) { /* 下一个源 */ }
   }
-  if (cached?.data) return cached;
+  if (cached?.data) return withCurrentSession(cached, live);
   throw new Error('all_sources_failed');
 }
 

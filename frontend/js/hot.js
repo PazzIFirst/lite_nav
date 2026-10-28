@@ -186,6 +186,8 @@ export async function initHotLists() {
 // ===== 设置弹窗 =====
 
 function openHotModal() {
+  const modal = document.getElementById('hotModal');
+  if (modal.classList.contains('open')) return;
   const slots = getSlots();
   const box = document.getElementById('hotSlots');
   box.innerHTML = '';
@@ -219,18 +221,31 @@ function openHotModal() {
     box.appendChild(row);
   });
 
-  document.getElementById('hotModal').classList.add('open');
+  modal.classList.add('open');
+  modal.dispatchEvent(new CustomEvent('settings:open'));
+}
+
+function closeHotModal(action = 'cancel') {
+  const modal = document.getElementById('hotModal');
+  if (!modal.classList.contains('open')) return;
+  modal.dispatchEvent(new CustomEvent('settings:close', { detail: { action } }));
+  modal.classList.remove('open');
 }
 
 export function initHotSettings() {
   const modal = document.getElementById('hotModal');
   document.getElementById('hotSettingsBtn').addEventListener('click', openHotModal);
-  document.getElementById('hotCancel').addEventListener('click', () => modal.classList.remove('open'));
-  modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('open'); });
+  document.getElementById('hotCancel').addEventListener('click', () => closeHotModal());
+  modal.addEventListener('click', e => { if (e.target === modal) closeHotModal(); });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && modal.classList.contains('open')) {
+      e.preventDefault(); closeHotModal();
+    }
+  });
 
   document.getElementById('hotReset').addEventListener('click', () => {
     saveSlots([...DEFAULT_SLOTS]);
-    modal.classList.remove('open');
+    closeHotModal('reset');
     renderHotPanels();
   });
 
@@ -239,7 +254,7 @@ export function initHotSettings() {
     const slots = ['', '', '', ''];
     for (const s of selects) slots[Number(s.dataset.slot)] = s.value || '';
     saveSlots(slots);
-    modal.classList.remove('open');
+    closeHotModal('save');
     renderHotPanels();
   });
 }

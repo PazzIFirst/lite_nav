@@ -55,6 +55,23 @@ jobs:
       - name: Static checks
         run: node scripts/static-checks.mjs
 
+      - name: RSS and backend regression checks
+        run: |
+          node scripts/rss-content-checks.mjs
+          node scripts/rss-flow-checks.mjs
+          node scripts/rss-security-checks.mjs
+          node --experimental-vm-modules scripts/review-core-checks.mjs
+          node --experimental-vm-modules scripts/review-data-checks.mjs
+
+      - name: Install test browser
+        working-directory: backend
+        run: npx playwright install --with-deps chromium
+
+      - name: Frontend state regressions
+        env:
+          PLAYWRIGHT_MODULE: ${{ github.workspace }}/backend/node_modules/playwright/index.mjs
+        run: node scripts/frontend-state-checks.mjs
+
       - name: Start backend
         working-directory: backend
         env:

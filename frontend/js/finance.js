@@ -79,7 +79,9 @@ let colorMode = loadColor();
 let pickIndex = 0;
 let pickKind = 'currency';
 let inited = false;
-let busy = [false, false, false];
+let cardGeneration = 0;
+let busy = [], quoteViews = [];
+let pickerSession = 0, pickerBusy = false, pickerFocusTimer = null;
 let liveState = [];   // 每张卡上次是不是盘中;收盘的卡不必重复拉
 let lastLoad = [];    // 每张卡上次拉取时间,收盘卡每 10 分钟还是强制刷一次(防跨时段)
 
@@ -244,6 +246,7 @@ function buildCard(slot, i) {
 }
 
 function paintCard(i, opt) {
+  quoteViews[i] = opt;
   const el = cards[i];
   if (!el) return;
   if (opt.name) {
@@ -294,9 +297,13 @@ function paintCard(i, opt) {
 async function loadSlot(i) {
   const slot = slots[i];
   if (!slot || !cards[i] || busy[i]) return;
-  busy[i] = true;
+  const generation = cardGeneration;
+  const request = Symbol('quote request');
+  busy[i] = request;
+  const isCurrent = () => generation === cardGeneration && slots[i] === slot && busy[i] === request;
   try {
     const t = await apiGet(`/api/intraday?secid=${encodeURIComponent(slot.secid)}`);
+    if (!isCurrent()) return;
     const d = t.data;
     if (d.name && d.name !== slot.name) {
       slot.name = d.name;
@@ -309,14 +316,24 @@ async function loadSlot(i) {
       live: !!d.live, srcLabel: t.source_label,
     });
   } catch (e) {
-    paintCard(i, { error: true });
+    if (isCurrent()) paintCard(i, { error: true });
   } finally {
-    busy[i] = false;
+    if (isCurrent()) busy[i] = null;
   }
 }
 
 // ===== 选择器 =====
+function invalidatePickerRequest() {
+  ++pickerSession;
+  pickerBusy = false;
+  clearTimeout(pickerFocusTimer);
+  const btn = document.getElementById('finPickOk');
+  btn.disabled = false;
+  btn.textContent = '确定';
+}
+
 function openPicker(i) {
+  invalidatePickerRequest();
   pickIndex = i;
   const slot = slots[i];
   pickKind = ['currency', 'index', 'cn', 'hk', 'us'].includes(slot.kind) ? slot.kind : 'index';
@@ -326,7 +343,10 @@ function openPicker(i) {
   document.getElementById('finPickModal').classList.add('open');
 }
 
-const closePicker = () => document.getElementById('finPickModal').classList.remove('open');
+const closePicker = () => {
+  invalidatePickerRequest();
+  document.getElementById('finPickModal').classList.remove('open');
+};
 
 function renderTabs() {
   const tabs = document.getElementById('finTabs');
@@ -336,7 +356,7 @@ function renderTabs() {
     b.type = 'button';
     b.className = 'fin-tab' + (kind === pickKind ? ' is-active' : '');
     b.textContent = label;
-    b.addEventListener('click', () => { pickKind = kind; renderTabs(); renderPickerBody(null); });
+    b.addEventListener('click', () => { invalidatePickerRequest(); pickKind = kind; renderTabs(); renderPickerBody(null); });
     tabs.appendChild(b);
   });
 }
@@ -374,33 +394,48 @@ function renderPickerBody(slot) {
     input.placeholder = { cn: '600519', hk: '00700', us: 'AAPL' }[pickKind] || '';
     input.value = slot && slot.kind === pickKind ? (slot.code || '') : '';
     document.getElementById('finCodeHint').textContent = CODE_HINT[pickKind] || '';
-    setTimeout(() => input.focus(), 30);
+    const session = pickerSession;
+    pickerFocusTimer = setTimeout(() => {
+      if (session === pickerSession && document.getElementById('finPickModal').classList.contains('open')) input.focus();
+    }, 30);
   }
 }
 
 async function confirmPick() {
+  const modal = document.getElementById('finPickModal');
+  if (pickerBusy || !modal.classList.contains('open')) return;
+  const session = pickerSession, index = pickIndex, kind = pickKind;
+  const isCurrent = () => session === pickerSession && modal.classList.contains('open');
   const btn = document.getElementById('finPickOk');
-  if (pickKind === 'currency' || pickKind === 'index') {
+  let replacement;
+  if (kind === 'currency' || kind === 'index') {
     const secid = document.getElementById('finPreset').value;
-    const hit = PRESETS[pickKind].find(p => p.secid === secid);
-    slots[pickIndex] = { kind: pickKind, secid, name: hit ? hit.name : secid };
+    const hit = PRESETS[kind].find(p => p.secid === secid);
+    if (!hit) return;
+    replacement = { kind, secid, name: hit.name };
   } else {
     const code = document.getElementById('finCode').value.trim();
     if (!code) return;
+    pickerBusy = true;
     btn.disabled = true;
     btn.textContent = '解析中…';
     try {
-      const r = await apiGet(`/api/symbol?market=${pickKind}&code=${encodeURIComponent(code)}`);
-      slots[pickIndex] = { kind: pickKind, secid: r.data.secid, name: r.data.name || code, code: r.data.code };
+      const r = await apiGet(`/api/symbol?market=${kind}&code=${encodeURIComponent(code)}`);
+      if (!isCurrent()) return;
+      replacement = { kind, secid: r.data.secid, name: r.data.name || code, code: r.data.code };
     } catch (e) {
-      document.getElementById('finCodeHint').textContent = '没找到这个代码,换个试试';
-      btn.disabled = false;
-      btn.textContent = '确定';
+      if (isCurrent()) document.getElementById('finCodeHint').textContent = '没找到这个代码,换个试试';
       return;
+    } finally {
+      if (isCurrent()) {
+        pickerBusy = false;
+        btn.disabled = false;
+        btn.textContent = '确定';
+      }
     }
-    btn.disabled = false;
-    btn.textContent = '确定';
   }
+  if (!isCurrent()) return;
+  slots[index] = replacement;
   saveSlots();
   closePicker();
   rebuild();
@@ -417,6 +452,10 @@ function paintColorOpts() {
   });
 }
 
+function repaintQuotes() {
+  quoteViews.forEach((view, i) => { if (view) paintCard(i, view); });
+}
+
 function applyColorAttr() {
   document.documentElement.dataset.finColor = colorMode;
 }
@@ -431,7 +470,7 @@ function pickColor(mode) {
   colorMode = mode === 'green-up' ? 'green-up' : 'red-up';
   applyColorAttr();
   paintColorOpts();
-  loadFinance();
+  repaintQuotes();
 }
 
 function commitColorDraft() {
@@ -444,14 +483,26 @@ function revertColorDraft() {
     colorMode = colorAtOpen;
     applyColorAttr();
     paintColorOpts();
-    loadFinance();
+    repaintQuotes();
   }
   colorAtOpen = null;
+}
+
+function resetColor() {
+  colorMode = 'red-up';
+  colorAtOpen = null;
+  saveColor();
+  applyColorAttr();
+  paintColorOpts();
+  repaintQuotes();
 }
 
 // ===== 对外 =====
 function rebuild() {
   if (!grid) return;
+  ++cardGeneration;
+  busy = [];
+  quoteViews = [];
   liveState = [];
   lastLoad = [];
   grid.innerHTML = '';
@@ -474,12 +525,24 @@ export function renderFinance() {
       if (e.target.id === 'finPickModal') closePicker();
     });
     // 设置入口在页面右上角,和热榜槽位共用一个弹窗、一套保存/取消语义
-    document.getElementById('hotSettingsBtn').addEventListener('click', openColorDraft);
+    const settings = document.getElementById('hotModal');
+    settings.addEventListener('settings:open', openColorDraft);
+    settings.addEventListener('settings:close', (e) => {
+      if (e.detail.action === 'save') commitColorDraft();
+      else if (e.detail.action === 'reset') resetColor();
+      else revertColorDraft();
+    });
     document.querySelectorAll('#finColorOpts .fin-color-opt').forEach(b => {
       b.addEventListener('click', () => pickColor(b.dataset.mode));
     });
-    document.getElementById('hotSave').addEventListener('click', commitColorDraft);
-    document.getElementById('hotCancel').addEventListener('click', revertColorDraft);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && document.getElementById('finPickModal').classList.contains('open')) {
+        e.preventDefault(); closePicker();
+      }
+    });
+    document.getElementById('finCode').addEventListener('input', () => {
+      if (pickerBusy) invalidatePickerRequest();
+    });
     document.getElementById('finCode').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') { e.preventDefault(); confirmPick(); }
     });
