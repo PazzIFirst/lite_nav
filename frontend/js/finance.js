@@ -439,16 +439,8 @@ export function renderFinance() {
     document.getElementById('finPickModal').addEventListener('click', (e) => {
       if (e.target.id === 'finPickModal') closePicker();
     });
-    document.getElementById('finSettingsBtn').addEventListener('click', () => {
-      paintColorOpts();
-      document.getElementById('finSettingsModal').classList.add('open');
-    });
-    document.getElementById('finSettingsClose').addEventListener('click', () => {
-      document.getElementById('finSettingsModal').classList.remove('open');
-    });
-    document.getElementById('finSettingsModal').addEventListener('click', (e) => {
-      if (e.target.id === 'finSettingsModal') e.currentTarget.classList.remove('open');
-    });
+    // 设置入口在页面右上角(和热榜设置同一个弹窗),这里只负责打开前刷新选中态
+    document.getElementById('hotSettingsBtn').addEventListener('click', paintColorOpts);
     document.querySelectorAll('#finColorOpts .fin-color-opt').forEach(b => {
       b.addEventListener('click', () => setColorMode(b.dataset.mode));
     });

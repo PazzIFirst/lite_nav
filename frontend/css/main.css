@@ -888,15 +888,6 @@ body {
   flex: 1; min-width: 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.fin-tool {
-  border: none; background: transparent;
-  color: var(--text-tertiary);
-  font: inherit; font-size: var(--fs-xs);
-  padding: 3px 8px; border-radius: var(--r-full);
-  cursor: pointer; white-space: nowrap;
-  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
-}
-.fin-tool:hover { background: var(--bg-hover); color: var(--text-primary); }
 
 .fin-grid {
   display: grid;
@@ -988,7 +979,13 @@ body {
   border-color: transparent; font-weight: 600;
 }
 
-/* 涨跌配色 */
+/* 涨跌配色(在页面设置弹窗里) */
+.fin-setting-block {
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--border-subtle);
+}
+.fin-setting-block .modal-label { margin-bottom: 8px; }
 .fin-color-opts { display: flex; gap: var(--sp-2); }
 .fin-color-opt {
   flex: 1;

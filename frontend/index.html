@@ -123,7 +123,7 @@
 </a>
 
 <!-- 热榜设置 -->
-<button class="theme-toggle settings-toggle" id="hotSettingsBtn" aria-label="热榜设置" title="热榜设置">
+<button class="theme-toggle settings-toggle" id="hotSettingsBtn" aria-label="设置" title="设置">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
     <circle cx="12" cy="12" r="3"/>
     <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
@@ -178,9 +178,20 @@
 <!-- 国家选择弹窗 -->
 <div class="modal-overlay" id="hotModal">
   <div class="modal-box" style="width:400px;">
-    <div class="modal-title">热榜设置</div>
+    <div class="modal-title">页面设置</div>
+    <div class="modal-label" style="margin-bottom:6px;">热榜槽位</div>
     <div class="modal-hint" style="margin-bottom:10px;">为四个槽位分别选择榜单;选「不显示」则该位置留空</div>
     <div id="hotSlots"></div>
+
+    <div class="fin-setting-block">
+      <div class="modal-label">行情涨跌配色</div>
+      <div class="fin-color-opts" id="finColorOpts">
+        <button class="fin-color-opt" type="button" data-mode="red-up"><i class="sw sw-red"></i>红涨绿跌</button>
+        <button class="fin-color-opt" type="button" data-mode="green-up"><i class="sw sw-green"></i>绿涨红跌</button>
+      </div>
+      <div class="modal-hint" style="margin-top:6px;">点一下即时生效,不用保存。</div>
+    </div>
+
     <div class="modal-actions">
       <button class="btn btn-ghost" id="hotReset">恢复默认</button>
       <button class="btn btn-ghost" id="hotCancel">取消</button>
@@ -206,21 +217,6 @@
     <div class="modal-actions">
       <button class="btn btn-ghost" id="finPickCancel">取消</button>
       <button class="btn btn-primary" id="finPickOk">确定</button>
-    </div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="finSettingsModal">
-  <div class="modal-box" style="width:360px;">
-    <div class="modal-title">行情设置</div>
-    <div class="modal-label" style="margin-bottom:8px;">涨跌配色</div>
-    <div class="fin-color-opts" id="finColorOpts">
-      <button class="fin-color-opt" type="button" data-mode="red-up"><i class="sw sw-red"></i>红涨绿跌</button>
-      <button class="fin-color-opt" type="button" data-mode="green-up"><i class="sw sw-green"></i>绿涨红跌</button>
-    </div>
-    <div class="modal-hint" style="margin-top:8px;">只影响图表和涨跌数字,不改变数据。</div>
-    <div class="modal-actions">
-      <button class="btn btn-primary" id="finSettingsClose">完成</button>
     </div>
   </div>
 </div>
@@ -302,7 +298,6 @@
       <div class="fin-head">
         <span class="fin-head-title">行情</span>
         <span class="fin-head-hint">点标题换标的 · 只看当日分时,收盘则显示上一交易日</span>
-        <button class="fin-tool" id="finSettingsBtn" type="button" aria-label="行情设置" title="行情设置">设置</button>
       </div>
       <div class="fin-grid" id="financeGrid">
         <div class="hot-panel-loading">行情加载中…</div>
