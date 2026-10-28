@@ -1,0 +1,26 @@
+{
+  "A": "当前稿",
+  "B": "柔和层叠",
+  "C": "清透线性",
+  "D": "Meteocons · Fill",
+  "library": {
+    "package": "@meteocons/svg-static",
+    "version": "0.1.0",
+    "author": "Bas Milius",
+    "license": "MIT",
+    "url": "https://github.com/basmilius/meteocons",
+    "slugs": {
+      "冻雾": "fog",
+      "雾凇": "snowflake",
+      "霾": "haze-day",
+      "浮尘": "dust",
+      "扬沙": "wind-dust",
+      "沙尘暴": "wind-dust",
+      "强沙尘暴": "wind-dust"
+    },
+    "mappingNote": "冻雾用 fog、雾凇用 snowflake 作近似参考;扬沙、沙尘暴、强沙尘暴共用 wind-dust,库中没有这几档的独立语义图标。",
+    "previewAdjustments": "对比页默认保留原始形状,适配项目配色并裁去外围留白。开源原色开关可恢复原始配色; D/ 中保存未经修改的 SVG。"
+  },
+  "status": "C 版已按用户选择应用至 frontend/js/weather-icons.js 的 7 个对应图标; A/B/D 保留为历史对照。",
+  "selectedSet": "C"
+}
