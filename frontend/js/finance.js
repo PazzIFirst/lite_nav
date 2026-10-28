@@ -99,6 +99,26 @@ function setupCanvas(canvas) {
 const px = (v) => Math.round(v) + 0.5;
 
 
+
+// 滑动平均:压掉分钟级抖动,只留「今天大概怎么走的」。
+// 两端窗口截断(不是跳过),否则最后一个平滑点会和末点脱开,末点的小圆点浮在线外。
+// 卡片上的报价/涨跌始终用真实值,平滑只影响画出来的线。
+function smooth(points, radius) {
+  if (!points || points.length < radius * 2 + 3) return points;
+  const n = points.length;
+  const out = new Array(n);
+  for (let i = 0; i < n; i++) {
+    let sum = 0, cnt = 0;
+    for (let k = -radius; k <= radius; k++) {
+      const j = i + k;
+      if (j < 0 || j >= n) continue;      // 两端窗口截断,而不是不处理
+      sum += points[j].p; cnt++;
+    }
+    out[i] = { p: sum / cnt };
+  }
+  return out;
+}
+
 // 点数远多于像素时,按桶取平均 —— 1000 个点画在 200px 上只会糊成一条粗带
 function thin(points, maxN) {
   if (!points || points.length <= maxN) return points;
@@ -119,7 +139,7 @@ function thin(points, maxN) {
 function drawTrend(canvas, points, prevClose, up, down) {
   const { ctx, w, h } = setupCanvas(canvas);
   if (!points || points.length < 1) return;
-  points = thin(points, Math.max(60, Math.round(w)));
+  points = smooth(thin(points, Math.max(60, Math.round(w))), 3);
   const vals = points.map(p => p.p).filter(v => v > 0);
   if (!vals.length) return;
   const base = prevClose || vals[0];
