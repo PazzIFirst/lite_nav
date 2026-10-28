@@ -397,6 +397,10 @@ async function confirmPick() {
 }
 
 // ===== 设置 =====
+// 和热榜槽位共用「页面设置」弹窗,所以走同一套逻辑:改动先预览,
+// 点保存才落盘,点取消还原。不在弹窗里开「即时保存」的口子。
+let colorAtOpen = null;
+
 function paintColorOpts() {
   document.querySelectorAll('#finColorOpts .fin-color-opt').forEach(b => {
     b.classList.toggle('is-active', b.dataset.mode === colorMode);
@@ -407,12 +411,32 @@ function applyColorAttr() {
   document.documentElement.dataset.finColor = colorMode;
 }
 
-function setColorMode(mode) {
+function openColorDraft() {
+  colorAtOpen = colorMode;
+  paintColorOpts();
+}
+
+// 预览:只改内存和画面,不写 localStorage
+function pickColor(mode) {
   colorMode = mode === 'green-up' ? 'green-up' : 'red-up';
-  saveColor();
   applyColorAttr();
   paintColorOpts();
   loadFinance();
+}
+
+function commitColorDraft() {
+  if (colorAtOpen && colorMode !== colorAtOpen) saveColor();
+  colorAtOpen = null;
+}
+
+function revertColorDraft() {
+  if (colorAtOpen && colorMode !== colorAtOpen) {
+    colorMode = colorAtOpen;
+    applyColorAttr();
+    paintColorOpts();
+    loadFinance();
+  }
+  colorAtOpen = null;
 }
 
 // ===== 对外 =====
@@ -439,11 +463,13 @@ export function renderFinance() {
     document.getElementById('finPickModal').addEventListener('click', (e) => {
       if (e.target.id === 'finPickModal') closePicker();
     });
-    // 设置入口在页面右上角(和热榜设置同一个弹窗),这里只负责打开前刷新选中态
-    document.getElementById('hotSettingsBtn').addEventListener('click', paintColorOpts);
+    // 设置入口在页面右上角,和热榜槽位共用一个弹窗、一套保存/取消语义
+    document.getElementById('hotSettingsBtn').addEventListener('click', openColorDraft);
     document.querySelectorAll('#finColorOpts .fin-color-opt').forEach(b => {
-      b.addEventListener('click', () => setColorMode(b.dataset.mode));
+      b.addEventListener('click', () => pickColor(b.dataset.mode));
     });
+    document.getElementById('hotSave').addEventListener('click', commitColorDraft);
+    document.getElementById('hotCancel').addEventListener('click', revertColorDraft);
     document.getElementById('finCode').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') { e.preventDefault(); confirmPick(); }
     });
