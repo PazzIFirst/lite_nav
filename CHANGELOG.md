@@ -1,5 +1,15 @@
 # Changelog
 
+## v2.1.0 — 2026-10-29
+
+站名统一为 **LiteNav**,页面标题改为「LiteNav轻量导航主页」。
+
+### Changed
+
+- 页面 `<title>`、`og:title`、`twitter:title`、`og:site_name`、JSON-LD `name`、隐藏 H1、sitemap 图片标题统一为 LiteNav / LiteNav轻量导航主页
+- `meta description` 与 JSON-LD `featureList` 同步现状:RSS 订阅取代已下线的自定义导航分组,行情描述改为三张分时卡(含 A 股/港股/美股个股与外汇)
+- JSON-LD `softwareVersion` 与包版本同步到 2.1.0
+
 ## v2.0.0 — 2026-10-29
 
 导航分组下线,行情与订阅重做。

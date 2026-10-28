@@ -5,15 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#0f172a">
 
-  <title>lite-nav — 轻量级个人导航主页 · 农历 · 老黄历 · 实时行情 · 热榜</title>
-  <meta name="description" content="自部署的轻量级导航主页:农历、节气、老黄历(宜忌/黄道)、A 股/港股/美股/黄金/汇率实时行情、22 个热榜任选(知乎/微博/百度/B 站/抖音/头条/V2EX/掘金等)、10 大搜索引擎、自定义导航分组。多源容灾,永不返回空。开源 MIT。">
-  <meta name="keywords" content="导航,导航主页,个人主页,自部署,农历,节气,老黄历,宜忌,股市,A股,美股,港股,汇率,黄金,黄道,热榜,搜索引擎,开源,lite-nav">
+  <title>LiteNav轻量导航主页</title>
+  <meta name="description" content="LiteNav 轻量导航主页:农历、节气、老黄历(宜忌/黄道)、A 股/港股/美股/汇率分时行情、22 个热榜任选(知乎/微博/百度/B 站/抖音/头条/V2EX/掘金等)、49 个预设 RSS 订阅源、10 大搜索引擎。免部署可直接设成浏览器启动页,也可自部署。多源容灾,开源 MIT。">
+  <meta name="keywords" content="导航,导航主页,个人主页,自部署,农历,节气,老黄历,宜忌,股市,A股,美股,港股,汇率,黄金,黄道,热榜,搜索引擎,开源,LiteNav">
   <meta name="author" content="PazzIFirst">
   <link rel="canonical" href="https://litenav.info/">
 
   <!-- Open Graph -->
   <meta property="og:type" content="website">
-  <meta property="og:title" content="lite-nav — 轻量级个人导航主页">
+  <meta property="og:title" content="LiteNav轻量导航主页">
   <meta property="og:description" content="农历、节气、老黄历宜忌、实时行情、热榜聚合。多源容灾,永不返回空。开源、自部署、零构建。">
   <meta property="og:url" content="https://litenav.info/">
   <!-- 预览图放自己域名,不用 raw.githubusercontent.com:后者在国内常访问不了,
@@ -21,40 +21,40 @@
   <meta property="og:image" content="https://litenav.info/og-image.png">
   <meta property="og:image:width" content="2793">
   <meta property="og:image:height" content="1896">
-  <meta property="og:image:alt" content="lite-nav 界面预览:农历、老黄历、实时行情、热榜面板">
+  <meta property="og:image:alt" content="LiteNav 界面预览:农历、老黄历、实时行情、RSS 订阅">
   <meta property="og:locale" content="zh_CN">
-  <meta property="og:site_name" content="lite-nav">
+  <meta property="og:site_name" content="LiteNav">
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="lite-nav — 轻量级个人导航主页">
+  <meta name="twitter:title" content="LiteNav轻量导航主页">
   <meta name="twitter:description" content="农历 · 老黄历 · 实时行情 · 热榜 · 多源容灾">
   <meta name="twitter:image" content="https://litenav.info/og-image.png">
-  <meta name="twitter:image:alt" content="lite-nav 界面预览">
+  <meta name="twitter:image:alt" content="LiteNav 界面预览">
 
   <!-- 结构化数据 / JSON-LD -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "WebApplication",
-    "name": "lite-nav",
+    "name": "LiteNav轻量导航主页",
     "alternateName": "轻量级个人导航主页",
-    "description": "自部署的轻量级导航主页:农历、节气、老黄历(宜忌/黄道)、A 股/美股/汇率实时行情、22 个热榜任选(知乎/微博/百度/B 站/抖音/头条/V2EX/掘金等)。多源容灾,永不返回空。",
+    "description": "LiteNav 轻量导航主页:农历、节气、老黄历(宜忌/黄道)、A 股/港股/美股/汇率分时行情、22 个热榜、49 个预设 RSS 订阅源。免部署或自部署,多源容灾,开源 MIT。",
     "url": "https://litenav.info/",
     "applicationCategory": "UtilityApplication",
     "operatingSystem": "Web Browser",
     "browserRequirements": "Requires modern browser with ES Modules support",
-    "softwareVersion": "1.5.1",
+    "softwareVersion": "2.1.0",
     "screenshot": "https://litenav.info/og-image.png",
     "isAccessibleForFree": true,
     "featureList": [
       "农历、节气、老黄历(宜忌/黄道/神位/彭祖百忌)",
       "距周末与距月初倒计时",
-      "A 股/港股/美股/汇率/黄金实时行情",
+      "三张可配置行情卡:A 股/港股/美股指数与个股、外汇,盘中分时续画",
       "22 个热榜任选,四槽位自由配置",
+      "49 个预设 RSS 订阅源与自定义源,跨源混排",
       "10 大搜索引擎与搜索联想",
-      "IP 定位与多城市天气",
-      "可编辑网站导航分组"
+      "IP 定位与多城市天气"
     ],
     "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
     "license": "https://opensource.org/licenses/MIT",
@@ -138,7 +138,7 @@
      ⚠ 不要加 aria-hidden:那会让屏幕阅读器也读不到,变成「只给爬虫看的文字」,
        既是无障碍缺陷,也正是搜索引擎指南反对的做法。 -->
 <header class="seo-only">
-  <h1>lite-nav — 轻量级个人导航主页</h1>
+  <h1>LiteNav轻量导航主页</h1>
   <p>包含农历、节气、老黄历宜忌与黄道、实时金融行情(A 股、港股、美股、汇率、黄金)、22 个热榜任选(知乎/微博/百度/B 站/抖音/头条/V2EX/掘金等)、10 大搜索引擎(百度/Google/Bing/知乎/Yandex/Bilibili/YouTube/GitHub/X/DuckDuckGo/npm)、自定义导航分组。多源容灾,永不返回空。</p>
   <p>开源 MIT,自部署,零构建。源码:<a href="https://github.com/PazzIFirst/lite_nav">github.com/PazzIFirst/lite_nav</a></p>
 </header>
