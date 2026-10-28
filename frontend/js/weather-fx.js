@@ -300,7 +300,12 @@ const P = {
     { fx: 'glow', size: 104, top: -14, right: -14, color: 'var(--fx-sun)', dur: 8, scale: [1, 1.06] },
     { fx: 'cloud', n: 2, dur: [26, 36], w: [46, 74], h: [16, 24], top: [-6, 34], blur: 9, opacity: 0.42 },
   ],
-  '多云': [{ fx: 'cloud', n: 4, dur: [18, 26], w: [68, 116], h: [24, 36], top: [-14, 52], blur: 11, opacity: 0.66 }],
+  // 多云:太阳还在,所以留一团比「晴间少云」小的光晕;云比它多一朵,但别压到
+  // 「阴」那个量级 —— 原来 4 朵 0.66 的云飘满整卡,缩略看就是个阴天
+  '多云': [
+    { fx: 'glow', size: 88, top: -6, right: -6, color: 'var(--fx-sun)', dur: 9, scale: [1, 1.05] },
+    { fx: 'cloud', n: 3, dur: [20, 28], w: [60, 104], h: [22, 32], top: [-10, 46], blur: 10, opacity: 0.50 },
+  ],
   '阴': [
     { fx: 'cloud', n: 6, dur: [12, 20], w: [104, 164], h: [34, 52], top: [-24, 70], blur: 14, opacity: 0.92 },
     { fx: 'band', n: 2, dur: [28, 38], h: 34, blur: 16, opacity: 0.30 },

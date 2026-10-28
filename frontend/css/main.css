@@ -296,6 +296,11 @@ body {
    50 套图标共用这一组 class。默认值是给浅色卡底调的(15 个背景族里
    除了「晴」全是浅底);「晴」那张是深蓝配白字,单独覆盖 --wx-sun。 */
 .weather-card {
+  /* 天气卡不跟主题走:它画的是「天」本身,深色主题只压暗页面外围。
+     所以墨色也钉死在浅底上 —— 不钉的话深色主题下 --text-primary 变成白色,
+     而底色仍是白天那套,字就没了。 */
+  --wx-ink:        #0f172a;
+  --wx-ink-2:      #334155;
   --wx-sun:        #f0a11c;   /* 太阳 */
   --wx-cloud:      #93aec8;   /* 云(近景) */
   --wx-cloud-far:  #c2d4e6;   /* 云(远景)—— 两朵同色叠一起边界会糊死,靠淡一档拉开 */
@@ -309,21 +314,7 @@ body {
   --wx-hail:       #4f83ad;   /* 冰粒、冰雹 */
   --wx-icfog:      #94a8bb;   /* 雾条、气流条 */
   --wx-icdust:     #b07a3c;   /* 沙尘,黄褐 */
-}
-:root[data-theme="dark"] .weather-card {
-  --wx-sun:        #ffc94d;
-  --wx-cloud:      #7f96ae;
-  --wx-cloud-far:  #a9bdd2;
-  --wx-cloud-dark: #57708c;
-  --wx-cloud-dark-far: #7c93ac;
-  --wx-ic-shadow:  rgba(0, 0, 0, 0.45);
-  --wx-rain:       #5aa8e8;
-  --wx-snow:       #9fcbe8;
-  --wx-ice:        #4fd0e8;
-  --wx-bolt:       #ffc23d;
-  --wx-hail:       #7fb0d6;
-  --wx-icfog:      #8fa3b6;
-  --wx-icdust:     #c99a5e;
+  --wx-icdust-far: #d9b487;   /* 远层沙尘,拉开卷沙的前后层次 */
 }
 .ic-sun        { fill: var(--wx-sun); }
 .ic-cloud          { fill: var(--wx-cloud); }
@@ -340,6 +331,7 @@ body {
 .ic-hail       { fill: var(--wx-hail); }
 .ic-fog        { fill: var(--wx-icfog); }
 .ic-dust       { fill: var(--wx-icdust); }
+.ic-dust-far   { fill: var(--wx-icdust-far); }
 /* 克莱因蓝底上把黄再提亮一点,不然深蓝会把它压闷 */
 .weather-card[data-bg="clear"] { --wx-sun: #ffd54f; }
 .wx-city {
@@ -406,7 +398,14 @@ body {
   --wx-ink-2: #e8f0fa;
   --wx-sun:   #ffe07a;    /* 深蓝底上要更亮的黄,否则糊进蓝里 */
 }
-.weather-card[data-bg="cloudy"]   { background: linear-gradient(145deg, #f5f8fc 0%, #cbd8e8 100%); }
+/* 「晴间少云 / 多云」共用 cloudy 底。纯冷蓝灰读作阴天,所以右上角压一缕暖光 ——
+   暖色只加在光晕上,不把整张卡调成米黄:米黄是 haze(霾)的语义、琥珀是 dust(沙尘)的,
+   那两档已经占着暖色区,整卡变暖会跟它们撞。 */
+.weather-card[data-bg="cloudy"] {
+  background:
+    radial-gradient(78% 70% at 80% 16%, rgba(255, 202, 120, 0.60) 0%, rgba(255, 202, 120, 0) 64%),
+    linear-gradient(145deg, #fdf7ee 0%, #cdd9e7 100%);
+}
 .weather-card[data-bg="overcast"] { background: linear-gradient(145deg, #f2f4f6 0%, #c4cbd6 100%); }
 .weather-card[data-bg="fog"]      { background: linear-gradient(145deg, #f6fafb 0%, #d7e4ea 100%); }
 .weather-card[data-bg="haze"]     { background: linear-gradient(145deg, #f7f5f0 0%, #dcd2c4 100%); }
@@ -423,27 +422,8 @@ body {
 .weather-card[data-bg="thunder"]  { background: linear-gradient(145deg, #f4f2fd 0%, #dbcdf3 100%); }
 /* data-bg="unknown" 不写规则,落回 .info-card 的默认玻璃底 */
 
-/* 深色主题:同色相压暗降饱和,不是浅色反转 */
-:root[data-theme="dark"] .weather-card[data-bg="clear"] {
-  background: linear-gradient(145deg, #183865 0%, #102646 100%);
-  --wx-ink:   #ffffff;
-  --wx-ink-2: #dbe6f5;
-}
-:root[data-theme="dark"] .weather-card[data-bg="cloudy"]   { background: linear-gradient(145deg, #17202d 0%, #283b52 100%); }
-:root[data-theme="dark"] .weather-card[data-bg="overcast"] { background: linear-gradient(145deg, #1b1e25 0%, #2d323c 100%); }
-:root[data-theme="dark"] .weather-card[data-bg="fog"]      { background: linear-gradient(145deg, #182125 0%, #2c383f 100%); }
-:root[data-theme="dark"] .weather-card[data-bg="haze"]     { background: linear-gradient(145deg, #201d19 0%, #352f27 100%); }
-:root[data-theme="dark"] .weather-card[data-bg="dust-1"]   { background: linear-gradient(145deg, #262016 0%, #453825 100%); }
-:root[data-theme="dark"] .weather-card[data-bg="dust-2"]   { background: linear-gradient(145deg, #2d2114 0%, #5e4228 100%); }
-:root[data-theme="dark"] .weather-card[data-bg="rain-1"]   { background: linear-gradient(145deg, #14202a 0%, #1d3448 100%); }
-:root[data-theme="dark"] .weather-card[data-bg="rain-2"]   { background: linear-gradient(145deg, #13212c 0%, #1f3a56 100%); }
-:root[data-theme="dark"] .weather-card[data-bg="rain-3"]   { background: linear-gradient(145deg, #122230 0%, #214167 100%); }
-:root[data-theme="dark"] .weather-card[data-bg="rain-4"]   { background: linear-gradient(145deg, #122232 0%, #224578 100%); }
-:root[data-theme="dark"] .weather-card[data-bg="rain-5"]   { background: linear-gradient(145deg, #112337 0%, #254a9f 100%); }
-:root[data-theme="dark"] .weather-card[data-bg="freeze"]   { background: linear-gradient(145deg, #181f31 0%, #2a3667 100%); }
-:root[data-theme="dark"] .weather-card[data-bg="snow-1"]   { background: linear-gradient(145deg, #192229 0%, #283645 100%); }
-:root[data-theme="dark"] .weather-card[data-bg="snow-2"]   { background: linear-gradient(145deg, #192532 0%, #304b6e 100%); }
-:root[data-theme="dark"] .weather-card[data-bg="thunder"]  { background: linear-gradient(145deg, #261b42 0%, #52308e 100%); }
+/* 深色主题不覆盖这 16 个底色、也不覆盖图标/动效配色 ——
+   卡片是「天」,跟着页面一起变暗就不是天了。深色主题只换页面外围。 */
 
 /* ===== 天气卡动效层 =====
    参数表在 js/weather-fx.js,71 种天气各一套。这里只定义粒子长什么样。
@@ -478,23 +458,6 @@ body {
   --fx-dust:   rgba(178, 116, 58, 0.34);  /* 沙尘:黄褐 */
   --fx-frost:  rgba(186, 230, 253, 0.58); /* 冻雾/雾凇:冷调 */
   --fx-sun:    rgba(255, 247, 237, 0.60); /* 太阳:暖白,不是黄色 */
-}
-:root[data-theme="dark"] .weather-card {
-  --fx-ink:    rgba(191, 219, 254, 0.45);
-  --fx-mist:   rgba(191, 219, 254, 0.80);
-  --fx-glaze:  rgba(224, 242, 254, 0.90);
-  --fx-flake:  rgba(226, 242, 255, 0.88);
-  --fx-flake-edge: rgba(120, 165, 220, 0.32); /* 深底上白雪本来就够亮,边只需极淡 */
-  --fx-pellet: rgba(219, 236, 255, 0.92);
-  --fx-gust:   rgba(203, 225, 255, 0.55);
-  --fx-accum:  rgba(203, 225, 255, 0.30);
-  --fx-cloud:  rgba(148, 163, 184, 0.30);
-  --fx-band:   rgba(214, 211, 209, 0.13);
-  --fx-fog:    rgba(203, 213, 225, 0.30);
-  --fx-haze:   rgba(180, 160, 110, 0.16);
-  --fx-dust:   rgba(190, 140, 90, 0.22);
-  --fx-frost:  rgba(203, 235, 255, 0.44);
-  --fx-sun:    rgba(255, 244, 230, 0.26);
 }
 
 /* 通用:所有粒子都是无限循环 */
@@ -731,10 +694,6 @@ body {
 .weather-card {
   --fx-bolt-halo: rgba(76, 29, 149, 0.55);
   --fx-bolt-core: #ffffff;
-}
-:root[data-theme="dark"] .weather-card {
-  --fx-bolt-halo: rgba(167, 139, 250, 0.55);
-  --fx-bolt-core: #f8fafc;
 }
 
 .fx-flash--near  { animation-name: fxFlashNear;  }   /* 11s · 远 · 只辉光不出弧 */
