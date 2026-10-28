@@ -1,4 +1,5 @@
 // 热榜面板 —— 四个固定槽位(左上/左下/右上/右下),每个槽位放哪个榜由用户设置
+import { followPageScroll } from './sidebar-scroll.js';
 import { apiGet, srcTooltip, safeHttpUrl, faviconUrl } from './api.js';
 
 const SLOT_KEY = 'hotSlots';
@@ -15,6 +16,7 @@ const FALLBACK_CATALOG = [
 ];
 
 let catalog = FALLBACK_CATALOG;
+let sidebarScroll = null;
 
 function metaOf(id) {
   return catalog.find(c => c.id === id) || null;
@@ -51,7 +53,8 @@ async function loadSlot(slotIndex) {
   const meta = metaOf(id);
   if (!meta) return;
 
-  listEl.innerHTML = '<div class="hot-panel-loading">加载中…</div>';
+  // 刷新时保留现有榜单高度，避免阅读中的侧栏先缩成占位符再跳回。
+  if (!listEl.querySelector('.hot-item')) listEl.innerHTML = '<div class="hot-panel-loading">加载中…</div>';
 
   // 普通 GET 读取(后端 cron 定期刷新缓存,冷门榜由后端按需拉取)。
   // 强制重拉是 token 保护的管理接口,不暴露给浏览器,故刷新按钮只做重新加载。
@@ -168,10 +171,12 @@ function renderHotPanels() {
     (i < 2 ? leftSidebar : rightSidebar).appendChild(panel);
     loadSlot(i);
   });
+  if (sidebarScroll) sidebarScroll.reset();
+  else sidebarScroll = followPageScroll([leftSidebar, rightSidebar]);
   for (const [sidebar, label] of [[leftSidebar, '左侧热榜'], [rightSidebar, '右侧热榜']]) {
     sidebar.setAttribute('role', 'region');
     sidebar.setAttribute('aria-label', label);
-    sidebar.tabIndex = sidebar.childElementCount ? 0 : -1;
+    sidebar.removeAttribute('tabindex');
   }
 }
 
@@ -251,17 +256,19 @@ export function initHotSettings() {
   });
 
   document.getElementById('hotReset').addEventListener('click', () => {
+    const changed = getSlots().some((id, i) => id !== DEFAULT_SLOTS[i]);
     saveSlots([...DEFAULT_SLOTS]);
     closeHotModal('reset');
-    renderHotPanels();
+    if (changed) renderHotPanels();
   });
 
   document.getElementById('hotSave').addEventListener('click', () => {
     const selects = document.querySelectorAll('#hotSlots select');
     const slots = ['', '', '', ''];
     for (const s of selects) slots[Number(s.dataset.slot)] = s.value || '';
+    const changed = getSlots().some((id, i) => id !== slots[i]);
     saveSlots(slots);
     closeHotModal('save');
-    renderHotPanels();
+    if (changed) renderHotPanels();
   });
 }

@@ -157,26 +157,9 @@ body {
   flex: 0 0 304px;
   display: flex; flex-direction: column;
   gap: var(--sp-3);
-  --sidebar-top: calc(var(--sp-10) + var(--sp-4));
-  /* 给右上角固定工具栏留出空间，避免吸顶榜单标题与刷新按钮被盖住。 */
-  position: sticky; top: var(--sidebar-top);
-  /* 整侧热榜独立滚动，不让长 RSS 决定下半部分榜单何时可见。 */
-  max-height: calc(100vh - var(--sidebar-top) - var(--sp-4));
-  max-height: calc(100dvh - var(--sidebar-top) - var(--sp-4));
-  overflow-y: auto; overflow-x: hidden;
-  overscroll-behavior-y: contain;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-strong) transparent;
-  scrollbar-gutter: stable;
-  padding: 0 var(--sp-1) var(--sp-1);
-  border-radius: var(--r-lg);
-  scroll-padding: var(--sp-10) var(--sp-1) var(--sp-2);
+  position: sticky; top: var(--sp-4);
+  overflow-anchor: none;
 }
-.sidebar:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--r-lg); }
-.sidebar::-webkit-scrollbar { width: 6px; }
-.sidebar::-webkit-scrollbar-track { background: transparent; }
-.sidebar::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: var(--r-full); }
-.sidebar::-webkit-scrollbar-thumb:hover { background: var(--text-tertiary); }
 .main-wrapper {
   display: flex; flex-direction: column;
   align-items: center; gap: var(--sp-4);
@@ -1375,13 +1358,10 @@ select.modal-input { appearance: none; cursor: pointer; }
 
 /* ===== Hot lists ===== */
 .hot-panel {
-  /* clip 保留圆角裁切但不创建第二个滚动容器，标题仍跟随侧栏吸顶。 */
-  overflow: clip;
-  flex: 0 0 auto;
+  overflow: hidden;
 }
 .hot-panel:hover { box-shadow: var(--shadow-md); }
 .hot-panel-header {
-  position: sticky; top: 0; z-index: 1;
   display: flex; align-items: center; justify-content: space-between;
   padding: var(--sp-2) var(--sp-3);
   background: var(--bg-elev-1);
