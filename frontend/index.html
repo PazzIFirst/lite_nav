@@ -125,7 +125,7 @@
   </svg>
 </a>
 
-<!-- 热榜设置 -->
+<!-- 页面设置 -->
 <button class="theme-toggle settings-toggle" id="hotSettingsBtn" aria-label="设置" title="设置">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
     <circle cx="12" cy="12" r="3"/>
@@ -191,11 +191,24 @@
 
 
 <div class="modal-overlay" id="hotModal">
-  <div class="modal-box" style="width:400px;">
+  <div class="modal-box page-settings-modal">
     <div class="modal-title">页面设置</div>
     <div class="modal-label" style="margin-bottom:6px;">热榜槽位</div>
     <div class="modal-hint" style="margin-bottom:10px;">为四个槽位分别选择榜单;选「不显示」则该位置留空</div>
     <div id="hotSlots"></div>
+
+    <div class="search-setting-block">
+      <label class="search-suggestion-setting" for="searchSuggestionsToggle">
+        <span class="search-setting-copy">
+          <span class="search-setting-title" id="searchSuggestionsLabel">搜索词联想</span>
+          <span class="modal-hint" id="searchSuggestionsHint">输入关键词时显示相关搜索建议</span>
+        </span>
+        <span class="search-setting-switch">
+          <input id="searchSuggestionsToggle" type="checkbox" role="switch" aria-labelledby="searchSuggestionsLabel" aria-describedby="searchSuggestionsHint" checked>
+          <span class="search-switch-track" aria-hidden="true"></span>
+        </span>
+      </label>
+    </div>
 
     <div class="fin-setting-block">
       <div class="modal-label">行情涨跌配色</div>

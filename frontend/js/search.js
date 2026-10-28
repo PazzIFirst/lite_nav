@@ -1,5 +1,5 @@
 // 搜索引擎切换 + 历史 + 联想
-import { fetchT, faviconUrl } from './api.js';
+import { faviconUrl } from './api.js';
 
 const ENGINES = [
   { label:'百度',    key:'baidu',   url:'https://www.baidu.com/s?wd=',                  favicon:'baidu.com'    },
@@ -119,7 +119,33 @@ function initSuggestions() {
   form.appendChild(box);
 
   let timer = null, suggs = [], activeIdx = -1;
-  let suggSeq = 0;  // F-005:请求序号防竞态
+  let suggSeq = 0;  // 请求序号防止关闭后迟到的结果重新打开联想
+  let requestController = null;
+  const SUGGESTIONS_KEY = 'nav.search.suggestions';
+  let suggestionsEnabled = true;
+  try { suggestionsEnabled = localStorage.getItem(SUGGESTIONS_KEY) !== 'false'; } catch {}
+  const toggle = document.getElementById('searchSuggestionsToggle');
+  toggle.checked = suggestionsEnabled;
+
+  function invalidateSuggestions() {
+    clearTimeout(timer);
+    ++suggSeq;
+    requestController?.abort();
+    requestController = null;
+    close();
+  }
+
+  function saveSuggestions(enabled) {
+    suggestionsEnabled = enabled;
+    toggle.checked = enabled;
+    if (!enabled) invalidateSuggestions();
+    try { localStorage.setItem(SUGGESTIONS_KEY, String(enabled)); } catch {}
+  }
+
+  // 和页面设置共用保存/取消语义：开关先作草稿，保存后才生效。
+  document.getElementById('hotSettingsBtn').addEventListener('click', () => { toggle.checked = suggestionsEnabled; });
+  document.getElementById('hotSave').addEventListener('click', () => saveSuggestions(toggle.checked));
+  document.getElementById('hotReset').addEventListener('click', () => saveSuggestions(true));
 
   function open()  { form.classList.add('sug-open'); }
   function close() { form.classList.remove('sug-open'); box.innerHTML = ''; suggs = []; activeIdx = -1; }
@@ -130,7 +156,7 @@ function initSuggestions() {
   }
 
   function pick(text) {
-    input.value = text; close();
+    input.value = text; invalidateSuggestions();
     addSearchHistory?.(text);   // F-006:联想入历史
     const eng = ENGINES.find(e => e.key === currentEngine);
     if (eng && text.trim()) window.open(eng.url + encodeURIComponent(text), '_blank', 'noopener');
@@ -159,24 +185,34 @@ function initSuggestions() {
   }
 
   async function fetchSugg(q) {
-    if (!q.trim()) { close(); return; }
-    const seq = ++suggSeq;
+    invalidateSuggestions();
+    if (!suggestionsEnabled || !q.trim()) return;
+    const seq = suggSeq;
+    const controller = new AbortController();
+    requestController = controller;
+    const timeout = setTimeout(() => controller.abort(), 4000);
     try {
-      const r = await fetchT(`/api/suggest?q=${encodeURIComponent(q)}`, 4000);
-      if (seq !== suggSeq) return;
+      const r = await fetch(`/api/suggest?q=${encodeURIComponent(q)}`, { signal: controller.signal });
       if (!r.ok) throw new Error('HTTP ' + r.status);
       const d = await r.json();
-      if (seq !== suggSeq) return;
+      if (seq !== suggSeq || !suggestionsEnabled) return;
       const list = Array.isArray(d?.data) ? d.data : [];
-      if (!list.length) { close(); return; }
       render(list.slice(0, 8));
-    } catch { close(); }
+    } catch {
+      if (seq === suggSeq) close();
+    } finally {
+      clearTimeout(timeout);
+      if (requestController === controller) requestController = null;
+    }
   }
 
-  input.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => fetchSugg(input.value), 200); });
-  input.addEventListener('focus', () => { if (input.value) fetchSugg(input.value); });
-  input.addEventListener('blur',  () => setTimeout(close, 150));
-  form.addEventListener('submit', close);
+  input.addEventListener('input', () => {
+    invalidateSuggestions();
+    if (suggestionsEnabled && input.value.trim()) timer = setTimeout(() => fetchSugg(input.value), 200);
+  });
+  input.addEventListener('focus', () => { if (suggestionsEnabled && input.value) fetchSugg(input.value); });
+  input.addEventListener('blur', invalidateSuggestions);
+  form.addEventListener('submit', invalidateSuggestions);
 
   input.addEventListener('keydown', e => {
     if (!form.classList.contains('sug-open')) return;
@@ -188,7 +224,7 @@ function initSuggestions() {
       e.preventDefault();
       const prev = activeIdx <= 0 ? -1 : activeIdx - 1;
       highlight(prev); if (prev >= 0) input.value = suggs[prev];
-    } else if (e.key === 'Escape') { close(); }
+    } else if (e.key === 'Escape') { invalidateSuggestions(); }
   });
 }
 

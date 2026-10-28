@@ -1001,6 +1001,23 @@ body {
 
 select.modal-input { appearance: none; cursor: pointer; }
 
+/* 页面设置：搜索词联想 */
+.page-settings-modal.modal-box { width: min(400px, calc(100vw - var(--sp-6))); max-height: calc(100dvh - var(--sp-6)); overflow-y: auto; }
+.page-settings-modal .modal-actions { margin-top: var(--sp-4); }
+.search-setting-block { margin-top: var(--sp-3); padding-top: var(--sp-3); border-top: 1px solid var(--border-subtle); }
+.search-suggestion-setting { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); cursor: pointer; }
+.search-setting-copy { display: flex; flex-direction: column; min-width: 0; }
+.search-setting-title { color: var(--text-primary); font-size: var(--fs-sm); font-weight: 500; }
+.search-setting-copy .modal-hint { line-height: 1.6; }
+.search-setting-switch { position: relative; display: inline-flex; width: 42px; height: 24px; flex-shrink: 0; }
+.search-setting-switch input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; z-index: 1; }
+.search-switch-track { width: 100%; height: 100%; border: 1px solid var(--border-strong); border-radius: var(--r-full); background: var(--bg-elev-3); transition: background-color var(--dur-fast) var(--ease-out); }
+.search-switch-track::after { content: ''; position: absolute; width: 18px; height: 18px; top: 3px; left: 3px; border-radius: 50%; background: var(--text-tertiary); transition: transform var(--dur-fast) var(--ease-out); }
+.search-setting-switch input:checked + .search-switch-track { background: var(--accent); border-color: var(--accent); }
+.search-setting-switch input:checked + .search-switch-track::after { transform: translateX(18px); background: #fff; }
+.search-setting-switch input:focus-visible + .search-switch-track { outline: 2px solid var(--accent); outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { .search-switch-track, .search-switch-track::after { transition: none; } }
+
 /* ===== Search ===== */
 .search-section {
   width: 100%; display: flex; flex-direction: column;
@@ -1543,7 +1560,7 @@ select.modal-input { appearance: none; cursor: pointer; }
 :root[data-theme="dark"] .theme-toggle .icon-sun  { display: block; }
 :root[data-theme="dark"] .theme-toggle .icon-moon { display: none; }
 
-/* 右上角按钮组,从右往左:主题切换 → 热榜设置 → GitHub。均复用 .theme-toggle 外观 */
+/* 右上角按钮组,从右往左:主题切换 → 页面设置 → GitHub。均复用 .theme-toggle 外观 */
 .settings-toggle { right: calc(var(--sp-3) + 44px); }
 .settings-toggle svg { width: 17px; height: 17px; }
 
@@ -1571,10 +1588,6 @@ select.modal-input {
 @media (max-width: 1260px) {
   .sidebar { display: none; }
   .page-layout { justify-content: center; }
-  /* 侧栏都藏了,热榜设置按钮点了没有可见效果 → 一并隐藏,避免死控件 */
-  .settings-toggle { display: none; }
-  /* 设置按钮没了,GitHub 补上它的位置,不留空档 */
-  .github-link { right: calc(var(--sp-3) + 44px); }
 }
 
 /* Tablet narrow — finance auto-wraps via fixed 256px items, no override needed */
@@ -1596,6 +1609,8 @@ select.modal-input {
   .search-input { font-size: var(--fs-md); padding: 11px var(--sp-3); }
   .modal-box { width: calc(100vw - var(--sp-6)); max-width: 380px; }
   .theme-toggle { top: var(--sp-2); right: var(--sp-2); }
+  .settings-toggle { right: calc(var(--sp-2) + 44px); }
+  .github-link { right: calc(var(--sp-2) + 88px); }
 }
 
 /* Phone: stack everything */
