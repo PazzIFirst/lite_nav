@@ -2,8 +2,7 @@ import express from 'express';
 import rateLimit from 'express-rate-limit';
 import redis, { readThreeState, pingRedis } from './redis.js';
 import { startScheduler, stopScheduler } from './scheduler.js';
-import { FINANCE_BUILTIN_FALLBACK } from './sources/finance.js';
-import { getKline, getIntraday, resolveCode, isValidSecid } from './sources/chart.js';
+import { getIntraday, resolveCode, isValidSecid } from './sources/chart.js';
 import { fetchFeed, fetchFeeds, isSafeFeedUrl } from './sources/rss.js';
 import { HOT_IDS, HOT_META, HOT_BUILTIN_FALLBACK, refreshHotList, markHotUsed } from './sources/hot.js';
 import { WEATHER_BUILTIN_FALLBACK, coordsKey, refreshWeatherForCity, refreshWeatherForCoords } from './sources/weather.js';
@@ -81,61 +80,6 @@ app.get('/api/health', a(async (req, res) => {
 }));
 
 // ===== 行情 =====
-app.get('/api/finance', a(async (req, res) => {
-  // 即使 Redis 全挂,也要返回 builtin fallback,不抛错
-  const [indices, fx] = await Promise.all([
-    readThreeState('finance:indices', null).catch(() => null),
-    readThreeState('finance:fx',      null).catch(() => null),
-  ]);
-
-  const merged = { ...(FINANCE_BUILTIN_FALLBACK.data) };
-  const sources = {};
-
-  // 通用 strip:删 _ 前缀的内部字段,保留 value / changePct / value_cnh 等非内部字段
-  const stripInternal = v => Object.fromEntries(
-    Object.entries(v).filter(([k]) => !k.startsWith('_'))
-  );
-
-  if (indices?.data) {
-    const perSrc = indices.per_source || {};
-    for (const [k, v] of Object.entries(indices.data)) {
-      merged[k] = stripInternal(v);
-      const ps = perSrc[k] || v._meta;
-      sources[k] = {
-        source:       ps?.source       || indices.source,
-        source_label: ps?.source_label || indices.source_label,
-        fetched_at:   ps?.fetched_at   || indices.fetched_at,
-        freshness:    ps?.freshness    || indices.freshness,
-      };
-    }
-  }
-  if (fx?.data?.usdcny) {
-    merged.usdcny = stripInternal(fx.data.usdcny);
-    sources.usdcny = {
-      source: fx.source,
-      source_label: fx.source_label,
-      fetched_at: fx.fetched_at,
-      freshness: fx.freshness,
-    };
-  }
-
-  for (const k of Object.keys(merged)) {
-    if (!sources[k]) sources[k] = { source: 'builtin', source_label: '内置兜底', fetched_at: 0, freshness: 'fallback' };
-  }
-
-  res.json({ data: merged, sources });
-}));
-
-// ===== 行情图表 =====
-// 日 K:最近 N 个交易日;分时:当天逐分钟的价。两者都带「是否在交易时段」。
-app.get('/api/kline', a(async (req, res) => {
-  const secid = String(req.query.secid || '');
-  if (!isValidSecid(secid)) throw new ValidationError('bad secid', 'secid');
-  const days = Math.min(240, Math.max(20, Number(req.query.days) || 60));
-  const out = await getKline(secid, days);
-  res.json(out);
-}));
-
 app.get('/api/intraday', a(async (req, res) => {
   const secid = String(req.query.secid || '');
   if (!isValidSecid(secid)) throw new ValidationError('bad secid', 'secid');
@@ -143,7 +87,6 @@ app.get('/api/intraday', a(async (req, res) => {
   res.json(out);
 }));
 
-// 把「市场 + 代码」解析成 secid(A股/港股/美股),顺便回一个规范名
 app.get('/api/symbol', a(async (req, res) => {
   const market = String(req.query.market || '');
   const code = String(req.query.code || '');
