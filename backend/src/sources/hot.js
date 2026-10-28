@@ -39,25 +39,90 @@ function finalize(raw) {
 
 // ===== 通用源构造器 =====
 
-function parseBa9(d) {
-  if (!d?.success || !Array.isArray(d.data)) return null;
-  return finalize(d.data.map(i => ({ title: i?.title, url: i?.url || i?.mobilUrl || '' })));
-}
-
-// B-005:删除死参 label
-function makeBa9Source(slug) {
+// ===== 站方官方源 =====
+// 微博、抖音靠 Referer 过来源校验:不带 Referer 时微博返 403,抖音返 200 但 body 为空
+function makeWeiboSource() {
   return async () => {
-    const r = await fetchT(`https://api.ba9.cn/api/get.${slug}`, { timeout: 5000 });
-    return parseBa9(await readJsonLimited(r));
+    const r = await fetchT('https://weibo.com/ajax/side/hotSearch', {
+      timeout: 6000, ua: UA_BROWSER, headers: { Referer: 'https://weibo.com/' },
+    });
+    const d = await readJsonLimited(r);
+    const list = d?.data?.realtime;
+    if (!Array.isArray(list)) return null;
+    // is_ad=1 是插在榜单里的广告位,不是热搜
+    return finalize(list.filter(i => i && !i.is_ad).map(i => {
+      const word = cleanText(i.word, 80);
+      return {
+        title: word,
+        url: word ? 'https://s.weibo.com/weibo?q=' + encodeURIComponent('#' + word + '#') : '',
+      };
+    }));
   };
 }
 
-function makeVvhanSource(slug) {
+// 百度:条目在 data.cards[].content[] 里再套一层 content[] 才到 {word,url}
+function makeBaiduSource() {
   return async () => {
-    const r = await fetchT(`https://api.vvhan.com/api/hotlist/${slug}`, { timeout: 5000 });
+    const r = await fetchT('https://top.baidu.com/api/board?platform=wise&tab=realtime', {
+      timeout: 6000, ua: UA_BROWSER,
+    });
     const d = await readJsonLimited(r);
-    if (!d?.success || !Array.isArray(d.data)) return null;
-    return finalize(d.data.map(i => ({ title: i?.title, url: i?.url || i?.mobil_url || '' })));
+    const list = (d?.data?.cards || []).flatMap(c => (c?.content || []).flatMap(x => x?.content || []));
+    return finalize(list.map(i => ({ title: i?.word, url: i?.url })));
+  };
+}
+
+// 抖音:data.word_list[];站内热榜的条目页是 /hot/<sentence_id>
+function makeDouyinSource() {
+  const url = 'https://www.douyin.com/aweme/v1/web/hot/search/list/'
+    + '?device_platform=webapp&aid=6383&channel=channel_pc_web&detail_list=1';
+  return async () => {
+    const r = await fetchT(url, {
+      timeout: 6000, ua: UA_BROWSER, headers: { Referer: 'https://www.douyin.com/' },
+    });
+    const d = await readJsonLimited(r);
+    const list = d?.data?.word_list;
+    if (!Array.isArray(list)) return null;
+    return finalize(list.map(i => ({
+      title: i?.word,
+      url: i?.sentence_id ? 'https://www.douyin.com/hot/' + encodeURIComponent(i.sentence_id) : '',
+    })));
+  };
+}
+
+// 知乎官方移动接口:target.url 是 api.zhihu.com/questions/<id>,换成站内地址。
+// id 只能从 URL 里取字符串 —— target.id 是超过 2^53 的数字,当数字读会被浮点截断
+function zhihuItemUrl(target) {
+  const raw = String(target?.url || '');
+  const q = raw.match(/\/questions\/(\d+)/);
+  if (q) return 'https://www.zhihu.com/question/' + q[1];
+  const a = raw.match(/\/articles\/(\d+)/);
+  if (a) return 'https://zhuanlan.zhihu.com/p/' + a[1];
+  return raw;
+}
+
+function makeZhihuSource() {
+  return async () => {
+    const r = await fetchT('https://api.zhihu.com/topstory/hot-lists/total?limit=50', {
+      timeout: 6000, ua: UA_BROWSER,
+    });
+    const d = await readJsonLimited(r);
+    return finalize((d?.data || []).map(i => ({ title: i?.target?.title, url: zhihuItemUrl(i?.target) })));
+  };
+}
+
+// 第三方兜底:知乎对机房 IP 有风控,官方接口在服务器上大量返回
+// 403「系统监测到您的网络环境存在异常」,只能挂一个镜像备源。
+// 这是 NewsNow 开源项目的公开实例,只用于知乎;要换实例改这一处 URL 即可
+function makeNewsnowSource(id) {
+  return async () => {
+    const r = await fetchT('https://newsnow.busiyi.world/api/s?id=' + encodeURIComponent(id), {
+      timeout: 8000, ua: UA_BROWSER,
+    });
+    const d = await readJsonLimited(r);
+    // status 取 success(它现抓)或 cache(命中它自己的缓存),两种都有 items;为空才当失败
+    if (!Array.isArray(d?.items) || d.items.length === 0) return null;
+    return finalize(d.items.map(i => ({ title: i?.title, url: i?.url })));
   };
 }
 
@@ -69,9 +134,14 @@ function makeJsonSource(url, pick, opts = {}) {
   };
 }
 
-// 选源门槛:只接站方官方接口、成熟第三方聚合(BA9/VVHAN)、官方 RSS。
-// 个人站点的「自用 / 仅供测试」型接口不纳入 —— 稳定性不可控,且多半带 QPS 限制与鉴权变更。
-// 需要这类源的话在下面 HOT_CATALOG 里自行加一条即可,结构与其余项相同。
+// 选源门槛:站方官方接口、官方 RSS。第三方聚合只在官方接口对机房 IP 有风控时作备源,
+// 且注释里要写清是谁的实例。个人站点的「自用 / 仅供测试」型接口不纳入 ——
+// 稳定性不可控,且多半带 QPS 限制与鉴权变更。
+//
+// 2026-10 的教训:此前知乎/微博/百度/抖音全靠 BA9 与 VVHAN 两家聚合,两家的源同时死掉 ——
+// VVHAN 的 api 子域 NXDOMAIN,BA9 换了证书、口径全改,接口一律 404 —— 四个榜单一起空白,
+// 而站方官方接口都是好的。聚合器可以当备源,不能当主源。
+// 需要加源在下面 HOT_CATALOG 里加一条即可,结构与其余项相同。
 
 // RSS 源:正则取 <item> 块里的 title/link,不引入 XML 解析依赖(项目零构建原则)
 function rssField(block, tag) {
@@ -122,22 +192,20 @@ export const HOT_CATALOG = [
   {
     id: 'zhihu', title: '知乎热榜', link: 'https://www.zhihu.com/hot',
     sources: [
-      { id: 'ba9',   label: 'BA9 API',   fn: makeBa9Source('zhihuhot?type=zhihu') },
-      { id: 'vvhan', label: 'VVHAN API', fn: makeVvhanSource('zhihuHot') },
+      { id: 'zhihu-official', label: '知乎官方', fn: makeZhihuSource() },
+      { id: 'newsnow',       label: 'NewsNow 镜像', fn: makeNewsnowSource('zhihu') },
     ],
   },
   {
     id: 'weibo', title: '微博热搜', link: 'https://weibo.com/hot/search',
     sources: [
-      { id: 'ba9',   label: 'BA9 API',   fn: makeBa9Source('weibohot?type=weibo') },
-      { id: 'vvhan', label: 'VVHAN API', fn: makeVvhanSource('wbHot') },
+      { id: 'weibo-official', label: '微博官方', fn: makeWeiboSource() },
     ],
   },
   {
     id: 'baidu', title: '百度热搜', link: 'https://top.baidu.com/board?tab=realtime',
     sources: [
-      { id: 'ba9',   label: 'BA9 API',   fn: makeBa9Source('baiduhot?type=baidu') },
-      { id: 'vvhan', label: 'VVHAN API', fn: makeVvhanSource('baiduRY') },
+      { id: 'baidu-official', label: '百度官方', fn: makeBaiduSource() },
     ],
   },
   {
@@ -173,13 +241,12 @@ export const HOT_CATALOG = [
             })));
         },
       },
-      { id: 'ba9', label: 'BA9 API', fn: makeBa9Source('bilihot.day?type=biliall') },
     ],
   },
   {
     id: 'douyin', title: '抖音热榜', link: 'https://www.douyin.com/hot',
     sources: [
-      { id: 'ba9', label: 'BA9 API', fn: makeBa9Source('douyinhot?type=douyin') },
+      { id: 'douyin-official', label: '抖音官方', fn: makeDouyinSource() },
     ],
   },
   {
@@ -281,7 +348,6 @@ export const HOT_CATALOG = [
   {
     id: 'sspai', title: '少数派', link: 'https://sspai.com/',
     sources: [
-      { id: 'ba9', label: 'BA9 API', fn: makeBa9Source('sspaihot?type=sspai') },
       { id: 'sspai-rss', label: '少数派 RSS', fn: makeRssSource('https://sspai.com/feed') },
     ],
   },

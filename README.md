@@ -232,7 +232,7 @@ python3 -m http.server 8080
                             |     - 东方财富 / 新浪 / 腾讯(行情)
                             |     - Open-Meteo / wttr.in / 中国天气网(天气)
                             |     - Nager.Date / date-holidays / timor.tech(节假日)
-                            |     - BA9 / VVHAN / B站官方(热榜)
+                            |     - 知乎 / 微博 / 百度 / 抖音 / B站官方(热榜)
                             |     - 百度 / Google / Bing(搜索联想)
                             |
                             +-- Redis (cache: + lastgood: 双键)
@@ -281,17 +281,23 @@ python3 -m http.server 8080
 
 | 分类 | 榜单 | 数据源 |
 |---|---|---|
-| 社交热搜 | 知乎、微博、百度 | 主源 BA9 + 备源 VVHAN |
-| | B 站 | B 站官方 API ×2 + BA9 兜底 |
-| | 抖音 | BA9 |
+| 社交热搜 | 知乎 | 知乎官方接口 + NewsNow 镜像兜底(见下) |
+| | 微博 | 微博官方接口 |
+| | 百度 | 百度官方接口 |
+| | B 站 | B 站官方 API ×2 |
+| | 抖音 | 抖音官方接口 |
 | 新闻资讯 | 今日头条、腾讯新闻、网易新闻、新浪新闻、百度贴吧 | 各家官方接口 |
 | 科技数码 | IT之家、虎嗅、爱范儿、Solidot | RSS |
-| | 少数派 | BA9 + 少数派 RSS |
+| | 少数派 | 少数派 RSS |
 | 开发者 | V2EX、稀土掘金、51CTO、HelloGitHub | 各家官方接口 |
 | | Hacker News | 官方 API(topstories + 逐条取标题) |
 | 其他 | 豆瓣热门电影、微信读书飙升 | 各家官方接口 |
 
-**选源门槛**:只接站方官方接口、成熟第三方聚合(BA9/VVHAN)、官方 RSS。个人站点的「自用 / 仅供测试」型接口不纳入 —— 稳定性不可控,且多半带 QPS 限制与鉴权变更。需要这类源可 fork 后在 `HOT_CATALOG` 里自行添加,结构与其余项相同。
+**选源门槛**:站方官方接口、官方 RSS 优先。第三方聚合/镜像只在官方接口对机房 IP 有风控时作备源,且注释里写清是谁的实例;个人站点的「自用 / 仅供测试」型接口不纳入 —— 稳定性不可控,且多半带 QPS 限制与鉴权变更。需要这类源可 fork 后在 `HOT_CATALOG` 里自行添加,结构与其余项相同。
+
+**为什么知乎要挂镜像**:知乎的移动端热榜接口对机房 IP 有风控,服务器上大量返回 `403 系统监测到您的网络环境存在异常`,而浏览器里正常。所以知乎走「官方接口 → NewsNow 镜像」两级;其余榜单的官方接口在服务器上直连即可。微博、抖音的接口要求带 `Referer`,不带时微博回 403、抖音回 200 但空 body。
+
+**2026-10 的教训**:此前知乎/微博/百度/抖音全靠 BA9、VVHAN 两家聚合,两家的源同时死掉(VVHAN 的 `api` 子域 NXDOMAIN,BA9 换了证书、口径全改、接口一律 404),四个榜单一起空白,而站方官方接口都是好的。聚合器可以当备源,不能当主源。
 
 榜单目录由后端 `/api/hot/catalog` 下发,前端下拉框直接据此生成,不会和后端脱节。
 
@@ -530,7 +536,8 @@ PR 前请:
 - [Frankfurter](https://www.frankfurter.app/) / [ExchangeRate-API](https://www.exchangerate-api.com/) — 汇率
 - [Open-Meteo](https://open-meteo.com/) / [wttr.in](https://wttr.in) / [中国天气网](http://www.weather.com.cn) — 天气
 - [timor.tech](https://timor.tech/) / [NateScarlet/holiday-cn](https://github.com/NateScarlet/holiday-cn) / [Nager.Date](https://date.nager.at/) — 节假日
-- [api.ba9.cn](https://api.ba9.cn) / [VVHAN API](https://api.vvhan.com) / B 站官方 API — 热榜
+- 知乎 / 微博 / 百度 / 抖音 / B 站官方接口 — 热榜
+- [NewsNow](https://github.com/ourongxing/newsnow) 的公开实例 — 知乎热榜在机房 IP 被风控时的兜底
 - [Memoyu/ChinaWeatherCityCode-JSON](https://github.com/Memoyu/ChinaWeatherCityCode-JSON) — 中国天气网 cityCode 数据集
 
 库:
