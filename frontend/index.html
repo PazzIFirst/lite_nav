@@ -85,7 +85,7 @@
   <link rel="modulepreload" href="js/weather-icons.js">
   <link rel="modulepreload" href="js/finance.js">
   <link rel="modulepreload" href="js/hot.js">
-  <link rel="modulepreload" href="js/nav.js">
+  <link rel="modulepreload" href="js/rss.js">
 
   <!-- Anti-FOUC: apply saved theme (or system preference) before first paint -->
   <script>
@@ -157,25 +157,27 @@
 </div>
 
 <!-- 网站编辑弹窗 -->
-<div class="modal-overlay" id="siteModal">
-  <div class="modal-box">
-    <div class="modal-title" id="siteModalTitle">添加网站</div>
-    <div class="modal-field">
-      <div class="modal-label">网站名称</div>
-      <input class="modal-input" id="siteName" placeholder="如:GitHub" />
-    </div>
-    <div class="modal-field">
-      <div class="modal-label">网址</div>
-      <input class="modal-input" id="siteUrl" placeholder="https://github.com" />
+<div class="modal-overlay" id="rssModal">
+  <div class="modal-box" style="width:520px;">
+    <div class="modal-title">订阅管理</div>
+    <div class="modal-hint" style="margin-bottom:12px;">勾选预设源,或添加任意 RSS / Atom 地址;列表按各源最新发布时间混排。</div>
+    <div class="rss-presets" id="rssPresets"></div>
+    <div class="rss-custom">
+      <div class="modal-label">自定义源</div>
+      <div id="rssCustomList"></div>
+      <div class="rss-add-row">
+        <input class="modal-input" id="rssUrlInput" placeholder="https://example.com/feed.xml" autocomplete="off" spellcheck="false" />
+        <button class="btn btn-ghost" id="rssAddBtn" type="button">添加</button>
+      </div>
+      <div class="modal-hint" id="rssAddHint"></div>
     </div>
     <div class="modal-actions">
-      <button class="btn btn-ghost" id="siteCancel">取消</button>
-      <button class="btn btn-primary" id="siteSaveBtn">保存</button>
+      <button class="btn btn-ghost" id="rssCancel">取消</button>
+      <button class="btn btn-primary" id="rssSave">保存</button>
     </div>
   </div>
 </div>
 
-<!-- 国家选择弹窗 -->
 <div class="modal-overlay" id="hotModal">
   <div class="modal-box" style="width:400px;">
     <div class="modal-title">页面设置</div>
@@ -216,20 +218,6 @@
     <div class="modal-actions">
       <button class="btn btn-ghost" id="finPickCancel">取消</button>
       <button class="btn btn-primary" id="finPickOk">确定</button>
-    </div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="groupModal">
-  <div class="modal-box">
-    <div class="modal-title" id="groupModalTitle">新增分组</div>
-    <div class="modal-field">
-      <div class="modal-label">分组名称</div>
-      <input class="modal-input" id="groupName" placeholder="如:工作 / 娱乐" />
-    </div>
-    <div class="modal-actions">
-      <button class="btn btn-ghost" id="groupCancel">取消</button>
-      <button class="btn btn-primary" id="groupSaveBtn">保存</button>
     </div>
   </div>
 </div>
@@ -316,9 +304,19 @@
       <div class="search-history" id="searchHistory"></div>
     </div>
 
-    <!-- 网站导航分组 -->
-    <h2 class="seo-only">网站导航分组</h2>
-    <div class="nav-groups" id="navGroups"></div>
+    <!-- RSS 订阅 -->
+    <h2 class="seo-only">RSS 订阅</h2>
+    <div class="rss-panel" id="rssPanel">
+      <div class="rss-head">
+        <span class="rss-head-title">订阅</span>
+        <span class="rss-head-meta" id="rssMeta"></span>
+        <button class="rss-tool" id="rssRefreshBtn" type="button">刷新</button>
+        <button class="rss-tool" id="rssManageBtn" type="button">管理订阅</button>
+      </div>
+      <div class="rss-list" id="rssList">
+        <div class="hot-panel-loading">订阅加载中…</div>
+      </div>
+    </div>
 
   </div><!-- /main-wrapper -->
 

@@ -4,6 +4,7 @@ import redis, { readThreeState, pingRedis } from './redis.js';
 import { startScheduler, stopScheduler } from './scheduler.js';
 import { FINANCE_BUILTIN_FALLBACK } from './sources/finance.js';
 import { getKline, getIntraday, resolveCode, isValidSecid } from './sources/chart.js';
+import { fetchFeed, fetchFeeds, isSafeFeedUrl } from './sources/rss.js';
 import { HOT_IDS, HOT_META, HOT_BUILTIN_FALLBACK, refreshHotList, markHotUsed } from './sources/hot.js';
 import { WEATHER_BUILTIN_FALLBACK, coordsKey, refreshWeatherForCity, refreshWeatherForCoords } from './sources/weather.js';
 import { holidayFallback, SUPPORTED_COUNTRIES, refreshHolidayForCountry } from './sources/holiday.js';
@@ -149,6 +150,23 @@ app.get('/api/symbol', a(async (req, res) => {
   if (!code) throw new ValidationError('empty code', 'code');
   const out = await resolveCode(market, code);
   res.json({ data: out });
+}));
+
+// ===== RSS =====
+// 批量抓取:请求体 { urls: [...] };返回按时间倒序合并后的条目 + 每个源的成败
+app.post('/api/rss', a(async (req, res) => {
+  const urls = Array.isArray(req.body?.urls) ? req.body.urls.map(String) : [];
+  if (!urls.length) throw new ValidationError('urls required', 'urls');
+  if (urls.length > 20) throw new ValidationError('too many urls', 'urls');
+  res.json(await fetchFeeds(urls));
+}));
+
+// 单个源:填自定义地址时先试一下
+app.get('/api/rss/feed', a(async (req, res) => {
+  const url = String(req.query.url || '');
+  if (!isSafeFeedUrl(url)) throw new ValidationError('bad url', 'url');
+  const p = await fetchFeed(url);
+  res.json({ data: { url, title: p.data.title, items: p.data.items.slice(0, 10) } });
 }));
 
 // ===== 热榜 =====

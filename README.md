@@ -57,7 +57,7 @@ OpenResty           约  30 MB RAM
 - **国内外双 IP** — 同时显示访客的国内出口 IP 和国外出口 IP,适合用代理的用户校验
 - **22 个热榜任选** — 页面右上角齿轮进「热榜设置」,四个槽位(左上/左下/右上/右下)各自下拉选榜,可留空
 - **10 搜索引擎** — 百度 / Google / Bing / 知乎 / Yandex / Bilibili / YouTube / GitHub / X / DuckDuckGo / npm,带联想 + 历史
-- **可编辑导航分组** — localStorage 存,每个浏览器独立
+- **RSS 订阅** — 25 个预设源(中文科技 / 社区 / 海外科技 / 新闻)任选,可勾选多个,也可贴任意 RSS / Atom 地址;条目按各源发布时间混排
 - **倒计时** — 距周末 / 距月初
 
 ### 工程亮点
@@ -206,7 +206,7 @@ python3 -m http.server 8080
 # 浏览器打开 http://localhost:8080
 ```
 
-无后端时前端会因 `/api/*` 调用失败而退化(农历/老黄历/行情/热榜/天气看不到),搜索/距周末倒计时/导航分组仍可用。
+无后端时前端会因 `/api/*` 调用失败而退化(农历/老黄历/行情/热榜/天气/订阅看不到),搜索与距周末倒计时仍可用。
 
 要正常用,后端必须跑起来。
 
@@ -346,7 +346,7 @@ python3 -m http.server 8080
 |---|---|
 | `wxCity1` / `wxCity2` | 自定义天气城市 |
 | `searchHistory` | 搜索历史(最多 10 条) |
-| `navGroups` | 自定义导航分组 |
+| `nav.rss.feeds` | 勾选的订阅源 |
 | `hotSlots` | 四个热榜槽位的榜单 id,顺序为 左上/左下/右上/右下,空串表示不显示 |
 
 清掉 localStorage 即恢复默认。
@@ -376,7 +376,7 @@ lite-nav/
 |   |   +-- ip-weather.js           # IP 检测 + 天气联动 + 天气弹窗
 |   |   +-- finance.js              # 三张行情 K 线卡(选标的/分时/日K/配色)
 |   |   +-- hot.js                  # 热榜面板
-|   |   +-- nav.js                  # 导航分组 + 站点弹窗
+|   |   +-- rss.js                  # RSS 订阅(预设/自定义源 + 混排)
 |   |   +-- main.js                 # 入口,串联各模块 + Page Visibility 轮询
 |   +-- flags/                      # 20 国本地国旗 PNG
 +-- backend/
@@ -485,9 +485,9 @@ A: 用户偏好(导航分组、搜索历史等)走浏览器 localStorage,共享�
 
 A: 后端已尽量挑可访问性好的源(东方财富、Nager.Date 都全球可达)。如果某条 API 在你境外服务器上 DNS 解析失败,fallback 链自然跳到下一家。境外服务器实测全功能可用。
 
-**Q: 怎么换默认导航分组?**
+**Q: 怎么改默认订阅源?**
 
-A: 改 `frontend/js/nav.js` 里 `DEFAULT_NAV` 数组。已有用户的浏览器仍会读 localStorage,需手动清掉才看到新默认。
+A: 改 `frontend/js/rss.js` 里的 `DEFAULT_FEEDS`;预设清单在同文件的 `PRESETS`。已有用户的浏览器仍读 localStorage,清掉 `nav.rss.feeds` 才会看到新默认。
 
 **Q: 怎么不让某个数据源被用?**
 
