@@ -383,7 +383,7 @@ body {
   outline-offset: 2px;
 }
 
-/* ===== 卡片背景:15 个族,覆盖 37 种天气 =====
+/* ===== 卡片背景:15 个族,覆盖 28 种天气 =====
    映射表在 js/weather-fx.js 的 BG。降水按强度分档,底色由浅入深,
    和动效的强度阶梯同向 —— 雨越大,粒子越密,底色也越沉。
    对比度全部实算(WCAG 相对亮度),最差一档对 --text-primary 仍有
@@ -403,9 +403,9 @@ body {
    所以暖只加在光晕上、蓝只加在左下角。 */
 .weather-card[data-bg="cloudy"] {
   background:
-    radial-gradient(78% 70% at 80% 16%, rgba(255, 202, 120, 0.56) 0%, rgba(255, 202, 120, 0) 60%),
-    radial-gradient(95% 85% at 4% 98%, rgba(43, 101, 183, 0.22) 0%, rgba(43, 101, 183, 0) 64%),
-    linear-gradient(145deg, #fdf8f1 0%, #abc8e7 100%);
+    radial-gradient(72% 64% at 82% 14%, rgba(255, 202, 120, 0.52) 0%, rgba(255, 202, 120, 0) 58%),
+    radial-gradient(100% 90% at 2% 100%, rgba(43, 101, 183, 0.30) 0%, rgba(43, 101, 183, 0) 66%),
+    linear-gradient(145deg, #fdf9f3 0%, #9cc0e4 100%);
 }
 .weather-card[data-bg="overcast"] { background: linear-gradient(145deg, #f2f4f6 0%, #c4cbd6 100%); }
 .weather-card[data-bg="fog"]      { background: linear-gradient(145deg, #f6fafb 0%, #d7e4ea 100%); }
@@ -426,7 +426,7 @@ body {
    卡片是「天」,跟着页面一起变暗就不是天了。深色主题只换页面外围。 */
 
 /* ===== 天气卡动效层 =====
-   参数表在 js/weather-fx.js,37 种天气各一套。这里只定义粒子长什么样。
+   参数表在 js/weather-fx.js,28 种天气各一套。这里只定义粒子长什么样。
 
    三条铁律:
    1. @keyframes 里只允许出现 transform / opacity。宽高、位置、blur 全在

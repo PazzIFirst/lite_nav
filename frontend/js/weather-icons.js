@@ -1,4 +1,4 @@
-// 天气图标 —— 29 套自绘 SVG,覆盖 37 种天气(8 条近似复用)。
+// 天气图标 —— 28 套自绘 SVG,覆盖 28 种天气(一一对应)。
 //
 // 风格约定(改图标时必须守住,否则一眼看出不是一家人):
 //   · viewBox 统一 0 0 48 48,内容控制在 x/y ∈ [3,45]
@@ -131,7 +131,6 @@ const ICONS = {
   '暴雪': svg(cloud('ic-cloud-dark') + flake('translate(14.5 36.2) scale(0.95)') + flake('translate(24 36.2) scale(0.95)') + flake('translate(33.5 36.2) scale(0.95)') + '<circle class="ic-snow" cx="19.3" cy="40.3" r="2"/><circle class="ic-snow" cx="28.8" cy="40.3" r="2"/><circle class="ic-snow" cx="39" cy="36.3" r="2"/><rect class="ic-snow" x="8" y="42.3" width="32" height="2.7" rx="1.35"/>'),
 
   /* ── 阵雪 (2) ─ 更少更大,排布不齐 ───────────────────────── */
-  '小阵雪': svg(cloud() + flake('translate(19 37) scale(1.15)') + flake('translate(32 40.6) scale(0.95)')),
   '阵雪': svg(cloud() + flake('translate(16 38.3) scale(1.15)') + flake('translate(26.5 36.6) scale(1)') + flake('translate(36.5 40.4) scale(0.9)')),
 
   /* ── 其它固态降水 (6) ───────────────────────────────────── */
@@ -144,13 +143,9 @@ const ICONS = {
 // 复用近似档。这 21 种要么是中文预报里的区间档(「小到中雨」),
 // 要么是 wttr.in 才有的覆盖度限定词(「零星」「附近有」「间歇性」)——
 // 都没必要单独画图,并到对应基础档才是正确的本地化。
-const ALIAS = {
-  '小到中雪': '中雪', '中到大雪': '大雪', '大到暴雪': '暴雪',
-  '零星小毛毛雨': '小毛毛雨', '附近有零星冻毛毛雨': '轻冻毛毛雨',
-  '附近有零星降雪': '小雪', '零星小雪': '小雪',
-  '零星中雪': '中雪', '零星大雪': '大雪',
-  '雪': '中雪',
-};
+// 归并之后每个规范名都有自己的图标,近似复用表暂时空着;
+// 以后再加「某个名字没单独画,借用邻近图标」时往里填
+const ALIAS = {};
 
 export const WX_ICONS = ICONS;
 export const WX_ICON_ALIAS = ALIAS;
