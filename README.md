@@ -1,11 +1,24 @@
 # lite-nav
 
-自托管的个人起始页:今日信息、天气、行情、热榜与 RSS 订阅。
-前端零构建(原生 ES Modules + Canvas),后端只做「抓取 + 缓存 + 多源兜底」;首屏静态资源 gzip 约 86 KB。
+> 轻量级个人/团队导航主页:农历、多国节假日、实时行情、热榜聚合、RSS 订阅
+> 多源容灾,永不返回空。自部署 / 内网 / 本地皆可。
 
-项目网址:[litenav.info](https://litenav.info)
+**项目网址:[litenav.info](https://litenav.info)**
 
-![首页](docs/screenshot.png)
+[![Live](https://img.shields.io/badge/Live-litenav.info-4c8bf5)](https://litenav.info)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Version](https://img.shields.io/github/v/release/PazzIFirst/lite_nav.svg)](https://github.com/PazzIFirst/lite_nav/releases)
+[![Docker Image](https://github.com/PazzIFirst/lite_nav/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/PazzIFirst/lite_nav/actions/workflows/docker-publish.yml)
+[![Docker Pulls](https://img.shields.io/docker/pulls/pazzifirst/lite-nav-backend.svg)](https://hub.docker.com/r/pazzifirst/lite-nav-backend)
+![Backend: Node.js 20](https://img.shields.io/badge/Backend-Node.js%2020-339933)
+![Frontend: Vanilla ES Modules](https://img.shields.io/badge/Frontend-Vanilla%20ES%20Modules-orange)
+![Cache: Redis](https://img.shields.io/badge/Cache-Redis-DC382D)
+
+一个符合中国大陆用户使用习惯的轻量级导航主页。无外部前端框架、零构建前端;后端提供多源 fallback 与缓存(不接后端时,依赖 API 的模块会退化为空状态)。
+
+A self-hostable lightweight navigation homepage tuned for users in mainland China — featuring lunar calendar, almanac, multi-country holidays, live finance & social-media hot lists, plus an RSS reader. Multi-source fallback that never returns empty.
+
+<img src="docs/screenshot.png" alt="lite-nav 界面预览" width="100%">
 
 ---
 
