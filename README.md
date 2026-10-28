@@ -325,11 +325,17 @@ node --experimental-vm-modules scripts/review-data-checks.mjs
 node --experimental-vm-modules scripts/intraday-session-checks.mjs
 node scripts/finance-chart-checks.mjs
 
+# 部署后:比对本机 frontend/ 与线上的文件哈希(查缓存层有没有刷)
+bash scripts/verify-deploy.sh            # 默认只比文本资产
+bash scripts/verify-deploy.sh --all --api  # 连图片/flags 一起比,并查 /api/health
+
 # 浏览器回归(需要 playwright + chromium)
 node scripts/frontend-state-checks.mjs
 node scripts/finance-chart-browser-checks.mjs
 node scripts/hot-scroll-checks.mjs
 ```
+
+发版后除了看 CI,还要确认「用户真的拿到了新文件」——`scripts/verify-deploy.sh` 逐文件比哈希,不一致就说明 Cloudflare 边缘还缓存着旧版本。
 
 CI(`.github/workflows/ci.yml`)会起一个 Redis、跑上述全部检查、再拉起后端跑冒烟测试。冒烟只断言不依赖第三方外网的端点——热榜和行情要打外网,放进 CI 只会随机变红。
 

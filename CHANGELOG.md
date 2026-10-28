@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `scripts/verify-deploy.sh`:部署后逐文件比对本地 `frontend/` 与线上同名文件的 SHA-256,用于发现 Cloudflare / 浏览器缓存导致的「文件换了但用户拿到的还是旧的」。支持 `--all`(连图片与 flags)与 `--api`(顺带查 `/api/health`),不一致时退出码为 1。
+
+### Fixed
+
+- 源站 nginx 对 js/css 发 `Cache-Control: no-cache`(原规则注释写着「文件名带 hash」,但本项目零构建、文件名不变,1 天缓存会把旧文件钉在 CF 边缘)。
+
 ## v2.1.0 — 2026-10-29
 
 站名统一为 **LiteNav**,页面标题改为「LiteNav轻量导航主页」。
