@@ -955,7 +955,7 @@ body {
 :root[data-fin-color="green-up"] .fin-chg.is-down { color: #e5484d; }
 
 .fin-canvas {
-  display: block; width: 100%; height: 58px;
+  display: block; width: 100%; height: 64px;
   margin-top: 2px;
 }
 .fin-foot {

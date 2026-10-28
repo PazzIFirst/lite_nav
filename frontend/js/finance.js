@@ -98,9 +98,28 @@ function setupCanvas(canvas) {
 }
 const px = (v) => Math.round(v) + 0.5;
 
+
+// 点数远多于像素时,按桶取平均 —— 1000 个点画在 200px 上只会糊成一条粗带
+function thin(points, maxN) {
+  if (!points || points.length <= maxN) return points;
+  const step = points.length / maxN;
+  const out = [];
+  for (let i = 0; i < maxN; i++) {
+    const a = Math.floor(i * step);
+    const b = Math.max(a + 1, Math.floor((i + 1) * step));
+    let sum = 0, n = 0;
+    for (let k = a; k < b && k < points.length; k++) { sum += points[k].p; n++; }
+    out.push({ p: sum / n });
+  }
+  const last = points[points.length - 1];
+  out[out.length - 1] = { p: last.p };   // 末端保持真实值
+  return out;
+}
+
 function drawTrend(canvas, points, prevClose, up, down) {
   const { ctx, w, h } = setupCanvas(canvas);
   if (!points || points.length < 1) return;
+  points = thin(points, Math.max(60, Math.round(w)));
   const vals = points.map(p => p.p).filter(v => v > 0);
   if (!vals.length) return;
   const base = prevClose || vals[0];
@@ -137,7 +156,7 @@ function drawTrend(canvas, points, prevClose, up, down) {
   ctx.fill();
 
   ctx.strokeStyle = col;
-  ctx.lineWidth = 1.6;
+  ctx.lineWidth = 1.4;
   ctx.lineJoin = 'round';
   ctx.beginPath();
   points.forEach((p, i) => (i ? ctx.lineTo(x(i), y(p.p)) : ctx.moveTo(x(i), y(p.p))));
