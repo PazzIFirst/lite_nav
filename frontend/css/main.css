@@ -167,7 +167,7 @@ body {
 
 /* ===== Generic card surface ===== */
 .card,
-.finance-bar,
+.finance-panel,
 .hot-panel {
   background: var(--bg-elev-2);
   border: 1px solid var(--border-subtle);
@@ -869,89 +869,143 @@ body {
 .almanac-yi-label { color: var(--emerald); background: var(--emerald-bg); }
 .almanac-ji-label { color: var(--rose);    background: var(--rose-bg); }
 
-/* ===== Finance ===== */
-.finance-bar {
+/* ===== Finance:三张可配置的 K 线卡 ===== */
+.finance-panel {
   width: 100%;
-  padding: var(--sp-3) var(--sp-4);
-  overflow: hidden;
+  padding: var(--sp-3) var(--sp-4) var(--sp-4);
 }
-.finance-grid {
-  display: flex; flex-wrap: wrap;
-  justify-content: flex-start;
-  gap: var(--sp-1) var(--sp-2);
+.fin-head {
+  display: flex; align-items: baseline; gap: var(--sp-2);
+  margin-bottom: var(--sp-2);
 }
-/* Items grow to fill the row (no side gaps), never shrink below 260px content
-   width (so columns never overlap). Auto-wrap: 3-col wide, 2-col squeezed,
-   1-col phone. Internal 5-col grid is fixed px → values align across items. */
-.finance-item {
-  flex: 1 0 260px;
-  display: grid;
-  grid-template-columns: 62px 24px 56px 50px 36px;
-  align-items: baseline;
-  column-gap: 5px;
-  padding: var(--sp-1) 6px;
-  border-radius: var(--r-md);
-  transition: background-color var(--dur-fast) var(--ease-out);
-}
-.finance-item:hover { background: var(--bg-hover); }
-.fin-label {
-  font-size: var(--fs-xs); color: var(--text-muted);
-  font-weight: 500;
-  white-space: nowrap;
-  letter-spacing: 0.02em;
-  min-width: 0;
-  overflow: hidden; text-overflow: ellipsis;
-}
-.fin-value, .fin-change { min-width: 0; }
-.fin-value {
-  font-size: var(--fs-base); font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum";
-  color: var(--text-primary);
-  white-space: nowrap;
-  letter-spacing: -0.01em;
-}
-.fin-change {
-  font-size: var(--fs-xs);
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum";
-  font-weight: 500;
-  white-space: nowrap;
-}
-.fin-up   { color: var(--emerald); }
-.fin-down { color: var(--rose); }
-.fin-flat { color: var(--text-muted); }
-
-.finance-item-dual { row-gap: 2px; }
-.finance-item-dual .fin-label {
-  grid-row: 1 / 3; align-self: center;
-}
-.fin-pair-tag {
-  grid-column: 2;
-  font-size: var(--fs-2xs);
-  color: var(--text-tertiary);
-  font-weight: 500;
-  white-space: nowrap;
-}
-.fin-mkt {
-  grid-column: 5;
-  font-size: 9px;
-  padding: 2px 6px; border-radius: var(--r-full);
-  font-weight: 600;
-  justify-self: start;
-  white-space: nowrap;
+.fin-head-title {
+  font-size: var(--fs-sm); font-weight: 600;
+  color: var(--text-secondary);
   letter-spacing: 0.04em;
 }
-.fin-mkt-open    { color: var(--emerald); background: var(--emerald-bg); }
-.fin-mkt-delayed { color: var(--amber);   background: var(--amber-bg); }
-.fin-mkt-closed  { color: var(--rose);    background: var(--rose-bg); }
-.finance-note {
-  font-size: var(--fs-2xs);
-  color: var(--text-muted);
-  margin-top: var(--sp-1);
-  text-align: right;
-  opacity: 0.7;
+.fin-head-hint {
+  font-size: var(--fs-2xs); color: var(--text-muted);
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+.fin-tool {
+  border: none; background: transparent;
+  color: var(--text-tertiary);
+  font: inherit; font-size: var(--fs-xs);
+  padding: 3px 8px; border-radius: var(--r-full);
+  cursor: pointer; white-space: nowrap;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.fin-tool:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+.fin-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--sp-2);
+}
+.fin-card {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: var(--sp-2) var(--sp-3) 6px;
+  border-radius: var(--r-lg);
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border-subtle);
+  min-width: 0;
+  transition: background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+.fin-card:hover { border-color: var(--border-strong); }
+.fin-card-head {
+  display: flex; align-items: center; gap: 6px; min-width: 0;
+}
+.fin-card-name {
+  border: none; background: transparent; padding: 0;
+  font: inherit; font-size: var(--fs-xs); font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  min-width: 0; text-align: left;
+}
+.fin-card-name:hover { color: var(--accent); }
+.fin-kind {
+  flex: none;
+  font-size: 9px; line-height: 1;
+  padding: 2px 5px; border-radius: var(--r-full);
+  color: var(--text-tertiary); background: var(--bg-hover);
+  letter-spacing: 0.04em;
+}
+.fin-quote {
+  display: flex; align-items: baseline; gap: 8px;
+  min-width: 0;
+}
+.fin-price {
+  font-size: 19px; font-weight: 700; letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums; font-feature-settings: "tnum";
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+.fin-chg {
+  font-size: var(--fs-xs); font-weight: 600;
+  font-variant-numeric: tabular-nums; font-feature-settings: "tnum";
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.fin-price.is-up, .fin-chg.is-up     { color: #e5484d; }
+.fin-price.is-down, .fin-chg.is-down { color: #30a46c; }
+:root[data-fin-color="green-up"] .fin-price.is-up,
+:root[data-fin-color="green-up"] .fin-chg.is-up { color: #30a46c; }
+:root[data-fin-color="green-up"] .fin-price.is-down,
+:root[data-fin-color="green-up"] .fin-chg.is-down { color: #e5484d; }
+
+.fin-canvas {
+  display: block; width: 100%; height: 58px;
+  margin-top: 2px;
+}
+.fin-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 10px; color: var(--text-muted);
+  min-height: 13px;
+}
+.fin-state.is-live { color: var(--emerald); }
+.fin-state.is-live::before {
+  content: ""; display: inline-block;
+  width: 5px; height: 5px; border-radius: 50%;
+  background: currentColor; margin-right: 4px;
+  vertical-align: 1px;
+}
+
+/* 选标的弹窗:一级标签 + 二级下拉/输入 */
+.fin-tabs {
+  display: flex; gap: 4px; flex-wrap: wrap;
+  margin-bottom: var(--sp-3);
+}
+.fin-tab {
+  border: 1px solid var(--border-subtle); background: transparent;
+  color: var(--text-tertiary); font: inherit; font-size: var(--fs-sm);
+  padding: 5px 12px; border-radius: var(--r-full); cursor: pointer;
+  transition: all var(--dur-fast) var(--ease-out);
+}
+.fin-tab:hover { background: var(--bg-hover); color: var(--text-primary); }
+.fin-tab.is-active {
+  background: var(--accent-bg); color: var(--accent);
+  border-color: transparent; font-weight: 600;
+}
+
+/* 涨跌配色 */
+.fin-color-opts { display: flex; gap: var(--sp-2); }
+.fin-color-opt {
+  flex: 1;
+  display: flex; align-items: center; gap: 8px; justify-content: center;
+  padding: 10px; border-radius: var(--r-md);
+  border: 1px solid var(--border-subtle); background: transparent;
+  color: var(--text-secondary); font: inherit; font-size: var(--fs-sm);
+  cursor: pointer;
+  transition: all var(--dur-fast) var(--ease-out);
+}
+.fin-color-opt:hover { background: var(--bg-hover); }
+.fin-color-opt.is-active { border-color: var(--accent); color: var(--text-primary); background: var(--accent-bg); }
+.fin-color-opt .sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.fin-color-opt .sw-red { background: #e5484d; }
+.fin-color-opt .sw-green { background: #30a46c; }
+
+select.modal-input { appearance: none; cursor: pointer; }
 
 /* ===== Search ===== */
 .search-section {
@@ -1437,7 +1491,7 @@ select.modal-input {
   .card-row { grid-template-columns: minmax(0, 1fr); }
   .card-lunar { grid-column: auto; }
   .weather-card { min-height: 104px; }
-  .finance-item { flex: 1 1 100%; }
+  .fin-grid { grid-template-columns: minmax(0, 1fr); }
   .engine-tabs { gap: 2px; }
   .engine-btn { padding: 5px var(--sp-2); font-size: var(--fs-xs); }
   .info-row { font-size: var(--fs-sm); }
@@ -1454,11 +1508,6 @@ select.modal-input {
   .info-row     { font-size: 15px; }
   .ip-entry, .ip-entry-label, .ip-entry-addr { font-size: 13px; }
   .almanac-row  { font-size: var(--fs-base); }
-  .finance-item { flex: 1 0 326px; grid-template-columns: 84px 28px 74px 64px 44px; }
-  .fin-label    { font-size: var(--fs-sm); }
-  .fin-value    { font-size: 15px; }
-  .fin-change   { font-size: var(--fs-sm); }
-  .finance-note { font-size: var(--fs-xs); }
   .engine-btn   { font-size: var(--fs-md); }
   .search-input { padding: 16px var(--sp-5); font-size: var(--fs-lg); }
   .search-btn svg { width: 22px; height: 22px; }

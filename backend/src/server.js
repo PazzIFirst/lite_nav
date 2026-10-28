@@ -3,6 +3,7 @@ import rateLimit from 'express-rate-limit';
 import redis, { readThreeState, pingRedis } from './redis.js';
 import { startScheduler, stopScheduler } from './scheduler.js';
 import { FINANCE_BUILTIN_FALLBACK } from './sources/finance.js';
+import { getKline, getIntraday, resolveCode, isValidSecid } from './sources/chart.js';
 import { HOT_IDS, HOT_META, HOT_BUILTIN_FALLBACK, refreshHotList, markHotUsed } from './sources/hot.js';
 import { WEATHER_BUILTIN_FALLBACK, coordsKey, refreshWeatherForCity, refreshWeatherForCoords } from './sources/weather.js';
 import { holidayFallback, SUPPORTED_COUNTRIES, refreshHolidayForCountry } from './sources/holiday.js';
@@ -121,6 +122,33 @@ app.get('/api/finance', a(async (req, res) => {
   }
 
   res.json({ data: merged, sources });
+}));
+
+// ===== 行情图表 =====
+// 日 K:最近 N 个交易日;分时:当天逐分钟的价。两者都带「是否在交易时段」。
+app.get('/api/kline', a(async (req, res) => {
+  const secid = String(req.query.secid || '');
+  if (!isValidSecid(secid)) throw new ValidationError('bad secid', 'secid');
+  const days = Math.min(240, Math.max(20, Number(req.query.days) || 60));
+  const out = await getKline(secid, days);
+  res.json(out);
+}));
+
+app.get('/api/intraday', a(async (req, res) => {
+  const secid = String(req.query.secid || '');
+  if (!isValidSecid(secid)) throw new ValidationError('bad secid', 'secid');
+  const out = await getIntraday(secid);
+  res.json(out);
+}));
+
+// 把「市场 + 代码」解析成 secid(A股/港股/美股),顺便回一个规范名
+app.get('/api/symbol', a(async (req, res) => {
+  const market = String(req.query.market || '');
+  const code = String(req.query.code || '');
+  if (!['cn', 'hk', 'us'].includes(market)) throw new ValidationError('bad market', 'market');
+  if (!code) throw new ValidationError('empty code', 'code');
+  const out = await resolveCode(market, code);
+  res.json({ data: out });
 }));
 
 // ===== 热榜 =====

@@ -190,6 +190,41 @@
 </div>
 
 <!-- 分组名编辑弹窗 -->
+<div class="modal-overlay" id="finPickModal">
+  <div class="modal-box" style="width:420px;">
+    <div class="modal-title" id="finPickTitle">选择标的</div>
+    <div class="fin-tabs" id="finTabs"></div>
+    <div class="modal-field" id="finPresetField">
+      <div class="modal-label">标的</div>
+      <select class="modal-input" id="finPreset"></select>
+    </div>
+    <div class="modal-field" id="finCodeField" hidden>
+      <div class="modal-label" id="finCodeLabel">代码</div>
+      <input class="modal-input" id="finCode" autocomplete="off" spellcheck="false" />
+      <div class="modal-hint" id="finCodeHint"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="finPickCancel">取消</button>
+      <button class="btn btn-primary" id="finPickOk">确定</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="finSettingsModal">
+  <div class="modal-box" style="width:360px;">
+    <div class="modal-title">行情设置</div>
+    <div class="modal-label" style="margin-bottom:8px;">涨跌配色</div>
+    <div class="fin-color-opts" id="finColorOpts">
+      <button class="fin-color-opt" type="button" data-mode="red-up"><i class="sw sw-red"></i>红涨绿跌</button>
+      <button class="fin-color-opt" type="button" data-mode="green-up"><i class="sw sw-green"></i>绿涨红跌</button>
+    </div>
+    <div class="modal-hint" style="margin-top:8px;">只影响图表和涨跌数字,不改变数据。</div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" id="finSettingsClose">完成</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="groupModal">
   <div class="modal-box">
     <div class="modal-title" id="groupModalTitle">新增分组</div>
@@ -261,13 +296,17 @@
       </div>
     </div>
 
-    <!-- 金融模块 -->
+    <!-- 金融模块:三张可配置的 K 线卡 -->
     <h2 class="seo-only">实时金融行情</h2>
-    <div class="finance-bar" id="financeBar">
-      <div class="finance-grid" id="financeGrid">
+    <div class="finance-panel" id="financeBar">
+      <div class="fin-head">
+        <span class="fin-head-title">行情</span>
+        <span class="fin-head-hint">点标题换标的 · 收盘看日K,盘中看分时</span>
+        <button class="fin-tool" id="finSettingsBtn" type="button" aria-label="行情设置" title="行情设置">设置</button>
+      </div>
+      <div class="fin-grid" id="financeGrid">
         <div class="hot-panel-loading">行情加载中…</div>
       </div>
-      <div class="finance-note" id="financeNote"></div>
     </div>
 
     <!-- 搜索 -->
