@@ -18,7 +18,7 @@
 
 A self-hostable lightweight navigation homepage tuned for users in mainland China — featuring lunar calendar, almanac, multi-country holidays, live finance & social-media hot lists, plus an RSS reader. Multi-source fallback that never returns empty.
 
-<img src="docs/screenshot.png" alt="lite-nav 界面预览" width="100%">
+<img src="docs/screenshot.png?v=2" alt="lite-nav 界面预览" width="100%">
 
 ---
 

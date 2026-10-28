@@ -3,7 +3,7 @@
 > 自部署轻量级导航主页的后端 — 农历、多国节假日、行情、热榜聚合,多源容灾,**永不返回空**。
 > Self-hostable lightweight nav homepage backend — lunar calendar, multi-country holidays, live finance & hot lists. Multi-source fallback that **never returns empty**.
 
-![lite-nav preview](https://raw.githubusercontent.com/PazzIFirst/lite_nav/main/docs/screenshot.png)
+![lite-nav preview](https://raw.githubusercontent.com/PazzIFirst/lite_nav/main/docs/screenshot.png?v=2)
 
 GitHub: **[PazzIFirst/lite_nav](https://github.com/PazzIFirst/lite_nav)** · License: MIT
 
