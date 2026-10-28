@@ -1,4 +1,4 @@
-// 天气图标 —— 50 套自绘 SVG,覆盖 71 种天气(21 种复用近似档)。
+// 天气图标 —— 42 套自绘 SVG,覆盖 52 种天气(11 条近似复用)。
 //
 // 风格约定(改图标时必须守住,否则一眼看出不是一家人):
 //   · viewBox 统一 0 0 48 48,内容控制在 x/y ∈ [3,45]
@@ -106,27 +106,16 @@ const ICONS = {
     + '<circle class="ic-dust-far" cx="7" cy="40" r="1.6"/>'
     + '<circle class="ic-dust" cx="20" cy="41" r="1.5"/>'),
 
-  /* ── 毛毛雨 (3) ─ 用细颗粒不用长条 ──────────────────────── */
-  '小毛毛雨': svg(cloud() + '<g class="ic-rain"><circle cx="17.6" cy="35.2" r="1.4"/><circle cx="24.4" cy="34.5" r="1.4"/><circle cx="31.4" cy="35.4" r="1.4"/><circle cx="27.6" cy="40.4" r="1.4"/></g>'),
-  '毛毛雨': svg(cloud() + '<g class="ic-rain"><circle cx="16.4" cy="34.8" r="1.4"/><circle cx="22.4" cy="34.8" r="1.4"/><circle cx="28.4" cy="34.8" r="1.4"/><circle cx="34.4" cy="34.8" r="1.4"/><circle cx="19.4" cy="40.2" r="1.4"/><circle cx="25.4" cy="40.2" r="1.4"/><circle cx="31.4" cy="40.2" r="1.4"/></g>'),
-  '浓毛毛雨': svg(cloud() + '<g class="ic-rain"><circle cx="15.2" cy="34.2" r="1.4"/><circle cx="20.6" cy="34.2" r="1.4"/><circle cx="26" cy="34.2" r="1.4"/><circle cx="31.4" cy="34.2" r="1.4"/><circle cx="36.8" cy="34.2" r="1.4"/><circle cx="17.9" cy="38.6" r="1.4"/><circle cx="23.3" cy="38.6" r="1.4"/><circle cx="28.7" cy="38.6" r="1.4"/><circle cx="34.1" cy="38.6" r="1.4"/><circle cx="26" cy="43.2" r="1.4"/><rect x="19.4" y="40.3" width="2.4" height="4.4" rx="1.2" transform="rotate(12 20.6 42.5)"/><rect x="30.2" y="40.3" width="2.4" height="4.4" rx="1.2" transform="rotate(12 31.4 42.5)"/></g>'),
-
   /* ── 冻毛毛雨 (2) ─ 颗粒 + 菱形冰晶 ─────────────────────── */
   '轻冻毛毛雨': svg(cloud() + '<g class="ic-rain"><circle cx="16.5" cy="35.2" r="1.5"/><circle cx="29.5" cy="35.2" r="1.5"/><circle cx="19.8" cy="41.4" r="1.5"/><circle cx="32.8" cy="41.4" r="1.5"/></g><g class="ic-ice"><polygon points="23,32.9 25.3,35.2 23,37.5 20.7,35.2"/><polygon points="36,32.9 38.3,35.2 36,37.5 33.7,35.2"/><polygon points="26.3,39.1 28.6,41.4 26.3,43.7 24,41.4"/></g>'),
   '强冻毛毛雨': svg(cloud() + '<g class="ic-rain"><circle cx="15.5" cy="34.4" r="1.5"/><circle cx="28.5" cy="34.4" r="1.5"/><circle cx="25.3" cy="39" r="1.5"/><circle cx="38.3" cy="39" r="1.5"/><circle cx="22" cy="42.6" r="1.5"/><circle cx="35" cy="42.6" r="1.5"/></g><g class="ic-ice"><polygon points="22,32.1 24.3,34.4 22,36.7 19.7,34.4"/><polygon points="35,32.1 37.3,34.4 35,36.7 32.7,34.4"/><polygon points="18.8,36.7 21.1,39 18.8,41.3 16.5,39"/><polygon points="31.8,36.7 34.1,39 31.8,41.3 29.5,39"/><polygon points="28.5,40.3 30.8,42.6 28.5,44.9 26.2,42.6"/></g>'),
 
-  /* ── 稳定性降雨 (6) ─ 根数/长度/粗细/倾角 四维同时递进 ──── */
-  '小雨': svg(cloud() + '<g class="ic-rain"><rect x="17.4" y="33" width="2.2" height="6.5" rx="1.1" transform="rotate(8 18.5 36.25)"/><rect x="24.4" y="33" width="2.2" height="6.5" rx="1.1" transform="rotate(8 25.5 36.25)"/><rect x="31.4" y="33" width="2.2" height="6.5" rx="1.1" transform="rotate(8 32.5 36.25)"/></g>'),
-  '中雨': svg(cloud() + '<g class="ic-rain"><rect x="15.35" y="32.7" width="2.5" height="8.5" rx="1.25" transform="rotate(12 16.6 36.95)"/><rect x="21.55" y="32.7" width="2.5" height="8.5" rx="1.25" transform="rotate(12 22.8 36.95)"/><rect x="27.75" y="32.7" width="2.5" height="8.5" rx="1.25" transform="rotate(12 29 36.95)"/><rect x="33.95" y="32.7" width="2.5" height="8.5" rx="1.25" transform="rotate(12 35.2 36.95)"/></g>'),
-  '大雨': svg(cloud() + '<g class="ic-rain"><rect x="14" y="32.2" width="2.8" height="10.5" rx="1.4" transform="rotate(16 15.4 37.45)"/><rect x="19.5" y="32.2" width="2.8" height="10.5" rx="1.4" transform="rotate(16 20.9 37.45)"/><rect x="25" y="32.2" width="2.8" height="10.5" rx="1.4" transform="rotate(16 26.4 37.45)"/><rect x="30.5" y="32.2" width="2.8" height="10.5" rx="1.4" transform="rotate(16 31.9 37.45)"/><rect x="36" y="32.2" width="2.8" height="10.5" rx="1.4" transform="rotate(16 37.4 37.45)"/></g>'),
-  '暴雨': svg(cloud('ic-cloud-dark') + '<g class="ic-rain"><rect x="12.1" y="32.1" width="3" height="11.5" rx="1.5" transform="rotate(19 13.6 37.85)"/><rect x="17.3" y="32.1" width="3" height="11.5" rx="1.5" transform="rotate(19 18.8 37.85)"/><rect x="22.5" y="32.1" width="3" height="11.5" rx="1.5" transform="rotate(19 24 37.85)"/><rect x="27.7" y="32.1" width="3" height="11.5" rx="1.5" transform="rotate(19 29.2 37.85)"/><rect x="32.9" y="32.1" width="3" height="11.5" rx="1.5" transform="rotate(19 34.4 37.85)"/><rect x="38.1" y="32.1" width="3" height="11.5" rx="1.5" transform="rotate(19 39.6 37.85)"/></g>'),
-  '大暴雨': svg(cloud('ic-cloud-dark') + '<g class="ic-rain"><rect x="10.45" y="31.75" width="3.1" height="12.5" rx="1.55" transform="rotate(21 12 38)"/><rect x="15.25" y="31.75" width="3.1" height="12.5" rx="1.55" transform="rotate(21 16.8 38)"/><rect x="20.05" y="31.75" width="3.1" height="12.5" rx="1.55" transform="rotate(21 21.6 38)"/><rect x="24.85" y="31.75" width="3.1" height="12.5" rx="1.55" transform="rotate(21 26.4 38)"/><rect x="29.65" y="31.75" width="3.1" height="12.5" rx="1.55" transform="rotate(21 31.2 38)"/><rect x="34.45" y="31.75" width="3.1" height="12.5" rx="1.55" transform="rotate(21 36 38)"/><rect x="39.25" y="31.75" width="3.1" height="12.5" rx="1.55" transform="rotate(21 40.8 38)"/></g>'),
-  '特大暴雨': svg(cloud('ic-cloud-dark') + '<g class="ic-rain"><rect x="7.6" y="31.35" width="3.2" height="13.5" rx="1.6" transform="rotate(24 9.2 38.1)"/><rect x="12.1" y="31.35" width="3.2" height="13.5" rx="1.6" transform="rotate(24 13.7 38.1)"/><rect x="16.6" y="31.35" width="3.2" height="13.5" rx="1.6" transform="rotate(24 18.2 38.1)"/><rect x="21.1" y="31.35" width="3.2" height="13.5" rx="1.6" transform="rotate(24 22.7 38.1)"/><rect x="25.6" y="31.35" width="3.2" height="13.5" rx="1.6" transform="rotate(24 27.2 38.1)"/><rect x="30.1" y="31.35" width="3.2" height="13.5" rx="1.6" transform="rotate(24 31.7 38.1)"/><rect x="34.6" y="31.35" width="3.2" height="13.5" rx="1.6" transform="rotate(24 36.2 38.1)"/><rect x="39.1" y="31.35" width="3.2" height="13.5" rx="1.6" transform="rotate(24 40.7 38.1)"/></g>'),
-
-  /* ── 阵雨 (3) ─ 对流雨:更少更长更斜,且长短不齐 ─────────── */
-  '小阵雨': svg(cloud() + '<g class="ic-rain"><rect x="17.2" y="32.25" width="2.6" height="6.5" rx="1.3" transform="rotate(22 18.5 35.5)"/><rect x="24.7" y="32.2" width="2.6" height="10" rx="1.3" transform="rotate(22 26 37.2)"/><rect x="31.7" y="32.3" width="2.6" height="7" rx="1.3" transform="rotate(22 33 35.8)"/></g>'),
-  '阵雨': svg(cloud() + '<g class="ic-rain"><rect x="14.35" y="32.25" width="2.9" height="7.5" rx="1.45" transform="rotate(24 15.8 36)"/><rect x="20.95" y="32" width="2.9" height="12" rx="1.45" transform="rotate(24 22.4 38)"/><rect x="27.55" y="32.15" width="2.9" height="8.5" rx="1.45" transform="rotate(24 29 36.4)"/><rect x="34.15" y="32.1" width="2.9" height="11" rx="1.45" transform="rotate(24 35.6 37.6)"/></g>'),
-  '强阵雨': svg(cloud() + '<g class="ic-rain"><rect x="11.9" y="32.1" width="3.2" height="9" rx="1.6" transform="rotate(27 13.5 36.6)"/><rect x="18.1" y="31.25" width="3.2" height="13.5" rx="1.6" transform="rotate(27 19.7 38)"/><rect x="24.3" y="31.9" width="3.2" height="10" rx="1.6" transform="rotate(27 25.9 36.9)"/><rect x="30.5" y="31.3" width="3.2" height="13" rx="1.6" transform="rotate(27 32.1 37.8)"/><rect x="36.7" y="32.05" width="3.2" height="8.5" rx="1.6" transform="rotate(27 38.3 36.3)"/></g>'),
+  /* ── 降雨 (4) ─ 只留四档,视觉上移一档:小雨=原中雨、中雨=原暴雨、
+     大雨=原大暴雨、暴雨=原特大暴雨。其余雨名由 fallbackKey 归并 ─────── */
+  '小雨': svg(cloud() + '<g class="ic-rain"><rect x="15.35" y="32.7" width="2.5" height="8.5" rx="1.25" transform="rotate(12 16.6 36.95)"/><rect x="21.55" y="32.7" width="2.5" height="8.5" rx="1.25" transform="rotate(12 22.8 36.95)"/><rect x="27.75" y="32.7" width="2.5" height="8.5" rx="1.25" transform="rotate(12 29 36.95)"/><rect x="33.95" y="32.7" width="2.5" height="8.5" rx="1.25" transform="rotate(12 35.2 36.95)"/></g>'),
+  '中雨': svg(cloud('ic-cloud-dark') + '<g class="ic-rain"><rect x="12.1" y="32.1" width="3" height="11.5" rx="1.5" transform="rotate(19 13.6 37.85)"/><rect x="17.3" y="32.1" width="3" height="11.5" rx="1.5" transform="rotate(19 18.8 37.85)"/><rect x="22.5" y="32.1" width="3" height="11.5" rx="1.5" transform="rotate(19 24 37.85)"/><rect x="27.7" y="32.1" width="3" height="11.5" rx="1.5" transform="rotate(19 29.2 37.85)"/><rect x="32.9" y="32.1" width="3" height="11.5" rx="1.5" transform="rotate(19 34.4 37.85)"/><rect x="38.1" y="32.1" width="3" height="11.5" rx="1.5" transform="rotate(19 39.6 37.85)"/></g>'),
+  '大雨': svg(cloud('ic-cloud-dark') + '<g class="ic-rain"><rect x="10.45" y="31.75" width="3.1" height="12.5" rx="1.55" transform="rotate(21 12 38)"/><rect x="15.25" y="31.75" width="3.1" height="12.5" rx="1.55" transform="rotate(21 16.8 38)"/><rect x="20.05" y="31.75" width="3.1" height="12.5" rx="1.55" transform="rotate(21 21.6 38)"/><rect x="24.85" y="31.75" width="3.1" height="12.5" rx="1.55" transform="rotate(21 26.4 38)"/><rect x="29.65" y="31.75" width="3.1" height="12.5" rx="1.55" transform="rotate(21 31.2 38)"/><rect x="34.45" y="31.75" width="3.1" height="12.5" rx="1.55" transform="rotate(21 36 38)"/><rect x="39.25" y="31.75" width="3.1" height="12.5" rx="1.55" transform="rotate(21 40.8 38)"/></g>'),
+  '暴雨': svg(cloud('ic-cloud-dark') + '<g class="ic-rain"><rect x="7.6" y="31.35" width="3.2" height="13.5" rx="1.6" transform="rotate(24 9.2 38.1)"/><rect x="12.1" y="31.35" width="3.2" height="13.5" rx="1.6" transform="rotate(24 13.7 38.1)"/><rect x="16.6" y="31.35" width="3.2" height="13.5" rx="1.6" transform="rotate(24 18.2 38.1)"/><rect x="21.1" y="31.35" width="3.2" height="13.5" rx="1.6" transform="rotate(24 22.7 38.1)"/><rect x="25.6" y="31.35" width="3.2" height="13.5" rx="1.6" transform="rotate(24 27.2 38.1)"/><rect x="30.1" y="31.35" width="3.2" height="13.5" rx="1.6" transform="rotate(24 31.7 38.1)"/><rect x="34.6" y="31.35" width="3.2" height="13.5" rx="1.6" transform="rotate(24 36.2 38.1)"/><rect x="39.1" y="31.35" width="3.2" height="13.5" rx="1.6" transform="rotate(24 40.7 38.1)"/></g>'),
 
   /* ── 冻雨 (2) ─ 雨丝近垂直,配冰晶 ───────────────────────── */
   '轻冻雨': svg(cloud() + '<rect class="ic-rain" x="16.5" y="33" width="3" height="8" rx="1.5"/><rect class="ic-rain" x="28.5" y="33" width="3" height="8" rx="1.5"/><polygon class="ic-ice" points="24,38.6 26.6,41.8 24,45 21.4,41.8"/>'),
@@ -170,16 +159,12 @@ const ICONS = {
 // 要么是 wttr.in 才有的覆盖度限定词(「零星」「附近有」「间歇性」)——
 // 都没必要单独画图,并到对应基础档才是正确的本地化。
 const ALIAS = {
-  '小到中雨': '中雨', '中到大雨': '大雨', '大到暴雨': '暴雨',
-  '暴雨到大暴雨': '大暴雨', '大暴雨到特大暴雨': '特大暴雨',
   '小到中雪': '中雪', '中到大雪': '大雪', '大到暴雪': '暴雪',
   '零星小毛毛雨': '小毛毛雨', '附近有零星冻毛毛雨': '轻冻毛毛雨',
-  '附近有零星降雨': '小雨', '零星小雨': '小雨',
-  '间歇性中雨': '中雨', '间歇性大雨': '大雨',
   '附近有零星雨夹雪': '小雨夹雪',
   '附近有零星降雪': '小雪', '零星小雪': '小雪',
   '零星中雪': '中雪', '零星大雪': '大雪',
-  '雨': '中雨', '雪': '中雪',
+  '雪': '中雪',
 };
 
 export const WX_ICONS = ICONS;

@@ -95,12 +95,12 @@ function paintWeatherCard(temp, condition, city, tooltip) {
   // 卡片上用短名(约 92px 放不下「附近有零星冻毛毛雨」这种),
   // 完整名称仍在 tooltip 里,信息不丢
   wxNameEl.textContent = condition ? displayName(condition) : '--';
-  // 背景族 16 个,按强度分档(rain-1…rain-5 等),查不到就落回默认玻璃底
+  // 背景族 15 个,按强度分档(rain-1…4 等),查不到就落回默认玻璃底
   wxCard.dataset.bg = resolveBgKey(condition) || 'unknown';
   wxCard.classList.toggle('has-more', multi);   // 控制城市名旁的小箭头显隐
   wxCard.title = (tooltip ? tooltip + '\n\n' : '')
     + (multi ? '点城市名切换城市 · ' : '') + '点卡片设置天气城市';
-  // 动效按「完整天气名」查预设(71 种各一套),不是按 8 个大组 ——
+  // 动效按「完整天气名」查预设(52 种各一套),不是按 8 个大组 ——
   // 大组粒度下小雨和特大暴雨长得一模一样,这正是之前「雨没区别」的原因
   renderWeatherFx(document.getElementById('wxFx'), condition);
   renderWeatherIcon(document.getElementById('wxIcon'), condition);

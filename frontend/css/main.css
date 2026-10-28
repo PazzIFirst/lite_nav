@@ -383,7 +383,7 @@ body {
   outline-offset: 2px;
 }
 
-/* ===== 卡片背景:16 个族,覆盖 71 种天气 =====
+/* ===== 卡片背景:15 个族,覆盖 52 种天气 =====
    映射表在 js/weather-fx.js 的 BG。降水按强度分档,底色由浅入深,
    和动效的强度阶梯同向 —— 雨越大,粒子越密,底色也越沉。
    对比度全部实算(WCAG 相对亮度),最差一档对 --text-primary 仍有
@@ -411,11 +411,10 @@ body {
 .weather-card[data-bg="haze"]     { background: linear-gradient(145deg, #f7f5f0 0%, #dcd2c4 100%); }
 .weather-card[data-bg="dust-1"]   { background: linear-gradient(145deg, #f8f1e1 0%, #e8d4b5 100%); }
 .weather-card[data-bg="dust-2"]   { background: linear-gradient(145deg, #f7e4d0 0%, #e8c3a1 100%); }
-.weather-card[data-bg="rain-1"]   { background: linear-gradient(145deg, #f6fafe 0%, #dceaf8 100%); }
-.weather-card[data-bg="rain-2"]   { background: linear-gradient(145deg, #f2f8fd 0%, #d3e4f7 100%); }
-.weather-card[data-bg="rain-3"]   { background: linear-gradient(145deg, #ecf5fd 0%, #cadff7 100%); }
-.weather-card[data-bg="rain-4"]   { background: linear-gradient(145deg, #e7f2fd 0%, #c2d8f7 100%); }
-.weather-card[data-bg="rain-5"]   { background: linear-gradient(145deg, #dbecfc 0%, #b5caf9 100%); }
+.weather-card[data-bg="rain-1"]   { background: linear-gradient(145deg, #f2f8fd 0%, #d3e4f7 100%); }
+.weather-card[data-bg="rain-2"]   { background: linear-gradient(145deg, #e7f2fd 0%, #c2d8f7 100%); }
+.weather-card[data-bg="rain-3"]   { background: linear-gradient(145deg, #dbecfc 0%, #b5caf9 100%); }
+.weather-card[data-bg="rain-4"]   { background: linear-gradient(145deg, #d3e6fc 0%, #a9c3f7 100%); }
 .weather-card[data-bg="freeze"]   { background: linear-gradient(145deg, #dde5f3 0%, #b6c5de 100%); }
 .weather-card[data-bg="snow-1"]   { background: linear-gradient(145deg, #e3edf6 0%, #c2d3e6 100%); }
 .weather-card[data-bg="snow-2"]   { background: linear-gradient(145deg, #d5e3f0 0%, #a8c0d8 100%); }
@@ -426,7 +425,7 @@ body {
    卡片是「天」,跟着页面一起变暗就不是天了。深色主题只换页面外围。 */
 
 /* ===== 天气卡动效层 =====
-   参数表在 js/weather-fx.js,71 种天气各一套。这里只定义粒子长什么样。
+   参数表在 js/weather-fx.js,52 种天气各一套。这里只定义粒子长什么样。
 
    三条铁律:
    1. @keyframes 里只允许出现 transform / opacity。宽高、位置、blur 全在
