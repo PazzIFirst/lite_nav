@@ -1,599 +1,339 @@
 # lite-nav
 
-> 轻量级个人/团队导航主页:农历、多国节假日、实时行情、热榜聚合
-> 多源容灾,永不返回空。自部署 / 内网 / 本地皆可。
+自托管的个人起始页:今日信息、天气、行情、热榜与 RSS 订阅。
+前端零构建(原生 ES Modules + Canvas),后端只做「抓取 + 缓存 + 多源兜底」;首屏静态资源 gzip 约 86 KB。
 
-**在线演示:[litenav.info](https://litenav.info)**
+项目地址:[github.com/PazzIFirst/lite_nav](https://github.com/PazzIFirst/lite_nav)
 
-[![Live](https://img.shields.io/badge/Live-litenav.info-4c8bf5)](https://litenav.info)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/github/v/release/PazzIFirst/lite_nav.svg)](https://github.com/PazzIFirst/lite_nav/releases)
-[![Docker Image](https://github.com/PazzIFirst/lite_nav/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/PazzIFirst/lite_nav/actions/workflows/docker-publish.yml)
-[![Docker Pulls](https://img.shields.io/docker/pulls/pazzifirst/lite-nav-backend.svg)](https://hub.docker.com/r/pazzifirst/lite-nav-backend)
-![Backend: Node.js 20](https://img.shields.io/badge/Backend-Node.js%2020-339933)
-![Frontend: Vanilla ES Modules](https://img.shields.io/badge/Frontend-Vanilla%20ES%20Modules-orange)
-![Cache: Redis](https://img.shields.io/badge/Cache-Redis-DC382D)
-
-一个符合中国大陆用户使用习惯的轻量级导航主页。无外部前端框架、单文件前端;后端可选(放弃后端会失去多源 fallback、缓存与跨设备一致性,但仍可单文件本地用)。
-
-A self-hostable lightweight navigation homepage tuned for users in mainland China — featuring lunar calendar, almanac, multi-country holidays, live finance & social-media hot lists. Multi-source fallback that never returns empty.
-
-<img src="docs/screenshot.png" alt="lite-nav 界面预览" width="100%">
+![首页](docs/screenshot.png)
 
 ---
 
-## 系统要求
+## 功能
 
-| 项 | 最低 | 推荐 |
-|---|---|---|
-| CPU | 1 vCPU | 1 vCPU |
-| 内存 | 512 MB | 1 GB |
-| 磁盘 | 5 GB | 10 GB |
-| 操作系统 | 任意装得上 Docker 的 Linux 发行版 | Ubuntu 22.04+ / Debian 12+ |
-| Docker | Docker Engine 24+,Compose v2 | 同 |
-| 网络 | 任意 | 服务器在境外(东京/新加坡/美西等)直连境外 API 更顺畅 |
+### 今日
 
-**实际运行占用(三个容器空闲态)**:
+- 公历 / 农历 / 老黄历(宜忌),全部按**北京时间**计算,跨日与切回标签页会重新对齐
+- 距周末、距下个月、距下一个节日
+- 多国节假日(默认预热常用国家,其余按需拉取)
 
-```
-nav-backend         约 120 MB RAM
-Redis               约  30 MB RAM
-OpenResty           约  30 MB RAM
-合计                约 180 MB RAM,CPU < 1%
-```
+### 天气
 
-**镜像体积**:nav-backend ≈ 250 MB(Node 20-alpine + 依赖 + 构建时打包的节假日数据)。
-**带宽**:单个用户首次访问约 80 KB(HTML + 几个 API);定时任务每 30 秒自拉一次行情(< 5 KB)。
+- 自动识别访客 IP 定位,另可自定义两个城市
+- 国内 446 个城市优先走**中国天气网**(数据源为国家气象局),境外走 Open-Meteo;都带备用源兜底
+- 28 种天气各有独立的 Canvas 动效与自绘 SVG 图标(晴 / 云 / 雨 / 雪 / 冻雨 / 雾 / 沙尘 / 雷),图标与动效一一对应
 
----
+### 行情
 
-## 核心特性
+三张可配置的卡片,点卡片任意位置换标的。
 
-### 信息聚合
+- **选标的**:货币 13 组、股指 27 个(分「中国 / 港股 / 美股 / 亚太 / 欧洲 / 其他」),A股 / 港股 / 美股直接输代码,后端解析成 `secid` 并带回规范名
+- **图表**:只画一个交易日——盘中按完整交易时段绘制当天分时(未发生的时段留白,午休压缩),收盘显示最近一个交易日
+- **可读性**:点数抽稀到像素级,再做 7 点滑动平均,只保留当天的大形状;报价与涨跌幅始终用真实值
+- **配色**:红涨绿跌(默认)/ 绿涨红跌,在「页面设置」里切
+- **刷新**:30 秒轮询,只重画盘中卡片;收盘卡每 10 分钟兜底刷一次
 
-- **公历 + 农历 + 节气 + 老黄历** — 含干支纪年、生肖、宜忌(取前 5)、神位(喜/财/福)、黄黑道、彭祖百忌、纳音、冲煞;鼠标悬停查看详情
-- **行情分时卡** — 三个槽位任配:货币 / 股指走预设下拉,A股 / 港股 / 美股直接输代码;每张卡只画一个交易日——盘中实时续画当天分时,收盘则显示上一个交易日的全天走势;涨跌配色可切红涨绿跌 / 绿涨红跌
-- **天气** — 自动检测 IP 城市 + 两个用户自定义城市;**国内 446 城**优先用国家气象局数据(中雨准确显示,不再"晴"反差)
-- **国内外双 IP** — 同时显示访客的国内出口 IP 和国外出口 IP,适合用代理的用户校验
-- **22 个热榜任选** — 页面右上角齿轮进「热榜设置」,四个槽位(左上/左下/右上/右下)各自下拉选榜,可留空
-- **10 搜索引擎** — 百度 / Google / Bing / 知乎 / Yandex / Bilibili / YouTube / GitHub / X / DuckDuckGo / npm,带联想 + 历史
-- **RSS 订阅** — 25 个预设源(中文科技 / 社区 / 海外科技 / 新闻)任选,可勾选多个,也可贴任意 RSS / Atom 地址;条目按各源发布时间混排
-- **倒计时** — 距周末 / 距月初
+### 热榜
 
-### 工程亮点
+- 22 个源任选,四个槽位(左上 / 左下 / 右上 / 右下)各自下拉选择,可留空
+- 服务端每 5 分钟刷新并缓存,前端 5 分钟轮询
+- 侧栏高于视口时跟随页面滚动,到下沿停靠,反向滚动立即回移
 
-| 亮点 | 实现 |
-|---|---|
-| 永不返回空 | 每类数据 3-6 层 fallback;最坏情况返回 lastgood 缓存或内置兜底 |
-| 三态读取 | `fresh` / `stale` / `fallback` 在响应里明确标记,前端展示状态 |
-| 每条数据带数据源 | 鼠标悬停看到 "数据源: 东方财富 · 更新: 30 秒前 · 状态: 新鲜" |
-| 多源并行合并 | 行情数据并行调东方财富 + 新浪 + 腾讯,每个数据点独立选最优源 |
-| stale-while-revalidate | 旧数据立即返回,后台异步刷新 |
-| 农历完全离线 | `lunar-javascript` 纯算法,无外网依赖,2030 年仍可用 |
-| 节假日 5 层 fallback | 在线 API 至 CDN 至**镜像内打包**(2026-2030) 至 npm 离线包 至 算法推算关键节日 至 内置 |
-| 0 SQL 依赖 | 用户偏好走 localStorage,共享数据走 Redis |
+### 订阅(RSS)
 
----
+- **49 个预设源**分 7 组:中文科技 / 社区 / 海外科技 / 中文新闻 / 国际新闻 / 开发与工程 / AI 与开源;也可贴任意 RSS / Atom 地址(添加时先试抓一次)
+- **跨源交错**:每个源内部保持时间顺序,跨源交错后最多连续两篇来自同一源——一条高频源不会把整列刷满
+- **图文阅读**:列表自带缩略图与摘要,可「展开阅读」在页内读正文,或点原文跳转
+- **续读**:接近底部自动加载下一批,角标显示还剩多少篇
+- 单源缓存 10 分钟,15 分钟自动刷新,可手动刷新
 
-## 快速开始
+### 搜索
 
-### 部署步骤(以 1Panel 为例,5 分钟)
+- 多引擎切换(百度 / Google / Bing / 知乎 / Yandex / Bilibili / YouTube / GitHub / X / DuckDuckGo / npm)
+- 本地搜索历史;输入联想可在设置里关掉
 
-```bash
-# 1. 克隆
-git clone https://github.com/PazzIFirst/lite_nav.git
-cd lite_nav
+### 页面设置
 
-# 2. 配置后端
-cp backend/docker-compose.yml.example backend/docker-compose.yml
-# 编辑 backend/docker-compose.yml,改 REDIS_HOST / REDIS_PASSWORD
-# 模板已设 TRUST_PROXY=1：仅信任前面的一个 Nginx/OpenResty，保留 127.0.0.1 端口绑定
-# 注意:1Panel 的 Redis 容器名通常是 1Panel-redis-XXXX,网络是 1panel-network
+右上角齿轮,三段设置共用同一套「保存 / 取消 / 恢复默认 / 遮罩 / Esc」语义:
 
-# 3. 起后端(默认 pull 预构建镜像,无需本地 build)
-cd backend
-docker compose up -d
-# 想改源码自己 build → 编辑 docker-compose.yml,把 image: 注释掉,改用 build: .
-# 看日志确认 OK
-docker logs nav-backend --tail 20
+1. 热榜槽位
+2. 搜索词联想开关
+3. 行情涨跌配色
 
-# 4. 在 1Panel UI 创建网站(类型选「静态」),申请 Let's Encrypt SSL
-
-# 5. 部署前端 + 注入反代配置(把 nav.example.com 换成你的域名)
-cd ../deploy
-sudo bash deploy-after-1panel-site.sh nav.example.com
-# 脚本会自动检测 OpenResty 容器名;如未识别可显式指定:
-# sudo bash deploy-after-1panel-site.sh nav.example.com 1Panel-openresty-XXXX
-```
-
-预构建镜像在 Docker Hub:[`pazzifirst/lite-nav-backend`](https://hub.docker.com/r/pazzifirst/lite-nav-backend)
-支持架构:`linux/amd64` + `linux/arm64`(树莓派、Apple Silicon 等也能跑)
-更新到最新版:`docker compose pull && docker compose up -d`
-
-模板的 `TRUST_PROXY=1` 与 `127.0.0.1:3000:3000` 配套使用：前面只有一层本机 Nginx/OpenResty 反代时，后端才能用真实访客 IP 定位和限流。不要设为 `true`；若直接对外暴露后端，应取消代理信任。多层代理须根据实际网络配置精确信任范围。
-
-### 部署步骤(普通 Nginx / Caddy)
-
-不用 1Panel,改用普通 Nginx:
-
-```bash
-# 1-3 同上
-
-# 4. 把整个 frontend 目录复制到网站根(包含 css/js/flags/robots.txt/sitemap.xml)
-sudo cp -r frontend/* /var/www/html/
-
-# 5. 在 Nginx 站点配置里追加 location /api/(参考 deploy/openresty-api-snippet.conf.example)
-location /api/ {
-    proxy_pass http://127.0.0.1:3000;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-}
-
-# 6. reload
-sudo nginx -s reload
-```
-
-### 套 Cloudflare 橙云代理(可选,推荐)
-
-免费拿到 CDN 加速、DDoS 防护、免费 SSL、隐藏源站 IP,且**前后端仍同源** —— `/api/*` 零配置,前端一行不用改。
-
-> **不建议用 Cloudflare Pages 托管前端。** Pages 是纯静态托管,没有反代,`/api/*` 得额外写 Pages Functions 转发回你的服务器 —— 多一跳延迟、多一份代理代码要维护,还要受 Functions 请求配额约束(前端行情 30 秒轮询一次,**单个常开标签页约 3200+ 次/天**)。既然已经有服务器,橙云代理是更简单也更快的选择。
->
-> 至于把后端本身搬上 Workers:`express` / `ioredis` / `node-cron` / `node:fs` / `iconv-lite`(新浪腾讯行情是 GB18030 编码)五处都依赖 Node 运行时,等于重写整个后端,不在本项目支持范围内。
-
-```bash
-# 1. 域名 NS 指向 Cloudflare(在 CF 添加站点后按提示改注册商的 NS)
-
-# 2. CF DNS 里加 A 记录指向你的服务器公网 IP,代理状态选「已代理」(橙色云朵)
-
-# 3. SSL/TLS 加密模式选「完全(严格)」
-#    源站需有有效证书 —— 1Panel 申请的 Let's Encrypt 即可
-#    切勿选「灵活」:CF 到源站会走明文 HTTP,且源站 443 已有证书时会造成重定向循环
-
-# 4. 关键:让源站还原访客真实 IP
-sudo cp deploy/cloudflare-realip.conf.example /path/to/openresty/conf/cloudflare-realip.conf
-#    在站点 server 块里 include 它,然后 reload
-```
-
-**必须做的两步,漏了会出问题:**
-
-| 步骤 | 漏了的后果 |
-|---|---|
-| include `cloudflare-realip.conf` | 源站只看到 CF 边缘节点 IP → `/api/ip` 显示错误位置;**限流退化成全体访客共用一个桶** |
-| 后端 `TRUST_PROXY=1` | 同上 —— OpenResty 仍以反代身份转发给 nav-backend |
-
-`cloudflare-realip.conf.example` 用 `set_real_ip_from` 限定只有来自 CF 网段的 `CF-Connecting-IP` 头才作数。**不要图省事直接写 `proxy_set_header X-Forwarded-For $http_cf_connecting_ip`** —— 那等于无条件信任一个客户端可伪造的头,源站 IP 一旦泄露(历史 DNS 记录、邮件头、证书透明日志都可能泄),攻击者可绕过 CF 直连源站伪造该头,污染 `/api/ip` 并把限流键刷成任意值绕过限流。
-
-验证是否生效:
-
-```bash
-# 从外网访问一次,再看后端日志里的 IP 是不是你的真实出口 IP
-curl -s https://your-domain/api/ip | python3 -m json.tool
-# visitor_ip 应为你的公网 IP,而不是 104.x / 172.64.x 等 CF 网段地址
-```
-
-**CF 网段变动怎么办**:CF 官方提供机器可读的网段公示 —— `cloudflare.com/ips-v4`、`ips-v6`(纯文本),以及 `api.cloudflare.com/client/v4/ips`(JSON,带 `etag` 可用于检测变更)。仓库提供了自动刷新脚本:
-
-```bash
-sudo cp deploy/cf-realip-update.sh /usr/local/sbin/cf-realip-update && sudo chmod +x $_
-sudo cp deploy/cf-realip-update.timer.example   /etc/systemd/system/cf-realip-update.timer
-sudo cp deploy/cf-realip-update.service.example /etc/systemd/system/cf-realip-update.service
-sudo systemctl daemon-reload && sudo systemctl enable --now cf-realip-update.timer
-DRY_RUN=1 sudo /usr/local/sbin/cf-realip-update    # 预演,不改任何文件
-```
-
-脚本带三层保护:拉取失败 → 不动现有配置;响应残缺(网段数低于合理下限)→ 拒绝覆盖;写入后 `nginx -t` 不通过 → 自动回滚。**宁可用旧列表,也不能用残缺列表覆盖** —— 后者会把大量 CF 节点踢出白名单。
-
-白名单不全时的失效方向是**朝安全侧倒的**:未知来源的 `CF-Connecting-IP` 不被采信,后果是这部分访客共用一个限流桶(可能偶发 429),而不是让谁能伪造 IP。定时器设为每天一次,把空窗期压在 24h 内。
-
-#### 顺手切断「源站 IP → 域名」的关联(可选)
-
-套了 CF 之后源站 IP 仍然直接暴露在公网,而且**源站会主动告诉任何连上来的人它服务哪个域名** —— TLS 握手时发出的证书里就带着 SAN。Shodan / Censys 这类服务持续扫描全网并把这个映射建成索引,于是「搜域名反查源站 IP」是自动化、无门槛的。
-
-注意**不能在 HTTP 层按 Host 拦**:证书在 TLS 握手阶段就发出去了,而 Host 头要到下一步的 HTTP 请求才可见,扫描器压根不发 HTTP 请求。必须用 `default_server` 兜住所有不带正确 SNI 的连接:
-
-```bash
-sudo cp deploy/nginx-default-deny.conf.example /etc/nginx/sites-available/00-default-deny
-# 按文件头部注释生成自签证书,然后 enable + reload
-```
-
-CF 回源时带 SNI,命中正常站点块,不受影响。效果边界见该文件注释 —— 它挡的是无差别全网扫描,挡不住「已知域名逐个 IP 验证」。
-
-### 本地试用
-
-前端用 ES Modules,**不能** `file://` 双击打开(浏览器 CORS 限制)。要本地试用,起一个简单 HTTP server:
-
-```bash
-cd frontend
-python3 -m http.server 8080
-# 浏览器打开 http://localhost:8080
-```
-
-无后端时前端会因 `/api/*` 调用失败而退化(农历/老黄历/行情/热榜/天气/订阅看不到),搜索与距周末倒计时仍可用。
-
-要正常用,后端必须跑起来。
+另有深色 / 浅色主题切换,偏好只存在本机。
 
 ---
 
 ## 架构
 
 ```
-浏览器
-  | HTTPS
-  v
-反代 (OpenResty / Nginx / Caddy)
-  +-- /              -->  frontend/index.html  静态文件
-  +-- /api/*         -->  127.0.0.1:3000  (nav-backend Docker 容器)
-                            |
-                            +-- node-cron 定时任务
-                            |     - 行情每 30s
-                            |     - 热榜每 5min
-                            |     - 节假日每天 03:00
-                            |     - 今日(农历)每天 00:01
-                            |
-                            +-- 三方 API
-                            |     - 东方财富 / 新浪 / 腾讯(行情)
-                            |     - Open-Meteo / wttr.in / 中国天气网(天气)
-                            |     - Nager.Date / date-holidays / timor.tech(节假日)
-                            |     - 知乎 / 微博 / 百度 / 抖音 / B站官方(热榜)
-                            |     - 百度 / Google / Bing(搜索联想)
-                            |
-                            +-- Redis (cache: + lastgood: 双键)
+浏览器(静态前端,零构建)
+   │  /api/*
+   ▼
+Nginx / OpenResty(静态站点 + 反代,可选 Cloudflare 橙云)
+   │  127.0.0.1:3000
+   ▼
+Express(Node 20)─┬─ 定时任务:热榜 5min / 节假日每日 03:00
+                 ├─ 抓取层:超时、限体积、主备链、单源冷却
+                 └─ Redis:cache:<key>(热数据,带 TTL)+ lastgood:<key>(兜底,长 TTL)
 ```
+
+**三个刻意的设计:**
+
+- **前端零构建**。没有打包器、没有框架、没有 node_modules,改一行 CSS 刷新即生效。代价是不能用 JSX/TS,换来的是一年后再打开还能看懂。
+- **Redis 双键**。`cache:` 是热数据(TTL 到期即失效),`lastgood:` 是最后一次成功的结果。上游挂了仍然有内容可显示,只是会带上「不是最新的」标记。
+- **按市场选源,而不是排队重试**。腾讯、Yahoo、新浪覆盖的市场不一样,排队等超时只会让每次请求都慢 6 秒。所以按标的类型直接选主源,失败才换下一个。
 
 ---
 
-## 数据源清单
+## 快速开始(本地)
 
-### 节假日
+需要 Node 20+ 与 Redis。
 
-| 国家 | 主源 | 备 1 | 备 2 | 离线兜底 |
-|---|---|---|---|---|
-| CN | timor.tech | NateScarlet/holiday-cn (CDN) | **镜像内打包**(2026-2030,有数据的年份) | 算法推算(春节/端午/中秋等农历日) + 内置 |
-| US/GB/DE/JP/FR/KR/CA/AU/SG/IN/IT/ES/RU/BR/NL/CH/TH/MY/NZ | Nager.Date API | date-holidays npm(完全离线) | — | — |
+```bash
+# 1. Redis
+docker run -d --name lite-nav-redis -p 6379:6379 redis:7-alpine
 
-所有非中文节日名经过手工翻译(覆盖联邦/州/邦级 700+ 条目,如 `Truman Day` → 杜鲁门日(密苏里州)、`Vesak Day` → 卫塞节)。
+# 2. 后端
+cd backend
+npm ci
+PORT=3000 REDIS_HOST=127.0.0.1 TZ=Asia/Shanghai node src/server.js
 
-### 农历 / 老黄历
+# 3. 前端(另开一个终端)
+python3 -m http.server 8099 --directory frontend
+```
 
-- `lunar-javascript`(纯算法,寿星天文历)
-- 100% 离线,无任何外网依赖
+打开 `http://localhost:8099` 只能看到布局:前端要求 `/api` 与页面同源,`http.server` 不做转发。
+要看真实数据,把 `frontend/` 交给 Nginx 托管、按 `deploy/openresty-api-snippet.conf.example` 反代 `/api`,或者直接按下一节的 Docker 方式部署。
 
-### 金融
+---
 
-三张卡各自记一个 `secid`(东财口径),数据按市场分源 —— 每个源覆盖的市场不一样,排队试会白等超时:
+## 部署
 
-| 市场 | 主 | 备 1 | 备 2 |
-|---|---|---|---|
-| A 股 / 港股 | 腾讯(`sh600519` / `hk00700`) | 东方财富 | Yahoo |
-| 美股 | Yahoo(`AAPL`) | 腾讯 | 东方财富 |
-| 全球指数 | Yahoo(`^HSI` / `^NDX` / `^GSPC` …) | 东方财富 | — |
-| 外汇 | 新浪外汇日线 | 东方财富 | Yahoo(`USDCNH=X`) |
+### Docker Compose(推荐)
 
-- **分时**:东财 `trends2` → 腾讯 `minute` → Yahoo 1 分钟线,按市场选序;少于 5 个点视为该源没数据。收盘后拿到的是上一个交易日的全天数据
-- **东财熔断**:它对突发请求会直接断 TLS(实测连发十几次就封),所以只当备源,失败后冷却 10 分钟
-- **代码解析**:`/api/symbol` 先用东财搜索接口拿规范名与 `secid`,失败再按 6 位/5 位/字母规则兜底
+```bash
+cp backend/docker-compose.yml.example backend/docker-compose.yml
+# 改 REDIS_HOST / REDIS_PASSWORD,再起:
+docker compose -f backend/docker-compose.yml up -d
+docker compose -f backend/docker-compose.yml logs -f    # 看到 [server] listening 即成功
+```
 
-### 天气
+模板默认拉取 Docker Hub 上的预构建镜像(`pazzifirst/lite-nav-backend:latest`);要改源码就注释掉 `image:`,改用 `build: .`。
 
-| 城市类型 | 主 | 备 1 | 备 2 |
-|---|---|---|---|
-| 国内城市(446 内置 cityCode,覆盖全国地级市 + 主要县级) | 中国天气网 (itboy 镜像) | Open-Meteo | wttr.in |
-| 国外城市 | Open-Meteo | wttr.in | — |
+镜像本身只绑 `127.0.0.1:3000`,对外一律走反代。
 
-### 热榜
+### 1Panel
 
-共 22 个榜单,前端四个槽位任选(默认知乎/微博/百度/B 站)。
+```bash
+git clone <repo> && cd lite-nav
+cp backend/docker-compose.yml.example backend/docker-compose.yml
+# 1Panel 的 Redis 容器名通常形如 1Panel-redis-XXXX,网络是 1panel-network,按实际情况改
 
-| 分类 | 榜单 | 数据源 |
-|---|---|---|
-| 社交热搜 | 知乎 | 知乎官方接口 + NewsNow 镜像兜底(见下) |
-| | 微博 | 微博官方接口 |
-| | 百度 | 百度官方接口 |
-| | B 站 | B 站官方 API ×2 |
-| | 抖音 | 抖音官方接口 |
-| 新闻资讯 | 今日头条、腾讯新闻、网易新闻、新浪新闻、百度贴吧 | 各家官方接口 |
-| 科技数码 | IT之家、虎嗅、爱范儿、Solidot | RSS |
-| | 少数派 | 少数派 RSS |
-| 开发者 | V2EX、稀土掘金、51CTO、HelloGitHub | 各家官方接口 |
-| | Hacker News | 官方 API(topstories + 逐条取标题) |
-| 其他 | 豆瓣热门电影、微信读书飙升 | 各家官方接口 |
+# 在 1Panel 里创建「静态」网站 + 申请 Let's Encrypt 证书后:
+sudo bash deploy/deploy-after-1panel-site.sh nav.example.com
+```
 
-**选源门槛**:站方官方接口、官方 RSS 优先。第三方聚合/镜像只在官方接口对机房 IP 有风控时作备源,且注释里写清是谁的实例;个人站点的「自用 / 仅供测试」型接口不纳入 —— 稳定性不可控,且多半带 QPS 限制与鉴权变更。需要这类源可 fork 后在 `HOT_CATALOG` 里自行添加,结构与其余项相同。
+脚本会自动找 OpenResty 容器名并注入反代配置;识别不到时可显式传第二个参数。
 
-**为什么知乎要挂镜像**:知乎的移动端热榜接口对机房 IP 有风控,服务器上大量返回 `403 系统监测到您的网络环境存在异常`,而浏览器里正常。所以知乎走「官方接口 → NewsNow 镜像」两级;其余榜单的官方接口在服务器上直连即可。微博、抖音的接口要求带 `Referer`,不带时微博回 403、抖音回 200 但空 body。
+### 普通 Nginx / Caddy
 
-**2026-10 的教训**:此前知乎/微博/百度/抖音全靠 BA9、VVHAN 两家聚合,两家的源同时死掉(VVHAN 的 `api` 子域 NXDOMAIN,BA9 换了证书、口径全改、接口一律 404),四个榜单一起空白,而站方官方接口都是好的。聚合器可以当备源,不能当主源。
+把 `frontend/` 整个目录(含 `css/js/flags/robots.txt/sitemap.xml`)放到网站根,再追加反代片段:
 
-榜单目录由后端 `/api/hot/catalog` 下发,前端下拉框直接据此生成,不会和后端脱节。
+```nginx
+include /path/to/deploy/openresty-api-snippet.conf.example;
+```
 
-**刷新策略**:cron 定时刷「默认四榜 + 近 1 小时被访问过的榜」;冷门榜由 `/api/hot/:id` 缓存缺失时按需拉取(带 in-flight 去重),避免 22 个榜全量轮询。
+### Cloudflare 橙云(可选)
+
+源站会暴露真实 IP,橙云代理后必须让 Nginx 还原访客 IP,否则 `/api/ip` 显示的是 CF 节点,限流也会按 CF 节点算。
+
+```bash
+# 1. CF 后台 DNS 加 A 记录,代理状态选「已代理」;SSL/TLS 模式选「完全(严格)」
+#    切勿选「灵活」:CF→源站走明文,源站 443 有证书时会无限重定向
+# 2. 站点配置 include 真实 IP 片段(只信任 CF 网段的 CF-Connecting-IP)
+include /path/to/deploy/cloudflare-realip.conf.example;
+# 3. 用 systemd timer 每天刷新 CF 网段白名单(见 deploy/cf-realip-update.*)
+```
+
+`deploy/nginx-default-deny.conf.example` 用于切断「源站 IP → 域名」的自动关联(扫描器靠证书 SAN 建索引),按需启用。
 
 ---
 
 ## 配置
 
-### 后端环境变量(`backend/docker-compose.yml`)
-
-#### 必需
+### 后端环境变量
 
 | 变量 | 默认 | 说明 |
 |---|---|---|
-| `PORT` | 3000 | 后端监听端口 |
-| `HOST` | 0.0.0.0 | 监听 host(可改 127.0.0.1 仅本地) |
-| `REDIS_HOST` | redis | Redis 主机/容器名 |
-| `REDIS_PORT` | 6379 | Redis 端口 |
-| `REDIS_PASSWORD` | (无) | Redis 密码 |
-| `TZ` | Asia/Shanghai | 时区 |
+| `PORT` | `3000` | 监听端口 |
+| `HOST` | `0.0.0.0` | 监听地址 |
+| `TZ` | 系统时区 | **建议显式设 `Asia/Shanghai`**,定时任务按它跑 |
+| `REDIS_HOST` | `127.0.0.1` | Redis 主机 |
+| `REDIS_PORT` | `6379` | Redis 端口 |
+| `REDIS_PASSWORD` | 空 | Redis 密码 |
+| `TRUST_PROXY` | 空 | 信任的反代跳数;仅本机反代用 `1`,**不要用 `true`** |
+| `CORS_ORIGIN` | 空 | 需要跨域时白名单,同源部署不用填 |
+| `RATE_LIMIT_PER_MIN` | `120` | `/api/*` 每分钟每 IP 上限 |
+| `REFRESH_LIMIT_PER_MIN` | `5` | 手动刷新接口的独立限流 |
+| `REFRESH_TOKEN` | 空 | 手动刷新接口的 token;不设则接口关闭 |
+| `FETCH_MAX_BODY_BYTES` | `2 MiB` | 第三方响应体上限 |
+| `DYNAMIC_LASTGOOD_TTL_SEC` | 30 天 | 用户输入类数据(自定义 RSS / 任意证券)的兜底缓存时长 |
+| `PACKED_HOLIDAY_DIR` | 空 | 打包节假日数据目录 |
 
-#### 可选(安全 / 限流)
+`TRUST_PROXY` 说明:它决定 `X-Forwarded-For` 里取第几跳当访客 IP。填 `true` 等同于无条件信任客户端可伪造的头,限流与 `/api/ip` 都会被绕过。
 
-| 变量 | 默认 | 说明 |
-|---|---|---|
-| `TRUST_PROXY` | 空（Compose 模板为 `1`） | 本机反代场景仅信任最近一跳；必须同时保持后端端口仅绑定本机，直连部署不设 |
-| `CORS_ORIGIN` | 空 | 逗号分隔的允许 origin。同域反代不需要;跨域才填 |
-| `RATE_LIMIT_PER_MIN` | 120 | `/api/*` 全局限流 |
-| `REFRESH_LIMIT_PER_MIN` | 5 | `/api/hot/x/refresh` 单独限流 |
-| `REFRESH_TOKEN` | 空(接口禁用) | 配置后 POST 刷新接口需带 `X-Refresh-Token` 头 |
+### 前端本地存储(浏览器内,无需配置)
 
-#### 可选(缓存 / 抓取)
-
-| 变量 | 默认 | 说明 |
-|---|---|---|
-| `DYNAMIC_LASTGOOD_TTL_SEC` | 2592000 | 天气等动态 key 的 lastgood TTL(30 天) |
-| `FETCH_MAX_BODY_BYTES` | 2097152 | 第三方响应最大 body(2MB) |
-| `PACKED_HOLIDAY_DIR` | /app/data/holiday-cn | 容器内节假日数据路径 |
-
-### 前端用户偏好(浏览器 localStorage,无需配置)
-
-| Key | 含义 |
+| key | 内容 |
 |---|---|
+| `theme` | 深色 / 浅色 |
 | `wxCity1` / `wxCity2` | 自定义天气城市 |
-| `searchHistory` | 搜索历史(最多 10 条) |
+| `hotSlots` | 四个热榜槽位 |
+| `searchHistory` | 搜索历史 |
+| `nav.fin.slots` / `nav.fin.color` | 三张行情卡与涨跌配色 |
 | `nav.rss.feeds` | 勾选的订阅源 |
-| `hotSlots` | 四个热榜槽位的榜单 id,顺序为 左上/左下/右上/右下,空串表示不显示 |
-
-清掉 localStorage 即恢复默认。
+| `nav.search.suggestions` | 搜索词联想开关 |
 
 ---
 
-## 二次开发
+## API
 
-### 目录结构
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/api/health` | 健康检查 + 缓存状态 |
+| GET | `/api/today` | 公历 / 农历 / 黄历 / 倒计时 |
+| GET | `/api/weather?city=` 或 `?lat=&lon=` | 天气 |
+| GET | `/api/ip` | 访客国内 / 国外出口 IP |
+| GET | `/api/hot/catalog` | 热榜源清单 |
+| GET | `/api/hot/:id` | 单个热榜 |
+| POST | `/api/hot/:id/refresh` | 强制刷新(需 `x-refresh-token`) |
+| GET | `/api/holidays/countries` | 支持的节假日国家 |
+| GET | `/api/holidays?country=&year=` | 节假日 |
+| GET | `/api/intraday?secid=` | 当日分时(行情卡用) |
+| GET | `/api/symbol?market=&code=` | 证券代码解析 |
+| POST | `/api/rss` | 批量抓取订阅,`{ urls: [...] }`,返回混排后的条目 |
+| GET | `/api/rss/feed?url=` | 单个订阅源校验 |
+| GET | `/api/favicon?domain=` | favicon 代理 |
+| GET | `/api/suggest?q=` | 搜索联想 |
+
+统一响应形态:`{ data, source, source_label, fetched_at }`;错误为 `{ error }` + 4xx/5xx。
+
+---
+
+## 数据源与缓存
+
+| 数据 | 主 | 备 | 缓存 |
+|---|---|---|---|
+| 农历 / 黄历 | `lunar-javascript`(纯算法) | — | 进程内 |
+| 节假日 | `date-holidays` + 打包数据 | 多源合并 | 7 天 |
+| 天气(按城市名) | 中国天气网 | Open-Meteo → wttr.in | 30 分钟 |
+| 天气(按经纬度) | Open-Meteo | wttr.in | 30 分钟 |
+| 热榜 | 各站官方接口 | 上轮缓存 | 5 分钟 |
+| 行情分时(A股/港股) | 腾讯 | 东财 | 盘中 30s / 盘后 5min |
+| 行情分时(美股/指数/外汇) | Yahoo | 腾讯 / 东财 / 新浪 | 同上 |
+| 订阅源 | 各自 RSS / Atom | 上轮缓存 | 10 分钟 |
+| favicon | 站点自身 | 上轮缓存 | 进程内 LRU |
+
+**关于东财**:它的接口字段最全,但对突发请求会直接断 TLS(实测连发十几次就被封),所以只当备源,失败后冷却 10 分钟。
+
+**关于动态 key**:用户输入的地址(自定义 RSS、任意证券代码)产生的缓存走 `lastgood:` 且带 TTL,避免无限增长。
+
+---
+
+## 目录结构
 
 ```
 lite-nav/
-+-- README.md
-+-- LICENSE                 # MIT
-+-- CHANGELOG.md
-+-- .gitignore
-+-- frontend/                       # 静态资源(零构建,ES Modules)
-|   +-- index.html                  # 骨架 + SEO meta + JSON-LD,约 200 行
-|   +-- robots.txt
-|   +-- sitemap.xml
-|   +-- css/
-|   |   +-- main.css                # 全部样式
-|   +-- js/                         # ES Modules,浏览器原生 import
-|   |   +-- api.js                  # fetchT / apiGet / srcTooltip / safeHttpUrl / copyToClipboard
-|   |   +-- search.js               # 10 引擎 + 历史 + 联想
-|   |   +-- today.js                # 公历/北京时间 + 距周末月初 + 农历 + 老黄历
-|   |   +-- ip-weather.js           # IP 检测 + 天气联动 + 天气弹窗
-|   |   +-- finance.js              # 三张行情 K 线卡(选标的/分时/日K/配色)
-|   |   +-- hot.js                  # 热榜面板
-|   |   +-- rss.js                  # RSS 订阅(预设/自定义源 + 混排)
-|   |   +-- main.js                 # 入口,串联各模块 + Page Visibility 轮询
-|   +-- flags/                      # 20 国本地国旗 PNG
-+-- backend/
-|   +-- Dockerfile
-|   +-- docker-compose.yml.example
-|   +-- package.json
-|   +-- src/
-|       +-- server.js               # Express 路由
-|       +-- scheduler.js            # node-cron 定时任务
-|       +-- redis.js                # 三态读写封装
-|       +-- fetcher.js              # 主备链 + runAndCache
-|       +-- safe.js / validators.js # 输出清洗 + 输入校验
-|       +-- sources/
-|           +-- finance.js          # 行情图表:日K + 分时(腾讯/Yahoo/新浪,东财备用)
-|           +-- hot.js              # 热榜
-|           +-- weather.js          # 天气(中国天气网 + Open-Meteo + wttr)
-|           +-- data/cn-cities.json # 446 城 cityCode
-|           +-- holiday.js          # 多国节假日 + 5 层 fallback
-|           +-- holiday-i18n.js     # 翻译 loader
-|           +-- i18n/               # 21 个 JSON: common + 20 国
-|           +-- today.js            # 农历 / 节气 / 老黄历
-|           +-- suggest.js          # 搜索联想
-|           +-- ip.js               # /api/ip 备用代理
-+-- deploy/
-|   +-- openresty-api-snippet.conf.example
-|   +-- cloudflare-realip.conf.example   # 套 CF 橙云时还原访客真实 IP
-|   +-- nginx-default-deny.conf.example  # 切断「源站 IP → 域名」的自动关联
-|   +-- cf-realip-update.sh              # 自动刷新 CF 网段白名单(带回滚保护)
-|   +-- cf-realip-update.timer.example   # 配套 systemd timer(每天)
-|   +-- cf-realip-update.service.example
-|   +-- deploy-after-1panel-site.sh
-+-- docs/
-|   +-- screenshot.png
-|   +-- dockerhub-overview.md       # Docker Hub Overview 同步源
-+-- .github/workflows/
-    +-- docker-publish.yml          # 自动构建 + 推 Docker Hub
-    +-- dockerhub-description.yml   # 同步 overview 到 Docker Hub
+├── backend/
+│   ├── Dockerfile
+│   ├── docker-compose.yml.example
+│   └── src/
+│       ├── server.js            # 路由 + 错误处理 + 限流
+│       ├── scheduler.js         # 定时任务(热榜/节假日)
+│       ├── fetcher.js           # 带超时与体积上限的抓取
+│       ├── redis.js             # cache:/lastgood: 双键读写
+│       ├── rss-network.js       # RSS 出网策略(IP 分类、逐跳校验)
+│       ├── safe.js / validators.js
+│       └── sources/             # 每个数据源一个模块
+│           ├── chart.js         # 行情:分时抓取 / 交易时段 / 代码解析
+│           ├── rss.js           # 订阅抓取与解析
+│           ├── rss-parser.js
+│           ├── hot.js weather.js holiday.js today.js ip.js suggest.js
+│           └── data/ i18n/
+├── frontend/                    # 纯静态,零构建
+│   ├── index.html
+│   ├── css/main.css             # design tokens + 全部样式
+│   └── js/
+│       ├── main.js              # 初始化与轮询调度
+│       ├── finance.js finance-chart.js
+│       ├── rss.js rss-content.js rss-flow.js rss-presets.js
+│       ├── hot.js sidebar-scroll.js
+│       ├── today.js ip-weather.js search.js
+│       ├── weather-fx.js weather-icons.js
+│       └── api.js
+├── scripts/                     # 检查脚本(见下)
+├── deploy/                      # Nginx / Cloudflare 部署片段
+├── docs/                        # 设计文档与截图
+└── .github/workflows/           # CI(检查 + 镜像发布)
 ```
-
-### 加新国家(节假日)
-
-1. 在 `backend/src/sources/holiday.js` 的 `SUPPORTED_COUNTRIES` 数组加一行
-2. 在 `backend/src/sources/i18n/` 下新建 `<code>.json`(小写国家代码),内容是 `{ "原文": "中文", ... }`
-3. 重启容器(`docker compose restart` 即可,无需 rebuild,JSON 是运行时加载)
-
-### 改翻译
-
-直接编辑 `backend/src/sources/i18n/<code>.json`,加 / 改键值对,`docker compose restart` 即生效。
-
-### 加新数据源
-
-每个 source 是一个返回 `Promise<data | null>` 的函数。失败抛错或返回 `null` 即可,主备链会自动 fall through。模板:
-
-```js
-async function fromMyApi(/* args */) {
-  const r = await fetchT('https://...', { timeout: 5000 });
-  const d = await r.json();
-  if (!d?.expected_field) return null;
-  return /* normalized data */;
-}
-```
-
-### 自己发布到 Docker Hub(可选,Fork 后想推自己的镜像时)
-
-仓库自带 GitHub Actions workflow `.github/workflows/docker-publish.yml`,默认在以下情况触发:
-
-- 推 `main` 分支(且 `backend/` 有改动)→ 发布 `:latest`
-- 推 `v*` 标签(如 `git tag v1.0.0 && git push --tags`)→ 同时发布 `:latest` `:1.0.0` `:1.0`
-- 在 Actions 页面手动点 Run workflow
-
-需要配置两个 secret(GitHub repo Settings → Secrets and variables → Actions → New repository secret):
-
-| Secret | 值 |
-|---|---|
-| `DOCKERHUB_USERNAME` | 你的 Docker Hub 用户名 |
-| `DOCKERHUB_TOKEN` | Docker Hub Access Token([这里生成](https://hub.docker.com/settings/security)) |
-
-镜像仓库会推到 `<你的 DOCKERHUB_USERNAME>/lite-nav-backend`。配置好后,`docker-compose.yml.example` 里的 `image: pazzifirst/lite-nav-backend:latest` 改成你自己的用户名即可。
-
-### 改前端
-
-`frontend/` 是 ES Modules 模块化结构,改完直接 cp 覆盖部署目录:
-
-```bash
-sudo cp -r frontend/* /opt/1panel/apps/openresty/openresty/www/sites/<your-domain>/index/
-```
-
-各模块职责清晰(见上方目录结构),改 IP 检测就只动 `js/ip-weather.js`,改行情就只动 `js/finance.js`,不会误触别处。无需重启任何服务,浏览器 Ctrl+F5 即生效。
-
-### SEO
-
-- `<head>` 含完整 Open Graph / Twitter Card / 结构化数据(Schema.org `WebApplication` JSON-LD)
-- `frontend/robots.txt` 允许爬虫;`frontend/sitemap.xml` 列出主页
-- 项目卖点通过 `<header class="seo-only">` 写入 HTML 静态部分,对爬虫可见但视觉隐藏
-- 若你部署到自己的域名,记得修改 `index.html` 内的 `og:url` / `canonical` / `og:image` 和 `robots.txt` 内的 sitemap URL
 
 ---
 
-## FAQ
+## 质量控制
 
-**Q: 为什么没有数据库?**
-
-A: 用户偏好(导航分组、搜索历史等)走浏览器 localStorage,共享数据(行情、热榜)走 Redis。引入 SQL 没有任何收益。
-
-**Q: 我的服务器在境外,某些国内 API 是不是会拿不到数据?**
-
-A: 后端已尽量挑可访问性好的源(东方财富、Nager.Date 都全球可达)。如果某条 API 在你境外服务器上 DNS 解析失败,fallback 链自然跳到下一家。境外服务器实测全功能可用。
-
-**Q: 怎么改默认订阅源?**
-
-A: 改 `frontend/js/rss-presets.js` 里的 `DEFAULT_FEEDS`;预设清单在同文件的 `PRESETS`。已有用户的浏览器仍读 localStorage,清掉 `nav.rss.feeds` 才会看到新默认。
-
-**Q: 怎么不让某个数据源被用?**
-
-A: 在 `backend/src/sources/<x>.js` 里把对应 source 从数组里删掉/注释掉。
-
-**Q: 黄金为什么是 ¥/克?**
-
-A: 东方财富 AU9999 是上海金交所现货,单位 ¥/克(不是 USD/盎司)。中国用户更熟悉这个价位。如要切到 COMEX 国际金价,改 secid 为 `100.GC00Y`。
-
-**Q: 节假日怎么知道是 2030 年也准?**
-
-A: 算法层用 `lunar-javascript` 推算春节/端午/中秋等农历节日的公历日期(永远准),不准的部分是**调休** —— 那个由国务院前一年公告,任何方案都做不到提前 5 年;但你能算出"距 2030 年春节多少天"。
-
-**Q: 我的城市不在 446 里怎么办?**
-
-A: 自动 fallthrough 到 Open-Meteo,功能不丢失,只是国内小县/区天气精度略低。也欢迎 PR 补 cityCode。
-
----
-
-## 本地回归检查
-
-先在 `backend/` 执行 `npm ci`，然后回到仓库根目录：
+本地跑检查(CI 用同一条命令):
 
 ```bash
-node scripts/static-checks.mjs
-node scripts/rss-content-checks.mjs
-node scripts/rss-flow-checks.mjs
-node scripts/rss-security-checks.mjs
+node scripts/static-checks.mjs                       # 语法 + import 解析 + DOM id 契约
+node scripts/rss-content-checks.mjs                  # RSS 正文白名单重建
+node scripts/rss-flow-checks.mjs                     # 跨源交错规则
+node scripts/rss-security-checks.mjs                 # SSRF / 内网地址拦截
+
+# 下面几个用 vm.SourceTextModule 模拟模块加载,必须带这个 flag
 node --experimental-vm-modules scripts/review-core-checks.mjs
 node --experimental-vm-modules scripts/review-data-checks.mjs
 node --experimental-vm-modules scripts/intraday-session-checks.mjs
 node scripts/finance-chart-checks.mjs
-```
 
-浏览器回归使用锁定的 Playwright 开发依赖，所有业务接口均为测试数据，不依赖运行中的后端：
-
-```bash
-(cd backend && npx playwright install chromium)
-export PLAYWRIGHT_MODULE="$(pwd)/backend/node_modules/playwright/index.mjs"
+# 浏览器回归(需要 playwright + chromium)
 node scripts/frontend-state-checks.mjs
 node scripts/finance-chart-browser-checks.mjs
 node scripts/hot-scroll-checks.mjs
 ```
 
-如使用现有 Chromium，可额外设置 `PLAYWRIGHT_CHROMIUM_EXECUTABLE`。运行中的后端可用 `BASE=http://127.0.0.1:3000 node scripts/smoke-test.mjs` 检查。上述回归已接入 CI，浏览器检查不生成截图或二进制仓库文件。
-
-## 已有 Redis 缓存迁移
-
-旧版本把 RSS/图表 lastgood 当作永久键。升级后新写入具有 TTL；已有实例应在使用同一组 Redis 环境变量的情况下执行一次：
-
-```bash
-node scripts/cache-ttl-migrate.mjs
-```
-
-脚本只给原本没有过期时间的 `lastgood:weather:*`、`lastgood:rss:*`、`lastgood:chart:*` 补上 TTL（默认 30 天，可由 `DYNAMIC_LASTGOOD_TTL_SEC` 指定），不删除内容、不修改已有 TTL，也不处理其他命名空间。可以重复执行。
+CI(`.github/workflows/ci.yml`)会起一个 Redis、跑上述全部检查、再拉起后端跑冒烟测试。冒烟只断言不依赖第三方外网的端点——热榜和行情要打外网,放进 CI 只会随机变红。
 
 ---
 
-## 贡献
+## 常见问题
 
-欢迎 PR。特别欢迎:
+**Q: 为什么前端不用框架?**
 
-- 补全 `holiday-i18n.js` 的小语种节日翻译
-- 加更多国家的节假日(目前 20 国)
-- 修各种数据源拼写/字段变化
-- 补 `weather.js` 的 cityCode 表(覆盖更多县/区)
+A: 这个站 90% 的复杂度在数据和缓存策略上,不在 UI。零构建让"改一行刷新就行"成立,也避免了几年后回来还要处理工具链。
 
-PR 前请:
+**Q: 为什么行情/热榜要服务端代理?**
 
-1. 确保后端 `docker compose up -d --build` 不报错
-2. 确保前端 `index.html` 在浏览器里能正常加载(F12 看控制台无错误)
+A: 三个原因:浏览器直连会被 CORS 和反爬挡住;服务端能缓存,避免每个访客都打一次第三方;失败时还能拿 `lastgood` 兜底。
 
----
+**Q: 行情卡为什么只能看一个交易日?**
 
-## License
+A: 卡片宽度只有 200px 左右,60 根日 K 在这个尺寸下只能看个大概趋势;当天分时反而能把"今天怎么走的"说清楚。
 
-[MIT](LICENSE)
+**Q: 订阅为什么不是纯时间排序?**
 
-本项目使用 MIT 协议:可自由使用、修改、分发、商用,无需开源衍生作品,仅需保留版权声明。
+A: 纯时间排序会让高频源(比如 IT之家)占满整列。现在的规则是每个源内部保序、跨源交错、最多连续两篇同源,既保留时间感,又保证每个源都露脸。
 
----
+**Q: 上游全挂了会怎样?**
 
-## 鸣谢
+A: 有 `lastgood` 的内容会照样显示(标注非最新),没有的会显示空状态。前端不会因为一个源失败就整块白屏。
 
-数据源:
+**Q: 怎么加一个新的热榜 / 订阅源?**
 
-- [东方财富](https://www.eastmoney.com/) / [新浪财经](https://finance.sina.com.cn/) / [腾讯财经](https://qq.com) — 行情
-- [Frankfurter](https://www.frankfurter.app/) / [ExchangeRate-API](https://www.exchangerate-api.com/) — 汇率
-- [Open-Meteo](https://open-meteo.com/) / [wttr.in](https://wttr.in) / [中国天气网](http://www.weather.com.cn) — 天气
-- [timor.tech](https://timor.tech/) / [NateScarlet/holiday-cn](https://github.com/NateScarlet/holiday-cn) / [Nager.Date](https://date.nager.at/) — 节假日
-- 知乎 / 微博 / 百度 / 抖音 / B 站官方接口 — 热榜
-- [NewsNow](https://github.com/ourongxing/newsnow) 的公开实例 — 知乎热榜在机房 IP 被风控时的兜底
-- [Memoyu/ChinaWeatherCityCode-JSON](https://github.com/Memoyu/ChinaWeatherCityCode-JSON) — 中国天气网 cityCode 数据集
-
-库:
-
-- [lunar-javascript](https://github.com/6tail/lunar-javascript) — 农历/节气/老黄历(MIT)
-- [date-holidays](https://github.com/commenthol/date-holidays) — 多国节假日(ISC)
-- [express](https://expressjs.com/) / [ioredis](https://github.com/redis/ioredis) / [node-cron](https://github.com/node-cron/node-cron) / [iconv-lite](https://github.com/ashtuchkin/iconv-lite)
+A: 热榜加在 `backend/src/sources/hot.js` 的源表;订阅预设加在 `frontend/js/rss-presets.js`(用户也可以直接贴地址,不必进预设)。
 
 ---
 
-如果这个项目对你有用,欢迎 Star。
+## 许可
+
+见 [LICENSE](LICENSE)。
