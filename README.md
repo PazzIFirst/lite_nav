@@ -3,7 +3,7 @@
 自托管的个人起始页:今日信息、天气、行情、热榜与 RSS 订阅。
 前端零构建(原生 ES Modules + Canvas),后端只做「抓取 + 缓存 + 多源兜底」;首屏静态资源 gzip 约 86 KB。
 
-项目地址:[github.com/PazzIFirst/lite_nav](https://github.com/PazzIFirst/lite_nav)
+项目网址:[litenav.info](https://litenav.info)
 
 ![首页](docs/screenshot.png)
 
