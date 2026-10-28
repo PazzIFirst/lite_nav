@@ -1,0 +1,199 @@
+{
+  "checkedAt": "2026-10-29 Asia/Hong_Kong",
+  "host": "Debian1",
+  "method": "Fetch with 12s timeout and 2MB limit, then parse RSS/Atom. Included sources also verified through /api/rss/feed?refresh=1. Availability is a point-in-time result.",
+  "added": [
+    {
+      "group": "中文新闻",
+      "name": "中新网·即时",
+      "url": "https://www.chinanews.com.cn/rss/scroll-news.xml",
+      "count": 30,
+      "checkedAt": "2026-10-28T21:41:08.720Z"
+    },
+    {
+      "group": "中文新闻",
+      "name": "中新网·财经",
+      "url": "https://www.chinanews.com.cn/rss/finance.xml",
+      "count": 30,
+      "checkedAt": "2026-10-28T21:41:08.743Z"
+    },
+    {
+      "group": "中文新闻",
+      "name": "RFI 中文",
+      "url": "https://www.rfi.fr/cn/rss",
+      "count": 30,
+      "checkedAt": "2026-10-28T21:41:09.087Z"
+    },
+    {
+      "group": "中文新闻",
+      "name": "FT 中文网",
+      "url": "https://www.ftchinese.com/rss/feed",
+      "count": 20,
+      "checkedAt": "2026-10-28T21:41:09.234Z"
+    },
+    {
+      "group": "中文新闻",
+      "name": "联合国新闻",
+      "url": "https://news.un.org/feed/subscribe/zh/news/all/rss.xml",
+      "count": 30,
+      "checkedAt": "2026-10-28T21:41:09.310Z"
+    },
+    {
+      "group": "国际新闻",
+      "name": "The Guardian",
+      "url": "https://www.theguardian.com/world/rss",
+      "count": 40,
+      "checkedAt": "2026-10-28T21:41:09.465Z"
+    },
+    {
+      "group": "海外科技",
+      "name": "BBC Technology",
+      "url": "https://feeds.bbci.co.uk/news/technology/rss.xml",
+      "count": 20,
+      "checkedAt": "2026-10-28T21:41:09.555Z"
+    },
+    {
+      "group": "国际新闻",
+      "name": "Al Jazeera",
+      "url": "https://www.aljazeera.com/xml/rss/all.xml",
+      "count": 25,
+      "checkedAt": "2026-10-28T21:41:09.630Z"
+    },
+    {
+      "group": "国际新闻",
+      "name": "France 24",
+      "url": "https://www.france24.com/en/rss",
+      "count": 24,
+      "checkedAt": "2026-10-28T21:41:09.634Z"
+    },
+    {
+      "group": "国际新闻",
+      "name": "NPR News",
+      "url": "https://feeds.npr.org/1001/rss.xml",
+      "count": 10,
+      "checkedAt": "2026-10-28T21:41:09.841Z"
+    },
+    {
+      "group": "开发与工程",
+      "name": "Rust Blog",
+      "url": "https://blog.rust-lang.org/feed.xml",
+      "count": 10,
+      "checkedAt": "2026-10-28T21:41:09.969Z"
+    },
+    {
+      "group": "中文新闻",
+      "name": "德国之声中文",
+      "url": "https://rss.dw.com/rdf/rss-chi-all",
+      "count": 40,
+      "checkedAt": "2026-10-28T21:41:10.002Z"
+    },
+    {
+      "group": "开发与工程",
+      "name": "Kubernetes",
+      "url": "https://kubernetes.io/feed.xml",
+      "count": 40,
+      "checkedAt": "2026-10-28T21:41:10.271Z"
+    },
+    {
+      "group": "开发与工程",
+      "name": "Go Blog",
+      "url": "https://go.dev/blog/feed.atom",
+      "count": 10,
+      "checkedAt": "2026-10-28T21:41:10.560Z"
+    },
+    {
+      "group": "开发与工程",
+      "name": "Docker Blog",
+      "url": "https://www.docker.com/blog/feed/",
+      "count": 10,
+      "checkedAt": "2026-10-28T21:41:10.563Z"
+    },
+    {
+      "group": "开发与工程",
+      "name": "V8 Blog",
+      "url": "https://v8.dev/blog.atom",
+      "count": 10,
+      "checkedAt": "2026-10-28T21:41:10.651Z"
+    },
+    {
+      "group": "开发与工程",
+      "name": ".NET Blog",
+      "url": "https://devblogs.microsoft.com/dotnet/feed/",
+      "count": 10,
+      "checkedAt": "2026-10-28T21:41:10.970Z"
+    },
+    {
+      "group": "开发与工程",
+      "name": "Python Blog",
+      "url": "https://blog.python.org/feeds/posts/default?alt=rss",
+      "count": 40,
+      "checkedAt": "2026-10-28T21:41:11.071Z"
+    },
+    {
+      "group": "开发与工程",
+      "name": "web.dev",
+      "url": "https://web.dev/feed.xml",
+      "count": 10,
+      "checkedAt": "2026-10-28T21:41:11.270Z"
+    },
+    {
+      "group": "AI 与开源",
+      "name": "GitHub Changelog",
+      "url": "https://github.blog/changelog/feed/",
+      "count": 10,
+      "checkedAt": "2026-10-28T21:41:11.349Z"
+    },
+    {
+      "group": "开发与工程",
+      "name": "Simon Willison",
+      "url": "https://simonwillison.net/atom/everything/",
+      "count": 30,
+      "checkedAt": "2026-10-28T21:41:11.363Z"
+    },
+    {
+      "group": "开发与工程",
+      "name": "Julia Evans",
+      "url": "https://jvns.ca/atom.xml",
+      "count": 20,
+      "checkedAt": "2026-10-28T21:41:11.596Z"
+    },
+    {
+      "group": "AI 与开源",
+      "name": "Hugging Face",
+      "url": "https://huggingface.co/blog/feed.xml",
+      "count": 40,
+      "checkedAt": "2026-10-28T21:41:11.605Z"
+    },
+    {
+      "group": "开发与工程",
+      "name": "Martin Fowler",
+      "url": "https://martinfowler.com/feed.atom",
+      "count": 30,
+      "checkedAt": "2026-10-28T21:41:11.978Z"
+    }
+  ],
+  "excluded": [
+    {
+      "name": "澎湃新闻",
+      "url": "https://www.thepaper.cn/rss_newslist_all.xml",
+      "reason": "no_items"
+    },
+    {
+      "name": "Mozilla Hacks",
+      "url": "https://hacks.mozilla.org/feed/",
+      "reason": "HTTP 403"
+    }
+  ],
+  "existingUnavailableDuringAudit": [
+    {
+      "name": "Hacker News",
+      "url": "https://news.ycombinator.com/rss",
+      "reason": "HTTP 419"
+    },
+    {
+      "name": "雷锋网",
+      "url": "https://www.leiphone.com/feed",
+      "reason": "The operation was aborted due to timeout"
+    }
+  ]
+}

@@ -165,8 +165,8 @@ app.post('/api/rss', a(async (req, res) => {
 app.get('/api/rss/feed', a(async (req, res) => {
   const url = String(req.query.url || '');
   if (!isSafeFeedUrl(url)) throw new ValidationError('bad url', 'url');
-  const p = await fetchFeed(url);
-  res.json({ data: { url, title: p.data.title, items: p.data.items.slice(0, 10) } });
+  const p = await fetchFeed(url, { refresh: req.query.refresh === '1' });
+  res.json({ data: { url, title: p.data.title, count: p.data.items.length, checkedAt: p.fetched_at, items: p.data.items.slice(0, 10) } });
 }));
 
 // ===== 热榜 =====

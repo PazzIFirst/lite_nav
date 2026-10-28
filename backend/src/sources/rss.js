@@ -1,10 +1,11 @@
-// RSS:抓取任意订阅源,解析成 {title, link, time, source}。
-// 零依赖正则解析(项目原则),对 RSS 2.0 的 <item> 与 Atom 的 <entry> 都适用。
-import { fetchT, readBufferLimited } from '../fetcher.js';
+// RSS:保留摘要、正文、作者与配图,按发布时间聚合。
+// content 仅作数据返回,前端通过 DOM 白名单重建阅读内容。
+import { readBufferLimited } from '../fetcher.js';
 import { readThreeState, writeBoth } from '../redis.js';
+import { parseFeed, feedTitle } from './rss-parser.js';
+export { parseFeed } from './rss-parser.js';
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
-const MAX_ITEMS = 40;
 const MAX_PER_FEED = 8;   // 单个源最多贡献几条:否则高频源(IT之家)会把整张列表刷满
 const MAX_BYTES = 2 * 1024 * 1024;
 const TTL = 10 * 60;          // 单个源缓存 10 分钟
@@ -17,87 +18,31 @@ const PRIVATE_HOST = /^(localhost|127\.|0\.|10\.|192\.168\.|169\.254\.|172\.(1[6
 export function isSafeFeedUrl(raw) {
   let u;
   try { u = new URL(String(raw)); } catch { return false; }
-  if (!['http:', 'https:'].includes(u.protocol)) return false;
+  if (!['http:', 'https:'].includes(u.protocol) || u.username || u.password) return false;
   if (PRIVATE_HOST.test(u.hostname)) return false;
   return true;
 }
 
-// ===== 解析 =====
-function unescape(s) {
-  return String(s)
-    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
-    .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"').replace(/&#0?39;/g, "'").replace(/&apos;/g, "'")
-    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&');            // 必须最后
-}
-
-// 先解 CDATA / 实体,再剥标签 —— 顺序反了的话,<![CDATA[标题]]> 会被当成一个标签整段吃掉
-const stripTags = (s) => unescape(String(s)).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-
-function field(block, tag) {
-  const m = block.match(new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)</${tag}>`, 'i'));
-  return m ? m[1] : '';
-}
-
-// Atom 的 link 在属性里:<link rel="alternate" href="..."/>
-function atomLink(block) {
-  const all = [...block.matchAll(/<link\b([^>]*)\/?>/gi)];
-  for (const [, attrs] of all) {
-    if (/rel=["'](alternate|self)?["']/i.test(attrs) || !/rel=/i.test(attrs)) {
-      const href = attrs.match(/href=["']([^"']+)["']/i);
-      if (href) return unescape(href[1]);
-    }
-  }
-  return '';
-}
-
-function parseDate(raw) {
-  const s = String(raw || '').trim();
-  if (!s) return 0;
-  const t = Date.parse(s);
-  return Number.isFinite(t) ? t : 0;
-}
-
-export function parseFeed(xml) {
-  const items = [];
-  const push = (title, link, date) => {
-    const t = stripTags(title);
-    if (!t) return;
-    items.push({ title: t.slice(0, 200), link: unescape(String(link || '').trim()), time: parseDate(date) });
-  };
-
-  // RSS 2.0 / RSS 1.0
-  for (const m of String(xml).matchAll(/<item\b[\s\S]*?<\/item>/gi)) {
-    const b = m[0];
-    push(field(b, 'title'), field(b, 'link') || atomLink(b), field(b, 'pubDate') || field(b, 'dc:date'));
-  }
-  // Atom
-  for (const m of String(xml).matchAll(/<entry\b[\s\S]*?<\/entry>/gi)) {
-    const b = m[0];
-    push(field(b, 'title'), atomLink(b) || field(b, 'id'), field(b, 'updated') || field(b, 'published'));
-  }
-  return items.slice(0, MAX_ITEMS);
-}
-
-function feedTitle(xml) {
-  const head = String(xml).slice(0, 4000);
-  const m = head.match(/<title(?:\s[^>]*)?>([\s\S]*?)<\/title>/i);
-  return m ? stripTags(m[1]).slice(0, 40) : '';
-}
-
 // ===== 抓取 =====
-export async function fetchFeed(url) {
+export async function fetchFeed(url, { refresh = false } = {}) {
   if (!isSafeFeedUrl(url)) throw new Error('bad_url');
-  const key = `rss:feed:${url}`;
-  const cached = await readThreeState(key, null).catch(() => null);
-  if (cached?.freshness === 'fresh') return cached;
+  const key = `rss:feed:v2:${url}`;
+  if (!refresh) {
+    const cached = await readThreeState(key, null).catch(() => null);
+    if (cached?.freshness === 'fresh') return cached;
+  }
 
-  const r = await fetchT(url, { timeout: 9000, ua: UA, headers: { Accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*' } });
-  const buf = await readBufferLimited(r, MAX_BYTES);
-  const xml = buf.toString('utf8');
-  const items = parseFeed(xml);
+  // 超时覆盖响应体读取；主动检测必须绕过缓存，失败不能伪装成可用。
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 12000);
+  let xml;
+  try {
+    const r = await fetch(url, { signal: controller.signal, headers: { 'User-Agent': UA, Accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*' } });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const buf = await readBufferLimited(r, MAX_BYTES);
+    xml = buf.toString('utf8');
+  } finally { clearTimeout(timer); }
+  const items = parseFeed(xml, url);
   if (!items.length) throw new Error('no_items');
 
   const payload = {
@@ -129,5 +74,5 @@ export async function fetchFeeds(urls) {
   });
 
   items.sort((a, b) => (b.time || 0) - (a.time || 0));
-  return { data: { items: items.slice(0, 60), feeds } };
+  return { data: { items, feeds } };
 }

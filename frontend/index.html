@@ -86,6 +86,9 @@
   <link rel="modulepreload" href="js/finance.js">
   <link rel="modulepreload" href="js/hot.js">
   <link rel="modulepreload" href="js/rss.js">
+  <link rel="modulepreload" href="js/rss-content.js">
+  <link rel="modulepreload" href="js/rss-flow.js">
+  <link rel="modulepreload" href="js/rss-presets.js">
 
   <!-- Anti-FOUC: apply saved theme (or system preference) before first paint -->
   <script>
@@ -156,27 +159,36 @@
   </div>
 </div>
 
-<!-- 网站编辑弹窗 -->
+<!-- 订阅管理弹窗 -->
 <div class="modal-overlay" id="rssModal">
-  <div class="modal-box" style="width:520px;">
-    <div class="modal-title">订阅管理</div>
-    <div class="modal-hint" style="margin-bottom:12px;">勾选预设源,或添加任意 RSS / Atom 地址;列表按各源最新发布时间混排。</div>
-    <div class="rss-presets" id="rssPresets"></div>
-    <div class="rss-custom">
-      <div class="modal-label">自定义源</div>
-      <div id="rssCustomList"></div>
-      <div class="rss-add-row">
-        <input class="modal-input" id="rssUrlInput" placeholder="https://example.com/feed.xml" autocomplete="off" spellcheck="false" />
-        <button class="btn btn-ghost" id="rssAddBtn" type="button">添加</button>
-      </div>
-      <div class="modal-hint" id="rssAddHint"></div>
+  <div class="modal-box rss-modal" role="dialog" aria-modal="true" aria-labelledby="rssModalTitle">
+    <div class="rss-modal-head">
+      <h2 class="modal-title" id="rssModalTitle">订阅管理</h2>
+      <p class="rss-modal-hint">选择你想关注的信息源,最新内容会汇集到订阅列表。</p>
     </div>
-    <div class="modal-actions">
-      <button class="btn btn-ghost" id="rssCancel">取消</button>
-      <button class="btn btn-primary" id="rssSave">保存</button>
+    <div class="rss-modal-body">
+      <label class="rss-search-label" for="rssPresetSearch">预设订阅源</label>
+      <input class="modal-input rss-preset-search" id="rssPresetSearch" type="search" placeholder="搜索新闻、技术或来源名称" autocomplete="off" />
+      <div class="rss-presets" id="rssPresets"></div>
+      <div class="rss-custom">
+        <div class="rss-custom-heading"><h3>自定义订阅</h3><span>RSS / Atom</span></div>
+        <div id="rssCustomList"></div>
+        <label class="rss-url-label" for="rssUrlInput">订阅地址</label>
+        <div class="rss-add-row">
+          <input class="modal-input" id="rssUrlInput" placeholder="https://example.com/feed.xml" inputmode="url" autocomplete="off" spellcheck="false" />
+          <button class="btn btn-ghost" id="rssAddBtn" type="button">添加并检测</button>
+        </div>
+        <div class="modal-hint rss-add-hint" id="rssAddHint" role="status"></div>
+      </div>
+    </div>
+    <div class="modal-actions rss-modal-actions">
+      <span class="rss-selection-summary" id="rssSelectionCount"></span>
+      <button class="btn btn-ghost" id="rssCancel" type="button">取消</button>
+      <button class="btn btn-primary" id="rssSave" type="button">保存订阅</button>
     </div>
   </div>
 </div>
+
 
 <div class="modal-overlay" id="hotModal">
   <div class="modal-box" style="width:400px;">
@@ -306,17 +318,28 @@
 
     <!-- RSS 订阅 -->
     <h2 class="seo-only">RSS 订阅</h2>
-    <div class="rss-panel" id="rssPanel">
+    <section class="rss-panel" id="rssPanel" aria-label="订阅内容">
       <div class="rss-head">
-        <span class="rss-head-title">订阅</span>
-        <span class="rss-head-meta" id="rssMeta"></span>
-        <button class="rss-tool" id="rssRefreshBtn" type="button">刷新</button>
-        <button class="rss-tool" id="rssManageBtn" type="button">管理订阅</button>
+        <div class="rss-heading">
+          <span class="rss-head-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M5 10a9 9 0 0 1 9 9M5 4a15 15 0 0 1 15 15"/><circle cx="5" cy="19" r="1" fill="currentColor" stroke="none"/></svg></span>
+          <div class="rss-heading-copy">
+            <h2 class="rss-head-title">订阅</h2>
+            <span class="rss-head-meta" id="rssMeta" role="status">关注的信息,及时更新</span>
+          </div>
+        </div>
+        <div class="rss-tools">
+          <button class="rss-tool" id="rssRefreshBtn" type="button"><svg class="rss-refresh-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 6a6.5 6.5 0 1 0 .5 7M16 2v4h-4"/></svg><span>刷新</span></button>
+          <button class="rss-tool rss-tool-manage" id="rssManageBtn" type="button"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M4 5h12M4 10h12M4 15h12"/><circle cx="7" cy="5" r="1.5" fill="var(--bg-elev-1)"/><circle cx="13" cy="10" r="1.5" fill="var(--bg-elev-1)"/><circle cx="8" cy="15" r="1.5" fill="var(--bg-elev-1)"/></svg><span>管理订阅</span></button>
+        </div>
       </div>
-      <div class="rss-list" id="rssList">
-        <div class="hot-panel-loading">订阅加载中…</div>
+      <div class="rss-list" id="rssList" aria-busy="true">
+        <div class="rss-state" role="status"><strong class="rss-state-title">订阅加载中…</strong></div>
       </div>
-    </div>
+      <button class="rss-more" id="rssMoreBtn" type="button" hidden>继续阅读</button>
+      <div class="rss-source-overflow" id="rssSourceOverflow" hidden></div>
+      <p class="rss-load-status" id="rssLoadStatus" role="status" aria-live="polite"></p>
+    </section>
+
 
   </div><!-- /main-wrapper -->
 
