@@ -883,11 +883,6 @@ body {
   color: var(--text-secondary);
   letter-spacing: 0.04em;
 }
-.fin-head-hint {
-  font-size: var(--fs-2xs); color: var(--text-muted);
-  flex: 1; min-width: 0;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
 
 .fin-grid {
   display: grid;
