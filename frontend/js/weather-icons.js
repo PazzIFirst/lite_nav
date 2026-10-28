@@ -1,4 +1,4 @@
-// 天气图标 —— 42 套自绘 SVG,覆盖 52 种天气(11 条近似复用)。
+// 天气图标 —— 31 套自绘 SVG,覆盖 39 种天气(8 条近似复用)。
 //
 // 风格约定(改图标时必须守住,否则一眼看出不是一家人):
 //   · viewBox 统一 0 0 48 48,内容控制在 x/y ∈ [3,45]
@@ -107,8 +107,14 @@ const ICONS = {
     + '<circle class="ic-dust" cx="20" cy="41" r="1.5"/>'),
 
   /* ── 冻毛毛雨 (2) ─ 颗粒 + 菱形冰晶 ─────────────────────── */
-  '轻冻毛毛雨': svg(cloud() + '<g class="ic-rain"><circle cx="16.5" cy="35.2" r="1.5"/><circle cx="29.5" cy="35.2" r="1.5"/><circle cx="19.8" cy="41.4" r="1.5"/><circle cx="32.8" cy="41.4" r="1.5"/></g><g class="ic-ice"><polygon points="23,32.9 25.3,35.2 23,37.5 20.7,35.2"/><polygon points="36,32.9 38.3,35.2 36,37.5 33.7,35.2"/><polygon points="26.3,39.1 28.6,41.4 26.3,43.7 24,41.4"/></g>'),
-  '强冻毛毛雨': svg(cloud() + '<g class="ic-rain"><circle cx="15.5" cy="34.4" r="1.5"/><circle cx="28.5" cy="34.4" r="1.5"/><circle cx="25.3" cy="39" r="1.5"/><circle cx="38.3" cy="39" r="1.5"/><circle cx="22" cy="42.6" r="1.5"/><circle cx="35" cy="42.6" r="1.5"/></g><g class="ic-ice"><polygon points="22,32.1 24.3,34.4 22,36.7 19.7,34.4"/><polygon points="35,32.1 37.3,34.4 35,36.7 32.7,34.4"/><polygon points="18.8,36.7 21.1,39 18.8,41.3 16.5,39"/><polygon points="31.8,36.7 34.1,39 31.8,41.3 29.5,39"/><polygon points="28.5,40.3 30.8,42.6 28.5,44.9 26.2,42.6"/></g>'),
+
+  /* ── 冻结 / 固态 / 雷暴 ─ 每类只留一档 ───────────────────── */
+  '冻毛毛雨': svg(cloud() + '<g class="ic-rain"><circle cx="15.5" cy="34.4" r="1.5"/><circle cx="28.5" cy="34.4" r="1.5"/><circle cx="25.3" cy="39" r="1.5"/><circle cx="38.3" cy="39" r="1.5"/><circle cx="22" cy="42.6" r="1.5"/><circle cx="35" cy="42.6" r="1.5"/></g><g class="ic-ice"><polygon points="22,32.1 24.3,34.4 22,36.7 19.7,34.4"/><polygon points="35,32.1 37.3,34.4 35,36.7 32.7,34.4"/><polygon points="18.8,36.7 21.1,39 18.8,41.3 16.5,39"/><polygon points="31.8,36.7 34.1,39 31.8,41.3 29.5,39"/><polygon points="28.5,40.3 30.8,42.6 28.5,44.9 26.2,42.6"/></g>'),
+  '冻雨': svg(cloud() + '<rect class="ic-rain" x="13.5" y="32.5" width="3" height="7.5" rx="1.5"/><rect class="ic-rain" x="22.5" y="32.5" width="3" height="7.5" rx="1.5"/><rect class="ic-rain" x="31.5" y="32.5" width="3" height="7.5" rx="1.5"/><polygon class="ic-ice" points="19.5,39 22,42 19.5,45 17,42"/><polygon class="ic-ice" points="28.5,39 31,42 28.5,45 26,42"/>'),
+  '雨夹雪': svg(cloud() + '<rect class="ic-rain" x="13.5" y="33" width="3" height="9" rx="1.5" transform="rotate(14 15 37.5)"/><rect class="ic-rain" x="26" y="33" width="3" height="9" rx="1.5" transform="rotate(14 27.5 37.5)"/>' + flake('translate(21.3 38) scale(0.9)') + flake('translate(35 38) scale(0.9)')),
+  '米雪': svg(cloud() + '<g class="ic-snow"><circle cx="16.5" cy="35.5" r="1.8"/><circle cx="23" cy="34.2" r="1.8"/><circle cx="30" cy="35.8" r="1.8"/><circle cx="36" cy="34.5" r="1.8"/><circle cx="20.5" cy="41.8" r="1.8"/><circle cx="28" cy="42.5" r="1.8"/></g>'),
+  '冰粒': svg(cloud('ic-cloud-dark') + '<rect class="ic-fog" x="6" y="34.2" width="11" height="2.6" rx="1.3" transform="rotate(20 11.5 35.5)"/><rect class="ic-fog" x="8" y="40" width="11" height="2.6" rx="1.3" transform="rotate(20 13.5 41.3)"/><g class="ic-hail"><circle cx="20" cy="34.5" r="2.6"/><circle cx="27.5" cy="34" r="2.4"/><circle cx="35" cy="34.5" r="2.8"/><circle cx="41" cy="37.8" r="2.2"/><circle cx="23" cy="41.5" r="2.8"/><circle cx="30.5" cy="41" r="2.4"/><circle cx="37.5" cy="41.5" r="2.6"/></g>'),
+  '雷阵雨': svg(cloud() + '<rect class="ic-rain" x="12.3" y="33" width="3" height="9" rx="1.5" transform="rotate(14 13.8 37.5)"/><rect class="ic-rain" x="30" y="33" width="3" height="9" rx="1.5" transform="rotate(14 31.5 37.5)"/><rect class="ic-rain" x="35.3" y="33" width="3" height="9" rx="1.5" transform="rotate(14 36.8 37.5)"/>' + `${BOLT} transform="translate(3 5.3) scale(0.85)"/>`),
 
   /* ── 降雨 (4) ─ 只留四档,视觉上移一档:小雨=原中雨、中雨=原暴雨、
      大雨=原大暴雨、暴雨=原特大暴雨。其余雨名由 fallbackKey 归并 ─────── */
@@ -118,14 +124,8 @@ const ICONS = {
   '暴雨': svg(cloud('ic-cloud-dark') + '<g class="ic-rain"><rect x="7.6" y="31.35" width="3.2" height="13.5" rx="1.6" transform="rotate(24 9.2 38.1)"/><rect x="12.1" y="31.35" width="3.2" height="13.5" rx="1.6" transform="rotate(24 13.7 38.1)"/><rect x="16.6" y="31.35" width="3.2" height="13.5" rx="1.6" transform="rotate(24 18.2 38.1)"/><rect x="21.1" y="31.35" width="3.2" height="13.5" rx="1.6" transform="rotate(24 22.7 38.1)"/><rect x="25.6" y="31.35" width="3.2" height="13.5" rx="1.6" transform="rotate(24 27.2 38.1)"/><rect x="30.1" y="31.35" width="3.2" height="13.5" rx="1.6" transform="rotate(24 31.7 38.1)"/><rect x="34.6" y="31.35" width="3.2" height="13.5" rx="1.6" transform="rotate(24 36.2 38.1)"/><rect x="39.1" y="31.35" width="3.2" height="13.5" rx="1.6" transform="rotate(24 40.7 38.1)"/></g>'),
 
   /* ── 冻雨 (2) ─ 雨丝近垂直,配冰晶 ───────────────────────── */
-  '轻冻雨': svg(cloud() + '<rect class="ic-rain" x="16.5" y="33" width="3" height="8" rx="1.5"/><rect class="ic-rain" x="28.5" y="33" width="3" height="8" rx="1.5"/><polygon class="ic-ice" points="24,38.6 26.6,41.8 24,45 21.4,41.8"/>'),
-  '冻雨': svg(cloud() + '<rect class="ic-rain" x="13.5" y="32.5" width="3" height="7.5" rx="1.5"/><rect class="ic-rain" x="22.5" y="32.5" width="3" height="7.5" rx="1.5"/><rect class="ic-rain" x="31.5" y="32.5" width="3" height="7.5" rx="1.5"/><polygon class="ic-ice" points="19.5,39 22,42 19.5,45 17,42"/><polygon class="ic-ice" points="28.5,39 31,42 28.5,45 26,42"/>'),
 
   /* ── 雨夹雪 (4) ─ 雨雪配比随强度变化,雪相逐档占优 ───────── */
-  '小雨夹雪': svg(cloud() + '<rect class="ic-rain" x="13" y="33" width="3" height="8.5" rx="1.5" transform="rotate(14 14.5 37.25)"/><rect class="ic-rain" x="20.5" y="33" width="3" height="8.5" rx="1.5" transform="rotate(14 22 37.25)"/><rect class="ic-rain" x="34" y="33" width="3" height="8.5" rx="1.5" transform="rotate(14 35.5 37.25)"/>' + flake('translate(28.5 38) scale(0.85)')),
-  '雨夹雪': svg(cloud() + '<rect class="ic-rain" x="13.5" y="33" width="3" height="9" rx="1.5" transform="rotate(14 15 37.5)"/><rect class="ic-rain" x="26" y="33" width="3" height="9" rx="1.5" transform="rotate(14 27.5 37.5)"/>' + flake('translate(21.3 38) scale(0.9)') + flake('translate(35 38) scale(0.9)')),
-  '小阵性雨夹雪': svg(cloud() + '<rect class="ic-rain" x="15" y="33.5" width="3.2" height="9" rx="1.6" transform="rotate(14 16.6 38)"/>' + flake('translate(26 36.8) scale(1.1)') + flake('translate(37 40.5) scale(0.9)')),
-  '中到大阵性雨夹雪': svg(cloud() + '<rect class="ic-rain" x="12.8" y="34" width="3.2" height="8.5" rx="1.6" transform="rotate(14 14.4 38.25)"/>' + flake('translate(21.5 37) scale(1.15)') + flake('translate(31.5 40.5) scale(1)') + flake('translate(39.5 36.5) scale(0.9)')),
 
   /* ── 稳定性降雪 (4) ─ 朵数与单朵尺寸同时递进 ─────────────── */
   '小雪': svg(cloud() + flake('translate(18.5 37) scale(0.8)') + flake('translate(30 40.5) scale(0.8)')),
@@ -140,19 +140,10 @@ const ICONS = {
   '阵雪': svg(cloud() + flake('translate(16 38.3) scale(1.15)') + flake('translate(26.5 36.6) scale(1)') + flake('translate(36.5 40.4) scale(0.9)')),
 
   /* ── 其它固态降水 (6) ───────────────────────────────────── */
-  '米雪': svg(cloud() + '<g class="ic-snow"><circle cx="16.5" cy="35.5" r="1.8"/><circle cx="23" cy="34.2" r="1.8"/><circle cx="30" cy="35.8" r="1.8"/><circle cx="36" cy="34.5" r="1.8"/><circle cx="20.5" cy="41.8" r="1.8"/><circle cx="28" cy="42.5" r="1.8"/></g>'),
-  '冰粒': svg(cloud() + '<g class="ic-hail"><circle cx="18" cy="35" r="2.4"/><circle cx="26" cy="35" r="2.4"/><circle cx="34" cy="35" r="2.4"/><circle cx="18" cy="42" r="2.4"/><circle cx="26" cy="42" r="2.4"/><circle cx="34" cy="42" r="2.4"/></g>'),
-  '小阵性冰粒': svg(cloud() + '<g class="ic-hail"><circle cx="17" cy="36" r="3.2"/><circle cx="34.5" cy="35.5" r="3"/><circle cx="28" cy="41" r="2.8"/></g>'),
-  '中到大阵性冰粒': svg(cloud('ic-cloud-dark') + '<rect class="ic-fog" x="6" y="34.2" width="11" height="2.6" rx="1.3" transform="rotate(20 11.5 35.5)"/><rect class="ic-fog" x="8" y="40" width="11" height="2.6" rx="1.3" transform="rotate(20 13.5 41.3)"/><g class="ic-hail"><circle cx="20" cy="34.5" r="2.6"/><circle cx="27.5" cy="34" r="2.4"/><circle cx="35" cy="34.5" r="2.8"/><circle cx="41" cy="37.8" r="2.2"/><circle cx="23" cy="41.5" r="2.8"/><circle cx="30.5" cy="41" r="2.4"/><circle cx="37.5" cy="41.5" r="2.6"/></g>'),
   '吹雪': svg(cloud() + '<rect class="ic-fog" x="8" y="33" width="13" height="2.6" rx="1.3"/><rect class="ic-fog" x="12" y="38" width="13" height="2.6" rx="1.3"/><rect class="ic-fog" x="8" y="42.4" width="13" height="2.6" rx="1.3"/>' + flake('translate(32 35) scale(0.75) rotate(18)') + flake('translate(32.5 42) scale(0.6) rotate(-14)')),
   '暴风雪': svg(cloud('ic-cloud-dark') + '<rect class="ic-fog" x="4" y="32.4" width="18" height="2.6" rx="1.3"/><rect class="ic-fog" x="34" y="32.4" width="11" height="2.6" rx="1.3"/><rect class="ic-fog" x="9" y="37" width="16" height="2.6" rx="1.3"/><rect class="ic-fog" x="3" y="41.6" width="18" height="2.6" rx="1.3"/>' + flake('translate(29 35) scale(0.72) rotate(15)') + flake('translate(38 38.8) scale(0.7) rotate(-18)') + flake('translate(29.5 42.3) scale(0.58) rotate(24)')),
 
   /* ── 雷暴 (5) ─ 闪电大小 + 云的明暗 + 降水量级三轴递进 ──── */
-  '附近有雷雨': svg(cloud() + `${BOLT} transform="translate(7.4 9.8) scale(0.72)"/>`),
-  '雷阵雨': svg(cloud() + '<rect class="ic-rain" x="12.3" y="33" width="3" height="9" rx="1.5" transform="rotate(14 13.8 37.5)"/><rect class="ic-rain" x="30" y="33" width="3" height="9" rx="1.5" transform="rotate(14 31.5 37.5)"/><rect class="ic-rain" x="35.3" y="33" width="3" height="9" rx="1.5" transform="rotate(14 36.8 37.5)"/>' + `${BOLT} transform="translate(3 5.3) scale(0.85)"/>`),
-  '雷阵雨伴小冰雹': svg(cloud('ic-cloud-dark') + '<rect class="ic-rain" x="12.3" y="32.7" width="3" height="7" rx="1.5" transform="rotate(14 13.8 36.2)"/><rect class="ic-rain" x="33" y="32.7" width="3" height="7" rx="1.5" transform="rotate(14 34.5 36.2)"/><g class="ic-hail"><circle cx="13.5" cy="43" r="2"/><circle cx="30.5" cy="43" r="2"/><circle cx="36" cy="43" r="2"/></g>' + `${BOLT} transform="translate(3 5.3) scale(0.85)"/>`),
-  '雷阵雨伴大冰雹': svg(cloud('ic-cloud-dark') + '<rect class="ic-rain" x="12.5" y="31.8" width="3" height="6" rx="1.5" transform="rotate(14 14 34.8)"/><rect class="ic-rain" x="32" y="31.8" width="3" height="6" rx="1.5" transform="rotate(14 33.5 34.8)"/><g class="ic-hail"><circle cx="13.5" cy="41.5" r="3.2"/><circle cx="34" cy="41.5" r="3.2"/></g>' + `${BOLT} transform="translate(3.3 2.85) scale(0.9)"/>`),
-  '雷雪': svg(cloud('ic-cloud-dark') + flake('translate(14.5 38) scale(0.85)') + flake('translate(35 38) scale(0.85)') + `${BOLT} transform="translate(6.6 7.2) scale(0.8)"/>`),
 };
 
 // 复用近似档。这 21 种要么是中文预报里的区间档(「小到中雨」),
@@ -161,7 +152,6 @@ const ICONS = {
 const ALIAS = {
   '小到中雪': '中雪', '中到大雪': '大雪', '大到暴雪': '暴雪',
   '零星小毛毛雨': '小毛毛雨', '附近有零星冻毛毛雨': '轻冻毛毛雨',
-  '附近有零星雨夹雪': '小雨夹雪',
   '附近有零星降雪': '小雪', '零星小雪': '小雪',
   '零星中雪': '中雪', '零星大雪': '大雪',
   '雪': '中雪',
