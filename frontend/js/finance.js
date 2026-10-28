@@ -221,7 +221,7 @@ function buildCard(slot, i) {
   el.dataset.idx = String(i);
   el.innerHTML = `
     <div class="fin-card-head">
-      <button class="fin-card-name" type="button" title="点击更换标的"></button>
+      <span class="fin-card-name"></span>
       <span class="fin-kind"></span>
     </div>
     <div class="fin-quote">
@@ -232,14 +232,24 @@ function buildCard(slot, i) {
     <div class="fin-foot"><span class="fin-state"></span><span class="fin-src"></span></div>`;
   el.querySelector('.fin-card-name').textContent = slot.name || '选择标的';
   el.querySelector('.fin-kind').textContent = KIND_LABEL[slot.kind] || '';
-  el.querySelector('.fin-card-name').addEventListener('click', () => openPicker(i));
+  // 整张卡都能点:标题只是文字,不再做按钮
+  el.tabIndex = 0;
+  el.setAttribute('role', 'button');
+  el.setAttribute('aria-label', '更换标的');
+  el.addEventListener('click', () => openPicker(i));
+  el.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPicker(i); }
+  });
   return el;
 }
 
 function paintCard(i, opt) {
   const el = cards[i];
   if (!el) return;
-  if (opt.name) el.querySelector('.fin-card-name').textContent = opt.name;
+  if (opt.name) {
+    el.querySelector('.fin-card-name').textContent = opt.name;
+    el.setAttribute('aria-label', '更换标的:' + opt.name);
+  }
 
   const priceEl = el.querySelector('.fin-price');
   const chgEl = el.querySelector('.fin-chg');
