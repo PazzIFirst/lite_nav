@@ -130,7 +130,9 @@ function createHotPanel(slotIndex, meta) {
   srcLabel.id = 'hot-slot' + slotIndex + '-source';
   srcLabel.className = 'hot-panel-source';
 
-  const refreshBtn = document.createElement('span');
+  const refreshBtn = document.createElement('button');
+  refreshBtn.type = 'button';
+  refreshBtn.setAttribute('aria-label', '刷新' + meta.title);
   refreshBtn.className = 'hot-panel-refresh';
   refreshBtn.textContent = '刷新';
   refreshBtn.title = '重新加载热榜';
@@ -166,6 +168,11 @@ function renderHotPanels() {
     (i < 2 ? leftSidebar : rightSidebar).appendChild(panel);
     loadSlot(i);
   });
+  for (const [sidebar, label] of [[leftSidebar, '左侧热榜'], [rightSidebar, '右侧热榜']]) {
+    sidebar.setAttribute('role', 'region');
+    sidebar.setAttribute('aria-label', label);
+    sidebar.tabIndex = sidebar.childElementCount ? 0 : -1;
+  }
 }
 
 // 供 main.js 轮询调用:只刷新当前显示中的面板

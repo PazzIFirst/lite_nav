@@ -524,13 +524,18 @@ node scripts/rss-flow-checks.mjs
 node scripts/rss-security-checks.mjs
 node --experimental-vm-modules scripts/review-core-checks.mjs
 node --experimental-vm-modules scripts/review-data-checks.mjs
+node --experimental-vm-modules scripts/intraday-session-checks.mjs
+node scripts/finance-chart-checks.mjs
 ```
 
 浏览器回归使用锁定的 Playwright 开发依赖，所有业务接口均为测试数据，不依赖运行中的后端：
 
 ```bash
 (cd backend && npx playwright install chromium)
-PLAYWRIGHT_MODULE="$(pwd)/backend/node_modules/playwright/index.mjs" node scripts/frontend-state-checks.mjs
+export PLAYWRIGHT_MODULE="$(pwd)/backend/node_modules/playwright/index.mjs"
+node scripts/frontend-state-checks.mjs
+node scripts/finance-chart-browser-checks.mjs
+node scripts/hot-scroll-checks.mjs
 ```
 
 如使用现有 Chromium，可额外设置 `PLAYWRIGHT_CHROMIUM_EXECUTABLE`。运行中的后端可用 `BASE=http://127.0.0.1:3000 node scripts/smoke-test.mjs` 检查。上述回归已接入 CI，浏览器检查不生成截图或二进制仓库文件。

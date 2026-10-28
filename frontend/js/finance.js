@@ -4,6 +4,7 @@
 // 不画历史日 K —— 一张卡大约 200px 宽,60 根蜡烛在这个尺寸下只能看个大概趋势,
 // 分时反而能把「今天怎么走的」说清楚。。
 import { apiGet, srcTooltip } from './api.js';
+import { buildFinanceChart, quoteSnapshot } from './finance-chart.js';
 
 const SLOTS_KEY = 'nav.fin.slots';
 const COLOR_KEY = 'nav.fin.color';
@@ -82,8 +83,6 @@ let inited = false;
 let cardGeneration = 0;
 let busy = [], quoteViews = [];
 let pickerSession = 0, pickerBusy = false, pickerFocusTimer = null;
-let liveState = [];   // 每张卡上次是不是盘中;收盘的卡不必重复拉
-let lastLoad = [];    // 每张卡上次拉取时间,收盘卡每 10 分钟还是强制刷一次(防跨时段)
 
 const grid = document.getElementById('financeGrid');
 let cards = [];
@@ -106,11 +105,11 @@ const saveColor = () => { try { localStorage.setItem(COLOR_KEY, colorMode); } ca
 
 // ===== 数字 =====
 function fmtNum(v) {
-  if (v == null || Number.isNaN(v)) return '--';
+  if (v == null || !Number.isFinite(v)) return '--';
   const digits = Math.abs(v) < 10 ? 4 : 2;
   return v.toLocaleString('zh-CN', { minimumFractionDigits: digits, maximumFractionDigits: digits });
 }
-const fmtPct = (v) => (v == null || Number.isNaN(v)) ? '--' : (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
+const fmtPct = (v) => (v == null || !Number.isFinite(v)) ? '--' : (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
 
 // ===== 画布 =====
 function setupCanvas(canvas) {
@@ -128,91 +127,49 @@ const px = (v) => Math.round(v) + 0.5;
 
 
 
-// 滑动平均:压掉分钟级抖动,只留「今天大概怎么走的」。
-// 两端窗口截断(不是跳过),否则最后一个平滑点会和末点脱开,末点的小圆点浮在线外。
-// 卡片上的报价/涨跌始终用真实值,平滑只影响画出来的线。
-function smooth(points, radius) {
-  if (!points || points.length < radius * 2 + 3) return points;
-  const n = points.length;
-  const out = new Array(n);
-  for (let i = 0; i < n; i++) {
-    let sum = 0, cnt = 0;
-    for (let k = -radius; k <= radius; k++) {
-      const j = i + k;
-      if (j < 0 || j >= n) continue;      // 两端窗口截断,而不是不处理
-      sum += points[j].p; cnt++;
-    }
-    out[i] = { p: sum / cnt };
-  }
-  return out;
-}
-
-// 点数远多于像素时,按桶取平均 —— 1000 个点画在 200px 上只会糊成一条粗带
-function thin(points, maxN) {
-  if (!points || points.length <= maxN) return points;
-  const step = points.length / maxN;
-  const out = [];
-  for (let i = 0; i < maxN; i++) {
-    const a = Math.floor(i * step);
-    const b = Math.max(a + 1, Math.floor((i + 1) * step));
-    let sum = 0, n = 0;
-    for (let k = a; k < b && k < points.length; k++) { sum += points[k].p; n++; }
-    out.push({ p: sum / n });
-  }
-  const last = points[points.length - 1];
-  out[out.length - 1] = { p: last.p };   // 末端保持真实值
-  return out;
-}
-
-function drawTrend(canvas, points, prevClose, up, down) {
+function drawTrend(canvas, rawPoints, prevClose, session, color) {
   const { ctx, w, h } = setupCanvas(canvas);
-  if (!points || points.length < 1) return;
-  points = smooth(thin(points, Math.max(60, Math.round(w))), 3);
-  const vals = points.map(p => p.p).filter(v => v > 0);
-  if (!vals.length) return;
-  const base = prevClose || vals[0];
-  // 分时图按「相对昨收的对称区间」定纵轴:基线落在正中,一眼看出涨跌幅度
-  const dev = Math.max(Math.abs(Math.max(...vals) - base), Math.abs(base - Math.min(...vals))) || base * 0.001;
-  const hi = base + dev;
-  const lo = base - dev;
-  const span = hi - lo || 1;
-  const padY = 4;
-  const y = v => h - padY - ((v - lo) / span) * (h - padY * 2);
-  const last = vals[vals.length - 1];
-  const col = last >= base ? up : down;
+  const chart = buildFinanceChart(rawPoints, prevClose, session, w, h);
+  const points = chart.points;
+  if (!points.length) return;
 
-  ctx.strokeStyle = 'rgba(148,163,184,.45)';
-  ctx.lineWidth = 1;
-  ctx.setLineDash([3, 3]);
-  ctx.beginPath();
-  ctx.moveTo(0, px(y(base)));
-  ctx.lineTo(w, px(y(base)));
-  ctx.stroke();
-  ctx.setLineDash([]);
+  if (chart.baselineY !== null) {
+    ctx.strokeStyle = 'rgba(148,163,184,.45)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(0, px(chart.baselineY));
+    ctx.lineTo(w, px(chart.baselineY));
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
 
-  const x = i => (points.length === 1 ? w - 1 : (i / (points.length - 1)) * (w - 1));
+  const first = points[0], last = points[points.length - 1];
+  if (points.length > 1) {
+    const gradient = ctx.createLinearGradient(0, 0, 0, h);
+    gradient.addColorStop(0, color);
+    gradient.addColorStop(1, 'transparent');
+    ctx.fillStyle = gradient;
+    ctx.globalAlpha = 0.18;
+    ctx.beginPath();
+    ctx.moveTo(first.x, h);
+    points.forEach(point => ctx.lineTo(point.x, point.y));
+    ctx.lineTo(last.x, h); // 填色也在已到达的交易分钟停止。
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
 
-  const grad = ctx.createLinearGradient(0, 0, 0, h);
-  grad.addColorStop(0, col + '30');
-  grad.addColorStop(1, col + '00');
-  ctx.fillStyle = grad;
-  ctx.beginPath();
-  ctx.moveTo(0, h);
-  points.forEach((p, i) => ctx.lineTo(x(i), y(p.p)));
-  ctx.lineTo(w, h);
-  ctx.closePath();
-  ctx.fill();
-
-  ctx.strokeStyle = col;
+  ctx.strokeStyle = color;
   ctx.lineWidth = 1.4;
   ctx.lineJoin = 'round';
   ctx.beginPath();
-  points.forEach((p, i) => (i ? ctx.lineTo(x(i), y(p.p)) : ctx.moveTo(x(i), y(p.p))));
+  points.forEach((point, i) => (i ? ctx.lineTo(point.x, point.y) : ctx.moveTo(point.x, point.y)));
   ctx.stroke();
-
-  ctx.fillStyle = col;
+  // 平滑保留了原始末价，因此圆点、线尾与报价落在同一个价格。
+  ctx.fillStyle = color;
   ctx.beginPath();
-  ctx.arc(x(points.length - 1), y(last), 2.4, 0, Math.PI * 2);
+  ctx.arc(last.x, last.y, 2.4, 0, Math.PI * 2);
   ctx.fill();
 }
 
@@ -259,7 +216,6 @@ function paintCard(i, opt) {
   const stateEl = el.querySelector('.fin-state');
   const srcEl = el.querySelector('.fin-src');
   const canvas = el.querySelector('.fin-canvas');
-  const { up, down } = COLORS[colorMode];
 
   if (opt.error) {
     priceEl.textContent = '--';
@@ -275,18 +231,17 @@ function paintCard(i, opt) {
   }
 
   const pts = (opt.trend && opt.trend.points) || [];
-  const last = pts.length ? pts[pts.length - 1].p : null;
-  const prev = opt.prevClose ?? (opt.trend && opt.trend.prevClose) ?? (pts.length ? pts[0].p : null);
-  drawTrend(canvas, pts, prev, up, down);
-
-  priceEl.textContent = fmtNum(last);
-  const pct = (prev && last != null) ? ((last - prev) / prev) * 100 : null;
-  chgEl.textContent = fmtPct(pct);
-  const cls = pct == null ? '' : pct >= 0 ? ' is-up' : ' is-down';
+  const prev = opt.prevClose ?? opt.trend?.prevClose;
+  const quote = quoteSnapshot(pts, prev);
+  priceEl.textContent = fmtNum(quote.last);
+  chgEl.textContent = fmtPct(quote.pct);
+  const cls = quote.direction ? ' is-' + quote.direction : '';
   chgEl.className = 'fin-chg' + cls;
   priceEl.className = 'fin-price' + cls;
+  const color = quote.direction ? COLORS[colorMode][quote.direction] : getComputedStyle(priceEl).color;
+  drawTrend(canvas, pts, prev, opt.trend?.session, color);
 
-  const d = (opt.trend && opt.trend.date) || '';
+  const d = String(opt.trend?.date || '').replace(/-/g, '');
   const day = /^\d{8}$/.test(d) ? `${d.slice(4, 6)}-${d.slice(6, 8)}` : '';
   stateEl.textContent = opt.live ? '盘中' : ('收盘' + (day ? ' · ' + day : ''));
   stateEl.className = 'fin-state' + (opt.live ? ' is-live' : '');
@@ -309,8 +264,6 @@ async function loadSlot(i) {
       slot.name = d.name;
       saveSlots();
     }
-    liveState[i] = !!d.live;
-    lastLoad[i] = Date.now();
     paintCard(i, {
       name: slot.name, trend: d, prevClose: d.prevClose,
       live: !!d.live, srcLabel: t.source_label,
@@ -503,8 +456,6 @@ function rebuild() {
   ++cardGeneration;
   busy = [];
   quoteViews = [];
-  liveState = [];
-  lastLoad = [];
   grid.innerHTML = '';
   cards = slots.map((s, i) => {
     const el = buildCard(s, i);
@@ -551,11 +502,7 @@ export function renderFinance() {
 }
 
 export function loadFinance() {
-  // 只刷还在盘中的卡:收盘的日 K 不会变,没必要每 30 秒重画一遍。
-  // 收盘卡每 10 分钟仍强制刷一次 —— 否则页面挂到第二天开盘,那张卡会一直是旧日期。
-  const now = Date.now();
-  slots.forEach((_, i) => {
-    if (liveState[i] === false && lastLoad[i] && now - lastLoad[i] < 10 * 60 * 1000) return;
-    loadSlot(i);
-  });
+  // 可见页面按原有 30 秒节奏请求；盘后缓存与开盘恢复由后端统一判断。
+  // 不能用上一次 live=false 在客户端停更，否则开盘后还会显示昨日完整分时。
+  slots.forEach((_, i) => loadSlot(i));
 }

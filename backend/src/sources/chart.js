@@ -77,7 +77,7 @@ function yahooCode(secid) {
   const [mk, code] = splitSecid(secid);
   const n = Number(mk);
   if (n === 133) return code + '=X';
-  if (n === 100) return YH_INDEX[code] || null;
+  if (n === 100) return Object.hasOwn(YH_INDEX, code) ? YH_INDEX[code] : null;
   // 美股:Yahoo 用裸代码,腾讯的美股日线只回两三根,所以美股反而以 Yahoo 为主
   if (n === 105 || n === 106 || n === 107) return code.replace(/\./g, '-');
   return null;
@@ -86,16 +86,17 @@ function yahooCode(secid) {
 // ===== 交易时段 =====
 function localParts(timeZone) {
   const fmt = new Intl.DateTimeFormat('en-CA', {
-    timeZone, weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false,
+    timeZone, year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
   });
   const p = Object.fromEntries(fmt.formatToParts(new Date()).map(x => [x.type, x.value]));
   const dow = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }[p.weekday];
-  return { dow, mins: Number(p.hour) * 60 + Number(p.minute) };
+  return { dow, mins: Number(p.hour) * 60 + Number(p.minute), day: p.year + p.month + p.day };
 }
 
 const inRange = (m, a, b) => m >= a && m < b;
 
 // 指数按它真正所在的市场判时段:标普在纽约、恒生在港、日经在东京,不能一律用上海时间
+const CN_RANGES = [[9 * 60 + 30, 11 * 60 + 30], [13 * 60, 15 * 60]];
 const HK_RANGES = [[9 * 60 + 30, 12 * 60], [13 * 60, 16 * 60]];
 const US_RANGES = [[9 * 60 + 30, 16 * 60]];
 const EU_RANGES = [[9 * 60, 17 * 60 + 30]];
@@ -110,7 +111,7 @@ const IDX_SESSION = {
   DJIA:     { tz: 'America/New_York',  ranges: US_RANGES },
   GSPTSE:   { tz: 'America/Toronto',   ranges: US_RANGES },
   BVSP:     { tz: 'America/Sao_Paulo', ranges: [[10 * 60, 17 * 60]] },
-  N225:     { tz: 'Asia/Tokyo',        ranges: [[9 * 60, 11 * 60 + 30], [12 * 60 + 30, 15 * 60]] },
+  N225:     { tz: 'Asia/Tokyo',        ranges: [[9 * 60, 11 * 60 + 30], [12 * 60 + 30, 15 * 60 + 30]] },
   KS11:     { tz: 'Asia/Seoul',        ranges: [[9 * 60, 15 * 60 + 30]] },
   TWII:     { tz: 'Asia/Taipei',       ranges: [[9 * 60, 13 * 60 + 30]] },
   SENSEX:   { tz: 'Asia/Kolkata',      ranges: [[9 * 60 + 15, 15 * 60 + 30]] },
@@ -123,26 +124,37 @@ const IDX_SESSION = {
   FTSE:     { tz: 'Europe/London',     ranges: [[8 * 60, 16 * 60 + 30]] },
 };
 
+// 正常交易日的时间轴；午休保留为独立区间，前端按有效交易分钟压缩。
+// https://www.jpx.co.jp/english/equities/trading/domestic/01.html
+// https://www.hkex.com.hk/Services/Trading-hours-and-Severe-Weather-Arrangements/Trading-Hours/Securities-Market
+// 恒生指数也会在随机收市后发布最终值，竞价点需保留：
+// https://www.hsi.com.hk/static/uploads/contents/en/news/indexChgNotice/20160707T000000.pdf
+export function getTradingSession(secid) {
+  const kind = marketOf(secid), code = splitSecid(secid)[1];
+  const spec = kind === 'index' ? (Object.hasOwn(IDX_SESSION, code) ? IDX_SESSION[code] : null)
+    : kind === 'cn' ? { tz: 'Asia/Shanghai', ranges: CN_RANGES }
+    : kind === 'hk' ? { tz: 'Asia/Hong_Kong', ranges: HK_RANGES }
+    : kind === 'us' ? { tz: 'America/New_York', ranges: US_RANGES }
+    : kind === 'fx' ? { tz: 'UTC', ranges: [[0, 1440]] } : null;
+  if (!spec) return null;
+  return {
+    timeZone: spec.tz, ranges: spec.ranges.map(range => [...range]),
+    ...((kind === 'hk' || (kind === 'index' && HK_INDEX.has(code))) ? { closingAuctionEnd: 970 } : {}),
+  };
+}
+
 export function isMarketOpen(secid) {
-  const kind = marketOf(secid);
-  const code = splitSecid(secid)[1] || '';
-  if (kind === 'fx') {
-    const { dow } = localParts('UTC');
-    return dow !== 0 && dow !== 6;
-  }
-  if (kind === 'index') {
-    const spec = IDX_SESSION[code];
-    if (!spec) return false;
-    const { dow, mins } = localParts(spec.tz);
-    if (dow === 0 || dow === 6) return false;
-    return spec.ranges.some(([a, b]) => inRange(mins, a, b));
-  }
-  const { dow, mins } = localParts(kind === 'us' ? 'America/New_York' : 'Asia/Shanghai');
+  const session = getTradingSession(secid);
+  return sessionIsOpen(session);
+}
+
+function sessionIsOpen(session) {
+  if (!session) return false;
+  const { dow, mins } = localParts(session.timeZone);
   if (dow === 0 || dow === 6) return false;
-  if (kind === 'us') return inRange(mins, 9 * 60 + 30, 16 * 60);
-  if (kind === 'hk') return inRange(mins, 9 * 60 + 30, 12 * 60) || inRange(mins, 13 * 60, 16 * 60);
-  if (kind === 'cn') return inRange(mins, 9 * 60 + 30, 11 * 60 + 30) || inRange(mins, 13 * 60, 15 * 60);
-  return false;
+  if (session.ranges.some(([a, b]) => inRange(mins, a, b))) return true;
+  const close = session.ranges[session.ranges.length - 1][1];
+  return !!session.closingAuctionEnd && inRange(mins, close, session.closingAuctionEnd);
 }
 
 const num = (v) => {
@@ -246,7 +258,7 @@ function withCurrentSession(payload, live) {
 function chartCacheReusable(cached, live, maxAgeSeconds) {
   const age = Date.now() - Number(cached?.fetched_at);
   // 开/闭市转换时立刻补抓；其余盘后缓存也有上限，不能永久复用 lastgood。
-  return cached?.data && cached.freshness === 'fresh' && cached.data.live === live
+  return cached?.data && cached.freshness === 'fresh' && (cached.data.marketOpen ?? cached.data.live) === live
     && Number.isFinite(age) && age >= 0 && age < maxAgeSeconds * 1000;
 }
 
@@ -273,6 +285,33 @@ export async function getKline(secid, days = 60) {
 }
 
 // ===== 分时 =====
+// 只给时间语义已明确的源补时间轴。东财外汇/境外市场的 naive HH:mm
+// 时区无法确认时仍提供报价，不把它冒充 UTC/交易所时间。
+function intradaySession(payload, secid, live) {
+  const kind = marketOf(secid), code = splitSecid(secid)[1];
+  const supportedNaive = kind === 'cn' || kind === 'hk' || (kind === 'index' && HK_INDEX.has(code));
+  const session = Object.prototype.hasOwnProperty.call(payload.data, 'session') ? payload.data.session
+    : (payload.source === 'eastmoney' && !supportedNaive) ? null : getTradingSession(secid);
+  const currentDay = session ? localParts(session.timeZone).day : '';
+  const isToday = !!currentDay && dateKey(payload.data.date) === currentDay;
+  const marketOpen = isToday ? sessionIsOpen(session) : live;
+  // 旧交易日的完整走势不能显示为“盘中”；市场开放时仍应继续轮询补新数据。
+  return { ...payload, data: { ...payload.data, live: marketOpen && isToday, marketOpen, session } };
+}
+
+function dateKey(value) {
+  const text = String(value || '');
+  return /^\d{8}$/.test(text) ? text : /^\d{4}-\d{2}-\d{2}/.test(text) ? text.slice(0, 10).replace(/-/g, '') : '';
+}
+
+function latestDayPoints(rows) {
+  const valid = rows.filter(row => row.p > 0 && Number.isFinite(row.p) && /^\d{8}$/.test(row.day) && /^([01]\d|2[0-3]):[0-5]\d$/.test(row.t));
+  const day = valid.reduce((latest, row) => row.day > latest ? row.day : latest, '');
+  const minutes = new Map();
+  for (const row of valid) if (row.day === day) minutes.set(row.t, { t: row.t, p: row.p });
+  return { date: day, points: [...minutes.values()].sort((a, b) => a.t.localeCompare(b.t)) };
+}
+
 async function emTrends(secid) {
   if (!emAvailable()) return null;
   const url = `${EM_TRENDS}?fields1=f1,f2,f3,f4,f5&fields2=f51,f53,f56&iscr=0&ndays=1&secid=${encodeURIComponent(secid)}`;
@@ -286,13 +325,14 @@ async function emTrends(secid) {
   }
   const rows = d?.data?.trends;
   if (!Array.isArray(rows) || !rows.length) return null;
-  const points = rows.map(s => {
-    const [t, price] = String(s).split(',');
-    return { t: t.slice(11, 16), p: num(price) };
-  }).filter(x => x.p != null && x.p > 0);
+  const normalized = latestDayPoints(rows.map(s => {
+    const [stamp, price] = String(s).split(',');
+    return { day: dateKey(stamp), t: stamp.slice(11, 16), p: num(price) };
+  }));
+  if (!normalized.points.length) return null;
   return {
     name: d.data.name, decimal: d.data.decimal,
-    prevClose: num(d.data.preClose), date: String(rows[0]).slice(0, 10), points,
+    prevClose: num(d.data.preClose), ...normalized,
   };
 }
 
@@ -304,61 +344,82 @@ async function txMinute(secid) {
   const node = d?.data?.[code];
   const rows = node?.data?.data;
   if (!Array.isArray(rows) || !rows.length) return null;
-  const points = rows.map(s => {
-    const [hhmm, price] = String(s).split(' ');
-    return { t: hhmm.slice(0, 2) + ':' + hhmm.slice(2, 4), p: num(price) };
-  }).filter(x => x.p != null && x.p > 0);
   const qt = node.qt?.[code] || [];
-  return { name: qt[1], decimal: null, prevClose: num(qt[4]), date: node.data.date || '', points };
+  const day = dateKey(node.data.date) || dateKey(qt[30]);
+  const normalized = latestDayPoints(rows.map(s => {
+    const [hhmm, price] = String(s).split(' ');
+    return { day, t: hhmm.slice(0, 2) + ':' + hhmm.slice(2, 4), p: num(price) };
+  }));
+  if (!normalized.points.length) return null;
+  return { name: qt[1], decimal: null, prevClose: num(qt[4]), ...normalized };
 }
 
 // Yahoo 的 1 分钟线:美股/指数的分时最可靠(腾讯的美股分时只有一两根)
 async function yahooTrends(secid) {
   const sym = yahooCode(secid);
   if (!sym) return null;
-  const r = await fetchT(`${YH_CHART}${encodeURIComponent(sym)}?range=1d&interval=1m`, { timeout: 8000, ua: UA });
+  // 外汇源按 London 日切片；多取一个窗口后按 UTC 日分组，避免 BST 23:00 换日丢掉当天前半段。
+  const range = marketOf(secid) === 'fx' ? '5d' : '1d';
+  const r = await fetchT(`${YH_CHART}${encodeURIComponent(sym)}?range=${range}&interval=1m&includePrePost=false`, { timeout: 8000, ua: UA });
   const d = await readJsonLimited(r);
   const res = d?.chart?.result?.[0];
-  if (!res?.timestamp?.length) return null;
-  const tz = res.meta?.exchangeTimezoneName || 'UTC';
-  const fmt = new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false });
-  const q = res.indicators.quote[0];
-  const points = res.timestamp
-    .map((ts, i) => ({ t: fmt.format(new Date(ts * 1000)), p: num(q.close?.[i]) }))
-    .filter(x => x.p != null && x.p > 0);
-  if (!points.length) return null;
-  const lastTs = res.timestamp[res.timestamp.length - 1];
-  const dayFmt = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' });
+  const q = res?.indicators?.quote?.[0];
+  if (!res?.timestamp?.length || !q) return null;
+  const session = getTradingSession(secid);
+  const timeZone = session?.timeZone || res.meta?.exchangeTimezoneName || 'UTC';
+  const fmt = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  const partsOf = ts => Object.fromEntries(fmt.formatToParts(new Date(ts * 1000)).map(part => [part.type, part.value]));
+  const normalized = latestDayPoints(res.timestamp.map((ts, i) => {
+    const price = num(q.close?.[i]);
+    if (!Number.isFinite(ts) || !Number.isFinite(price) || price <= 0) return {};
+    const p = partsOf(ts);
+    return { day: p.year + p.month + p.day, t: p.hour + ':' + p.minute, p: price };
+  }));
+  if (!normalized.points.length) return null;
+  // 同一天的供应方 regular 时段可描述半日市；不能用已指向明天的 current 元数据裁昨天数据。
+  const period = res.meta?.currentTradingPeriod?.regular;
+  if (session && marketOf(secid) !== 'fx' && Number.isFinite(period?.start) && Number.isFinite(period?.end)) {
+    const start = partsOf(period.start), end = partsOf(period.end);
+    if (start.year + start.month + start.day === normalized.date && end.year + end.month + end.day === normalized.date) {
+      const first = Number(start.hour) * 60 + Number(start.minute), last = Number(end.hour) * 60 + Number(end.minute);
+      const ranges = session.ranges.map(([a, b]) => [Math.max(a, first), Math.min(b, last)]).filter(([a, b]) => b > a);
+      if (ranges.length) {
+        session.ranges = ranges;
+        if (session.closingAuctionEnd) session.closingAuctionEnd = ranges[ranges.length - 1][1] + 10;
+      }
+    }
+  }
   return {
     name: res.meta?.shortName, decimal: null,
     prevClose: num(res.meta?.chartPreviousClose ?? res.meta?.previousClose),
-    date: dayFmt.format(new Date(lastTs * 1000)).replace(/-/g, ''),
-    points,
+    ...normalized, session,
   };
 }
 
 export async function getIntraday(secid) {
   const live = isMarketOpen(secid);
-  const key = `chart:t:${secid}`;
+  const key = `chart:t:v2:${secid}`;
   const cached = await readThreeState(key, null).catch(() => null);
-  if (chartCacheReusable(cached, live, live ? 30 : 300)) return withCurrentSession(cached, live);
+  const currentCached = cached?.data ? intradaySession(cached, secid, live) : null;
+  const currentOpen = currentCached?.data.marketOpen ?? live;
+  if (chartCacheReusable(cached, currentOpen, currentOpen ? 30 : 300)) return currentCached;
 
   const kind = marketOf(secid);
-  const chain = (kind === 'us' || kind === 'index') ? [YH_TRENDS, EM_T, TX_T] : [EM_T, TX_T, YH_TRENDS];
+  const chain = (kind === 'us' || kind === 'index' || kind === 'fx') ? [YH_TRENDS, EM_T, TX_T] : [EM_T, TX_T, YH_TRENDS];
   for (const [id, label, fn] of chain) {
     try {
       const got = await fn(secid);
-      // 少于 5 个点说明这个源当天基本没数据(腾讯的美股分时经常只有 1 根),换下一个
-      if (!got || !got.points || got.points.length < 5) continue;
-      const payload = {
+      // 开盘第一分钟也是真实数据；时间轴表达覆盖程度，不用点数伪装完整交易日。
+      if (!got?.points?.length) continue;
+      const payload = intradaySession({
         data: { secid, live, ...got },
         source: id, source_label: label, fetched_at: Date.now(),
-      };
-      await writeBoth(key, payload, live ? 30 : 300).catch(() => {});
+      }, secid, live);
+      await writeBoth(key, payload, payload.data.marketOpen ? 30 : 300).catch(() => {});
       return payload;
     } catch (e) { /* 下一个源 */ }
   }
-  if (cached?.data) return withCurrentSession(cached, live);
+  if (cached?.data) return intradaySession(cached, secid, live);
   throw new Error('all_sources_failed');
 }
 

@@ -55,7 +55,7 @@ async function start({holdQuotes=false,holdSymbols=false,calendar=false}={}){
           if(decision==='error')return await route.fulfill({status:502,json:{error:'test'}});
         }
         const names={'1.000001':'上证指数','0.399001':'深证成指','105.AAPL':'Apple','105.TSLA':'Tesla'};
-        return await route.fulfill({json:{data:{name:names[secid]||secid,live:false,date:'20261029',prevClose:100,points:[{p:101},{p:secid==='0.399001'?202:102}]},source_label:'regression fixture'}});
+        return await route.fulfill({json:{data:{name:names[secid]||secid,live:false,date:'20261029',prevClose:100,session:{timeZone:'Asia/Shanghai',ranges:[[570,690],[780,900]]},points:[{t:'09:30',p:101},{t:'10:30',p:secid==='0.399001'?202:102}]},source_label:'regression fixture'}});
       }
       if(u.pathname==='/api/symbol'){
         const code=u.searchParams.get('code');
