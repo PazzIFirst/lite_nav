@@ -17,22 +17,48 @@ const KIND_LABEL = { currency: '货币', index: '股指', cn: 'A股', hk: '港�
 
 const PRESETS = {
   currency: [
-    { secid: '133.USDCNH', name: '美元/离岸人民币' },
-    { secid: '133.EURUSD', name: '欧元/美元' },
-    { secid: '133.USDJPY', name: '美元/日元' },
-    { secid: '133.GBPUSD', name: '英镑/美元' },
-    { secid: '133.USDHKD', name: '美元/港元' },
-    { secid: '133.AUDUSD', name: '澳元/美元' },
+    { secid: '133.USDCNH', name: '美元/离岸人民币', group: '人民币' },
+    { secid: '133.USDCNY', name: '美元/人民币(在岸)', group: '人民币' },
+    { secid: '133.EURUSD', name: '欧元/美元', group: '主要货币' },
+    { secid: '133.GBPUSD', name: '英镑/美元', group: '主要货币' },
+    { secid: '133.USDJPY', name: '美元/日元', group: '主要货币' },
+    { secid: '133.USDCHF', name: '美元/瑞郎', group: '主要货币' },
+    { secid: '133.USDCAD', name: '美元/加元', group: '主要货币' },
+    { secid: '133.AUDUSD', name: '澳元/美元', group: '主要货币' },
+    { secid: '133.NZDUSD', name: '纽元/美元', group: '主要货币' },
+    { secid: '133.EURJPY', name: '欧元/日元', group: '交叉盘' },
+    { secid: '133.EURGBP', name: '欧元/英镑', group: '交叉盘' },
+    { secid: '133.USDHKD', name: '美元/港元', group: '亚洲' },
+    { secid: '133.USDSGD', name: '美元/新加坡元', group: '亚洲' },
   ],
   index: [
-    { secid: '1.000001', name: '上证指数' },
-    { secid: '0.399001', name: '深证成指' },
-    { secid: '1.000300', name: '沪深300' },
-    { secid: '100.HSI', name: '恒生指数' },
-    { secid: '100.NDX', name: '纳斯达克100' },
-    { secid: '100.SPX', name: '标普500' },
-    { secid: '100.DJIA', name: '道琼斯' },
-    { secid: '100.N225', name: '日经225' },
+    { secid: '1.000001', name: '上证指数', group: '中国' },
+    { secid: '0.399001', name: '深证成指', group: '中国' },
+    { secid: '1.000300', name: '沪深300', group: '中国' },
+    { secid: '1.000905', name: '中证500', group: '中国' },
+    { secid: '1.000016', name: '上证50', group: '中国' },
+    { secid: '0.399006', name: '创业板指', group: '中国' },
+    { secid: '1.000688', name: '科创50', group: '中国' },
+    { secid: '100.HSI', name: '恒生指数', group: '港股' },
+    { secid: '100.HSCE', name: '恒生国企', group: '港股' },
+    { secid: '100.HSTECH', name: '恒生科技', group: '港股' },
+    { secid: '100.NDX', name: '纳斯达克100', group: '美股' },
+    { secid: '100.IXIC', name: '纳斯达克综指', group: '美股' },
+    { secid: '100.SPX', name: '标普500', group: '美股' },
+    { secid: '100.DJIA', name: '道琼斯', group: '美股' },
+    { secid: '100.N225', name: '日经225', group: '亚太' },
+    { secid: '100.KS11', name: '韩国KOSPI', group: '亚太' },
+    { secid: '100.TWII', name: '台湾加权', group: '亚太' },
+    { secid: '100.SENSEX', name: '印度SENSEX', group: '亚太' },
+    { secid: '100.NSEI', name: '印度Nifty50', group: '亚太' },
+    { secid: '100.AXJO', name: '澳洲ASX200', group: '亚太' },
+    { secid: '100.GDAXI', name: '德国DAX', group: '欧洲' },
+    { secid: '100.FCHI', name: '法国CAC40', group: '欧洲' },
+    { secid: '100.FTSE', name: '英国富时100', group: '欧洲' },
+    { secid: '100.STOXX50E', name: '欧洲斯托克50', group: '欧洲' },
+    { secid: '100.IBEX', name: '西班牙IBEX35', group: '欧洲' },
+    { secid: '100.BVSP', name: '巴西BOVESPA', group: '其他' },
+    { secid: '100.GSPTSE', name: '加拿大TSX', group: '其他' },
   ],
 };
 
@@ -315,11 +341,19 @@ function renderPickerBody(slot) {
   if (isPreset) {
     const sel = document.getElementById('finPreset');
     sel.innerHTML = '';
+    const groups = new Map();
     PRESETS[pickKind].forEach(p => {
+      const key = p.group || '';
+      if (!groups.has(key)) {
+        const g = document.createElement('optgroup');
+        g.label = key;
+        groups.set(key, g);
+        sel.appendChild(g);
+      }
       const o = document.createElement('option');
       o.value = p.secid;
       o.textContent = p.name;
-      sel.appendChild(o);
+      groups.get(key).appendChild(o);
     });
     const hit = slot && PRESETS[pickKind].find(p => p.secid === slot.secid);
     if (hit) sel.value = hit.secid;

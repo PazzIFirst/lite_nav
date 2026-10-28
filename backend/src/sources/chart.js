@@ -39,9 +39,12 @@ export function marketOf(secid) {
   return 'other';
 }
 
+const HK_INDEX = new Set(['HSI', 'HSCE', 'HSTECH']);
+
 function txCode(secid) {
   const [mk, code] = String(secid).split('.');
   const n = Number(mk);
+  if (n === 100 && HK_INDEX.has(code)) return 'hk' + code;
   if (n === 1) return 'sh' + code;
   if (n === 0) return 'sz' + code;
   if (n === 116) return 'hk' + code;
@@ -51,8 +54,16 @@ function txCode(secid) {
 
 // 全球指数 → Yahoo 符号
 const YH_INDEX = {
-  HSI: '^HSI', NDX: '^NDX', SPX: '^GSPC', DJIA: '^DJI', N225: '^N225',
-  GDAXI: '^GDAXI', FTSE: '^FTSE', KS11: '^KS11', TWII: '^TWII', SENSEX: '^BSESN',
+  // 港股
+  HSI: '^HSI', HSCE: '^HSCE', HSTECH: '^HSTECH',
+  // 美股
+  NDX: '^NDX', IXIC: '^IXIC', SPX: '^GSPC', DJIA: '^DJI',
+  // 亚太
+  N225: '^N225', KS11: '^KS11', TWII: '^TWII', SENSEX: '^BSESN', NSEI: '^NSEI', AXJO: '^AXJO',
+  // 欧洲
+  GDAXI: '^GDAXI', FCHI: '^FCHI', FTSE: '^FTSE', STOXX50E: '^STOXX50E', IBEX: '^IBEX',
+  // 其他
+  BVSP: '^BVSP', GSPTSE: '^GSPTSE',
 };
 
 function yahooCode(secid) {
@@ -78,14 +89,31 @@ function localParts(timeZone) {
 const inRange = (m, a, b) => m >= a && m < b;
 
 // 指数按它真正所在的市场判时段:标普在纽约、恒生在港、日经在东京,不能一律用上海时间
+const HK_RANGES = [[9 * 60 + 30, 12 * 60], [13 * 60, 16 * 60]];
+const US_RANGES = [[9 * 60 + 30, 16 * 60]];
+const EU_RANGES = [[9 * 60, 17 * 60 + 30]];
+
 const IDX_SESSION = {
-  HSI:   { tz: 'Asia/Hong_Kong',   ranges: [[9 * 60 + 30, 12 * 60], [13 * 60, 16 * 60]] },
-  NDX:   { tz: 'America/New_York', ranges: [[9 * 60 + 30, 16 * 60]] },
-  SPX:   { tz: 'America/New_York', ranges: [[9 * 60 + 30, 16 * 60]] },
-  DJIA:  { tz: 'America/New_York', ranges: [[9 * 60 + 30, 16 * 60]] },
-  N225:  { tz: 'Asia/Tokyo',       ranges: [[9 * 60, 11 * 60 + 30], [12 * 60 + 30, 15 * 60]] },
-  GDAXI: { tz: 'Europe/Berlin',    ranges: [[9 * 60, 17 * 60 + 30]] },
-  FTSE:  { tz: 'Europe/London',    ranges: [[8 * 60, 16 * 60 + 30]] },
+  HSI:      { tz: 'Asia/Hong_Kong',    ranges: HK_RANGES },
+  HSCE:     { tz: 'Asia/Hong_Kong',    ranges: HK_RANGES },
+  HSTECH:   { tz: 'Asia/Hong_Kong',    ranges: HK_RANGES },
+  NDX:      { tz: 'America/New_York',  ranges: US_RANGES },
+  IXIC:     { tz: 'America/New_York',  ranges: US_RANGES },
+  SPX:      { tz: 'America/New_York',  ranges: US_RANGES },
+  DJIA:     { tz: 'America/New_York',  ranges: US_RANGES },
+  GSPTSE:   { tz: 'America/Toronto',   ranges: US_RANGES },
+  BVSP:     { tz: 'America/Sao_Paulo', ranges: [[10 * 60, 17 * 60]] },
+  N225:     { tz: 'Asia/Tokyo',        ranges: [[9 * 60, 11 * 60 + 30], [12 * 60 + 30, 15 * 60]] },
+  KS11:     { tz: 'Asia/Seoul',        ranges: [[9 * 60, 15 * 60 + 30]] },
+  TWII:     { tz: 'Asia/Taipei',       ranges: [[9 * 60, 13 * 60 + 30]] },
+  SENSEX:   { tz: 'Asia/Kolkata',      ranges: [[9 * 60 + 15, 15 * 60 + 30]] },
+  NSEI:     { tz: 'Asia/Kolkata',      ranges: [[9 * 60 + 15, 15 * 60 + 30]] },
+  AXJO:     { tz: 'Australia/Sydney',  ranges: [[10 * 60, 16 * 60]] },
+  GDAXI:    { tz: 'Europe/Berlin',     ranges: EU_RANGES },
+  FCHI:     { tz: 'Europe/Paris',      ranges: EU_RANGES },
+  IBEX:     { tz: 'Europe/Madrid',     ranges: EU_RANGES },
+  STOXX50E: { tz: 'Europe/Berlin',     ranges: EU_RANGES },
+  FTSE:     { tz: 'Europe/London',     ranges: [[8 * 60, 16 * 60 + 30]] },
 };
 
 export function isMarketOpen(secid) {
