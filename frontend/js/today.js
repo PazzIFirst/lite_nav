@@ -40,11 +40,10 @@ export function renderWeekend() {
   weekendEl.innerHTML = weekendHtml + ' <span class="countdown-sep">·</span> ' + monthHtml;
 }
 
-// 宜 / 忌 各占一行,黄道(神煞)徽章跟在农历那一行末尾
-function renderAlmanac(a, container, shenEl) {
-  if (!container || !shenEl) return;
+// 宜 / 忌 各占一行
+function renderAlmanac(a, container) {
+  if (!container) return;
   container.innerHTML = '';
-  shenEl.innerHTML = '';
   if (!a) return;
 
   function line(labelText, labelClass, body) {
@@ -63,13 +62,6 @@ function renderAlmanac(a, container, shenEl) {
   if (a.yi?.length) container.appendChild(line('宜', 'almanac-yi-label', a.yi.slice(0, 5).join(' ')));
   if (a.ji?.length) container.appendChild(line('忌', 'almanac-ji-label', a.ji.slice(0, 5).join(' ')));
 
-  if (a.shen_type) {
-    const badge = document.createElement('span');
-    badge.className = 'almanac-shen ' + (a.shen_type === '黄道' ? 'huang' : 'hei');
-    badge.textContent = a.shen_type + (a.shen_name ? ' ' + a.shen_name : '日');
-    shenEl.appendChild(badge);
-  }
-
   const tipLines = [];
   if (a.position_xi)  tipLines.push('喜神方位: ' + a.position_xi);
   if (a.position_cai) tipLines.push('财神方位: ' + a.position_cai);
@@ -78,24 +70,24 @@ function renderAlmanac(a, container, shenEl) {
   if (a.nayin)        tipLines.push('纳音: ' + a.nayin);
   if (a.pengzu_gan)   tipLines.push('彭祖百忌(干): ' + a.pengzu_gan);
   if (a.pengzu_zhi)   tipLines.push('彭祖百忌(支): ' + a.pengzu_zhi);
-  const tip = tipLines.join('\n');
-  container.title = tip;
-  shenEl.title = tip;
+  container.title = tipLines.join('\n');
 }
 
 export function renderLunar() {
   const el = document.getElementById('lunar-date');
   const almanacEl = document.getElementById('almanac-row');
-  const shenEl = document.getElementById('almanac-shen');
   apiGet('/api/today').then(r => {
     const d = r?.data;
     if (!d) { el.textContent = '农历 --'; return; }
-    el.textContent = d.lunar_text + ' · ' + d.lunar_year_ganzhi + ' · 属' + d.lunar_year_zodiac;
+    // 干支和生肖连读成「丙午马年」,不拆成「丙午 · 属马」——后者不是日常说法
+    const yearText = [d.lunar_year_ganzhi, d.lunar_year_zodiac && d.lunar_year_zodiac + '年']
+      .filter(Boolean).join('');
+    el.textContent = [d.lunar_text, yearText].filter(Boolean).join(' · ');
     const tipLines = [srcTooltip(r)];
     if (d.term)              tipLines.push('今日节气: ' + d.term);
     if (d.next_term)         tipLines.push('下个节气: ' + d.next_term + ' (' + d.next_term_date + ')');
     if (d.festivals?.length) tipLines.push('节日: ' + d.festivals.join('、'));
     el.title = tipLines.filter(Boolean).join('\n');
-    renderAlmanac(d.almanac, almanacEl, shenEl);
+    renderAlmanac(d.almanac, almanacEl);
   }).catch(() => { el.textContent = '农历 --'; });
 }

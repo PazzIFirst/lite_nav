@@ -214,25 +214,22 @@
   <!-- 中间主体 -->
   <div class="main-wrapper">
 
-    <!-- 模块A:三卡片(日期+北京时间 / 农历+老黄历 / 当前天气)+ 下方 IP 条 -->
+    <!-- 模块A:三卡片(农历+老黄历 / 日期+北京时间 / 当前天气)+ 下方 IP 条 -->
     <h2 class="seo-only">今日日期、农历与天气</h2>
     <div class="module-a">
       <div class="card-row">
 
-        <!-- 卡片1:日期 + 北京时间 -->
+        <!-- 卡片1:农历 + 老黄历 -->
+        <div class="info-card card-lunar">
+          <span class="lunar-date" id="lunar-date">农历 --</span>
+          <div class="almanac-row" id="almanac-row"></div>
+        </div>
+
+        <!-- 卡片2:日期 + 北京时间 -->
         <div class="info-card card-date">
           <div class="solar-date" id="solar-date">--</div>
           <span id="bj-time">北京 --:--:--</span>
           <div class="weekend-row" id="weekend-row"></div>
-        </div>
-
-        <!-- 卡片2:农历 + 老黄历 -->
-        <div class="info-card card-lunar">
-          <div class="lunar-head">
-            <span class="lunar-date" id="lunar-date">农历 --</span>
-            <span id="almanac-shen"></span>
-          </div>
-          <div class="almanac-row" id="almanac-row"></div>
         </div>
 
         <!-- 卡片3:当前天气。data-cond 决定卡片背景,由 ip-weather.js 写入 -->

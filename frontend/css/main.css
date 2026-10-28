@@ -190,10 +190,10 @@ body {
   width: 100%;
 }
 
-/* 三卡片一行:日期卡按内容定宽,天气卡定宽,农历卡吃掉中间剩余 */
+/* 三卡片一行:中间日期卡最宽,两侧农历/天气等宽 —— 1 : 1.3 : 1 */
 .card-row {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) 176px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) minmax(0, 1fr);
   gap: var(--sp-3);
   width: 100%;
   align-items: stretch;
@@ -216,10 +216,9 @@ body {
               background-color var(--dur-base) var(--ease-snap);
 }
 
-.lunar-head {
-  display: flex; align-items: center;
-  flex-wrap: wrap; gap: var(--sp-2);
-}
+/* 日期卡在中间且最宽,内容居中,不然右侧会空出一大块显得没排完 */
+.card-date { align-items: center; text-align: center; }
+
 .solar-date {
   font-size: var(--fs-2xl);
   font-weight: 700;
@@ -376,7 +375,7 @@ body {
 .wx-name {
   grid-column: 2; grid-row: 2;
   justify-self: end; align-self: end;
-  max-width: 92px;                    /* 「雷阵雨伴大冰雹」这种长名换行,不挤城市 */
+  max-width: 124px;                   /* 「雷阵雨伴大冰雹」这种长名换行,不挤城市 */
   text-align: right;
   font-size: var(--fs-sm);
   font-weight: 600;
@@ -910,16 +909,6 @@ body {
 }
 .almanac-yi-label { color: var(--emerald); background: var(--emerald-bg); }
 .almanac-ji-label { color: var(--rose);    background: var(--rose-bg); }
-.almanac-shen {
-  font-size: var(--fs-2xs);
-  padding: 3px 9px;
-  border-radius: var(--r-full);
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  white-space: nowrap;
-}
-.almanac-shen.huang { color: var(--amber);          background: var(--amber-bg); }
-.almanac-shen.hei   { color: var(--text-tertiary);  background: var(--bg-hover); }
 
 /* ===== Finance ===== */
 .finance-bar {
@@ -1472,7 +1461,7 @@ select.modal-input {
   .module-a { gap: var(--sp-2); }
   .solar-date { font-size: var(--fs-xl); }
   .lunar-date { font-size: var(--fs-base); }
-  /* 三卡片并排挤不下 → 日期与天气各占半行,农历整行 */
+  /* 三卡片并排挤不下 → 农历独占上面一整行,日期与天气分下面一行 */
   .card-row {
     grid-template-columns: minmax(0, 1fr) 168px;
     gap: var(--sp-2);
