@@ -100,7 +100,7 @@ function paintWeatherCard(temp, condition, city, tooltip) {
   wxCard.classList.toggle('has-more', multi);   // 控制城市名旁的小箭头显隐
   wxCard.title = (tooltip ? tooltip + '\n\n' : '')
     + (multi ? '点城市名切换城市 · ' : '') + '点卡片设置天气城市';
-  // 动效按「完整天气名」查预设(39 种各一套),不是按 8 个大组 ——
+  // 动效按「完整天气名」查预设(38 种各一套),不是按 8 个大组 ——
   // 大组粒度下小雨和特大暴雨长得一模一样,这正是之前「雨没区别」的原因
   renderWeatherFx(document.getElementById('wxFx'), condition);
   renderWeatherIcon(document.getElementById('wxIcon'), condition);

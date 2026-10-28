@@ -1,4 +1,4 @@
-// 天气图标 —— 31 套自绘 SVG,覆盖 39 种天气(8 条近似复用)。
+// 天气图标 —— 30 套自绘 SVG,覆盖 38 种天气(8 条近似复用)。
 //
 // 风格约定(改图标时必须守住,否则一眼看出不是一家人):
 //   · viewBox 统一 0 0 48 48,内容控制在 x/y ∈ [3,45]
@@ -109,7 +109,6 @@ const ICONS = {
   /* ── 冻毛毛雨 (2) ─ 颗粒 + 菱形冰晶 ─────────────────────── */
 
   /* ── 冻结 / 固态 / 雷暴 ─ 每类只留一档 ───────────────────── */
-  '冻毛毛雨': svg(cloud() + '<g class="ic-rain"><circle cx="15.5" cy="34.4" r="1.5"/><circle cx="28.5" cy="34.4" r="1.5"/><circle cx="25.3" cy="39" r="1.5"/><circle cx="38.3" cy="39" r="1.5"/><circle cx="22" cy="42.6" r="1.5"/><circle cx="35" cy="42.6" r="1.5"/></g><g class="ic-ice"><polygon points="22,32.1 24.3,34.4 22,36.7 19.7,34.4"/><polygon points="35,32.1 37.3,34.4 35,36.7 32.7,34.4"/><polygon points="18.8,36.7 21.1,39 18.8,41.3 16.5,39"/><polygon points="31.8,36.7 34.1,39 31.8,41.3 29.5,39"/><polygon points="28.5,40.3 30.8,42.6 28.5,44.9 26.2,42.6"/></g>'),
   '冻雨': svg(cloud() + '<rect class="ic-rain" x="13.5" y="32.5" width="3" height="7.5" rx="1.5"/><rect class="ic-rain" x="22.5" y="32.5" width="3" height="7.5" rx="1.5"/><rect class="ic-rain" x="31.5" y="32.5" width="3" height="7.5" rx="1.5"/><polygon class="ic-ice" points="19.5,39 22,42 19.5,45 17,42"/><polygon class="ic-ice" points="28.5,39 31,42 28.5,45 26,42"/>'),
   '雨夹雪': svg(cloud() + '<rect class="ic-rain" x="13.5" y="33" width="3" height="9" rx="1.5" transform="rotate(14 15 37.5)"/><rect class="ic-rain" x="26" y="33" width="3" height="9" rx="1.5" transform="rotate(14 27.5 37.5)"/>' + flake('translate(21.3 38) scale(0.9)') + flake('translate(35 38) scale(0.9)')),
   '米雪': svg(cloud() + '<g class="ic-snow"><circle cx="16.5" cy="35.5" r="1.8"/><circle cx="23" cy="34.2" r="1.8"/><circle cx="30" cy="35.8" r="1.8"/><circle cx="36" cy="34.5" r="1.8"/><circle cx="20.5" cy="41.8" r="1.8"/><circle cx="28" cy="42.5" r="1.8"/></g>'),
