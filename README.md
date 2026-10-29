@@ -28,7 +28,7 @@ A self-hostable lightweight navigation homepage tuned for users in mainland Chin
 
 - 公历 / 农历 / 老黄历(宜忌),全部按**北京时间**计算,跨日与切回标签页会重新对齐
 - 距周末、距下个月、距下一个节日
-- 多国节假日(默认预热常用国家,其余按需拉取)
+- 节假日(默认预热常用国家,其余按需拉取)
 
 ### 天气
 
@@ -74,6 +74,23 @@ A self-hostable lightweight navigation homepage tuned for users in mainland Chin
 3. 行情涨跌配色
 
 另有深色 / 浅色主题切换,偏好只存在本机。
+
+---
+
+## 数据与隐私
+
+**没有账号、没有数据库、没有埋点。** 你的偏好只存在自己浏览器的 localStorage 里,换台设备或换个浏览器就是一套新配置;自部署时所有缓存也只在你自己的 Redis 里。
+
+| 数据 | 存在哪 | 会不会离开浏览器 |
+|---|---|---|
+| 主题、热榜槽位、行情卡、订阅源、搜索历史、天气城市 | 本机 localStorage | 不会 |
+| 行情标的、订阅地址、天气城市 | 请求 `/api` 时发给本站后端 | 会(后端缓存或转发给数据源) |
+| 搜索联想词 | 开着联想时经后端转给百度 / Google | 会;在设置里关掉联想后不再发送 |
+| 访客 IP | 只用于限流与首页的 IP 展示 | 服务器能看到,不写入任何画像 |
+
+服务端的 Redis 只存第三方公开数据的缓存(行情、热榜、订阅、天气),不存访客资料,也没有用户表。
+
+> 线上实例 [litenav.info](https://litenav.info) 的访问统计由 Cloudflare 在边缘注入(Web Analytics),前端代码里没有统计脚本;自部署不会有这部分。
 
 ---
 
